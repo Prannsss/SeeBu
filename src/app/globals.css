@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -7,62 +6,77 @@
   :root {
     --background: 204 86% 94%;
     --foreground: 207 60% 10%;
-    --card: 0 0% 100%;
-    --card-foreground: 207 60% 10%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 207 60% 10%;
-    --primary: 207 89% 68%;
-    --primary-foreground: 207 60% 10%;
-    --secondary: 123 40% 74%;
-    --secondary-foreground: 123 60% 10%;
-    --muted: 204 40% 88%;
-    --muted-foreground: 207 20% 40%;
-    --accent: 123 40% 74%;
-    --accent-foreground: 123 60% 10%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 207 30% 85%;
-    --input: 207 30% 85%;
-    --ring: 207 89% 68%;
-    --radius: 1.25rem;
+    --radius: 0.5rem;
   }
 }
 
-@layer base {
-  * {
-    @apply border-border;
+.blob-bg {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath fill='%23E1F5FE' d='M44.7,-76.4C58.9,-69.2,71.8,-59.1,81.6,-46.6C91.4,-34.1,98.1,-19.2,95.8,-4.1C93.5,11.1,82.2,26.4,71.1,39.6C60,52.8,49.1,63.9,36.6,71.6C24.1,79.3,10,83.6,-3.3,89.3C-16.6,95,-29.1,102.1,-40.4,98.8C-51.7,95.5,-61.8,81.8,-70.3,68.3C-78.8,54.8,-85.7,41.5,-88.6,27.4C-91.5,13.3,-90.4,-1.6,-86.3,-15.8C-82.2,-30,-75.1,-43.5,-64.6,-53.9C-54.1,-64.3,-40.2,-71.6,-26.5,-75.6C-12.8,-79.6,0.7,-80.3,13.8,-78.5L44.7,-76.4Z' transform='translate(100 100)' /%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right center;
+  background-size: contain;
+}
+
+.bg-map-pattern {
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2313b6ec' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* Custom minimal scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(59, 130, 246, 0.3);
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(59, 130, 246, 0.5);
+}
+
+/* Fade-in animation */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
   }
-  body {
-    @apply bg-background text-foreground font-body leading-relaxed antialiased;
-  }
-  h1, h2, h3, h4, h5, h6 {
-    @apply font-headline font-bold;
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
-.scroll-reveal {
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.fade-in-up {
+  animation: fadeInUp 0.6s ease-out forwards;
+}
+
+.fade-in-section {
   opacity: 0;
-  transform: translateY(20px);
+  transform: translateY(30px);
   transition: opacity 0.6s ease-out, transform 0.6s ease-out;
 }
 
-.scroll-reveal.visible {
+.fade-in-section.is-visible {
   opacity: 1;
   transform: translateY(0);
 }
 
-.hover-lift {
-  @apply transition-transform duration-300 hover:-translate-y-1;
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out;
 }
-
-.glass {
-  @apply bg-white/70 backdrop-blur-md border border-white/20;
-}
-
-::selection {
-  @apply bg-primary/30 text-primary-foreground;
-}
-
-/* 8px Grid Helper classes if needed (though tailwind covers this) */
-.gap-8px { gap: 8px; }
-.p-8px { padding: 8px; }

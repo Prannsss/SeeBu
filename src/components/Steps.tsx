@@ -1,53 +1,47 @@
-
 "use client";
 
-import { Send, Clock, CheckCircle2 } from "lucide-react";
-
-const steps = [
-  {
-    icon: <Send className="h-8 w-8" />,
-    title: "1. Submit Report",
-    description: "Spot an issue in your neighborhood? Capture a photo, add the geo-tag, and submit it instantly via our mobile app."
-  },
-  {
-    icon: <Clock className="h-8 w-8" />,
-    title: "2. LGU Processing",
-    description: "Your report is automatically routed to the right city department. Watch as it moves from review to scheduling."
-  },
-  {
-    icon: <CheckCircle2 className="h-8 w-8" />,
-    title: "3. Track & Verify",
-    description: "Receive real-time progress alerts. Once fixed, you'll get a completion report with photos for verification."
-  }
-];
+import { useScrollAnimation } from '@/hooks/use-scroll-animation';
 
 export function Steps() {
-  return (
-    <section id="how-it-works" className="py-24 bg-background relative overflow-hidden">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-20 space-y-4">
-          <h2 className="text-3xl font-extrabold tracking-tight sm:text-5xl font-headline text-foreground">
-            A Smarter Cebu in 3 Easy Steps
-          </h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            We've simplified civic duty so every Sugboanon can contribute to our city's progress with zero friction.
-          </p>
-        </div>
+  const { ref, isVisible } = useScrollAnimation();
 
-        <div className="relative">
-          {/* Connecting line for desktop */}
-          <div className="hidden md:block absolute top-[40px] left-[15%] right-[15%] h-1 bg-primary/20 rounded-full -z-10" />
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-12 lg:gap-20">
-            {steps.map((step, index) => (
-              <div key={index} className="flex flex-col items-center text-center group">
-                <div className="mb-8 flex h-20 w-20 items-center justify-center rounded-3xl bg-primary text-white shadow-[0_10px_30px_rgba(100,181,246,0.3)] transition-all duration-300 group-hover:scale-110 group-hover:rotate-3">
-                  {step.icon}
-                </div>
-                <h3 className="text-2xl font-bold mb-4 font-headline text-foreground">{step.title}</h3>
-                <p className="text-muted-foreground leading-relaxed px-4">{step.description}</p>
-              </div>
-            ))}
+  return (
+    <section className="py-20 bg-background-light dark:bg-gray-900 transition-colors" id="process">
+      <div className="max-w-7xl mx-auto px-6">
+        <div className="text-center mb-16">
+          <span className="text-primary font-bold tracking-widest text-xs uppercase mb-2 block">The Process</span>
+          <h2 className="text-3xl lg:text-4xl font-black text-text-main dark:text-white">Simple 3-Step Process</h2>
+          <p className="mt-4 text-text-muted dark:text-gray-400 max-w-2xl mx-auto">Reporting issues and tracking their resolution has never been easier. We&apos;ve streamlined civic engagement.</p>
+        </div>
+        <div 
+          ref={ref}
+          className={`grid md:grid-cols-3 gap-8 relative fade-in-section ${isVisible ? 'is-visible' : ''}`}
+        >
+          {/* Connecting Line (Desktop) */}
+          <div className="hidden md:block absolute top-12 left-[16%] right-[16%] h-1 rounded-full bg-primary/30 z-0"></div>
+          {/* Step 1 */}
+          <div className="relative z-10 flex flex-col items-center text-center group">
+            <div className="w-24 h-24 bg-white dark:bg-gray-800 border-4 border-blue-100 dark:border-gray-700 rounded-full flex items-center justify-center shadow-lg mb-6 group-hover:border-primary group-hover:bg-primary transition-colors duration-300">
+              <span className="material-symbols-outlined text-4xl text-primary group-hover:text-white transition-colors">add_a_photo</span>
+            </div>
+            <h3 className="text-xl font-bold text-text-main dark:text-white mb-2">1. Submit Report</h3>
+            <p className="text-sm text-text-muted dark:text-gray-400 px-6">Snap a photo, add location details, and send directly through the app.</p>
+          </div>
+          {/* Step 2 */}
+          <div className="relative z-10 flex flex-col items-center text-center group">
+            <div className="w-24 h-24 bg-white dark:bg-gray-800 border-4 border-blue-100 dark:border-gray-700 rounded-full flex items-center justify-center shadow-lg mb-6 group-hover:border-primary group-hover:bg-primary transition-colors duration-300">
+              <span className="material-symbols-outlined text-4xl text-primary group-hover:text-white transition-colors">settings_suggest</span>
+            </div>
+            <h3 className="text-xl font-bold text-text-main dark:text-white mb-2">2. LGU Processing</h3>
+            <p className="text-sm text-text-muted dark:text-gray-400 px-6">Your report is automatically routed to the correct department for action.</p>
+          </div>
+          {/* Step 3 */}
+          <div className="relative z-10 flex flex-col items-center text-center group">
+            <div className="w-24 h-24 bg-white dark:bg-gray-800 border-4 border-blue-100 dark:border-gray-700 rounded-full flex items-center justify-center shadow-lg mb-6 group-hover:border-primary group-hover:bg-primary transition-colors duration-300">
+              <span className="material-symbols-outlined text-4xl text-primary group-hover:text-white transition-colors">check_circle</span>
+            </div>
+            <h3 className="text-xl font-bold text-text-main dark:text-white mb-2">3. Track Status</h3>
+            <p className="text-sm text-text-muted dark:text-gray-400 px-6">Get real-time updates on your phone as the issue is resolved.</p>
           </div>
         </div>
       </div>

@@ -10,16 +10,18 @@ export default {
   ],
   theme: {
     extend: {
-      fontFamily: {
-        body: ['Inter', 'sans-serif'],
-        headline: ['Inter', 'sans-serif'],
-        code: ['monospace'],
-      },
-      spacing: {
-        '18': '4.5rem',
-        '22': '5.5rem',
-      },
       colors: {
+        // Design system from code.html
+        "primary": "#13b6ec",
+        "primary-dark": "#0e8db9",
+        "secondary": "#2ecc71",
+        "secondary-dark": "#27ae60",
+        "background-light": "#f8fbfc",
+        "background-dark": "#101d22",
+        "surface": "#ffffff",
+        "text-main": "#0d181b",
+        "text-muted": "#4c869a",
+
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         card: {
@@ -30,14 +32,14 @@ export default {
           DEFAULT: 'hsl(var(--popover))',
           foreground: 'hsl(var(--popover-foreground))',
         },
-        primary: {
-          DEFAULT: 'hsl(var(--primary))',
-          foreground: 'hsl(var(--primary-foreground))',
-        },
-        secondary: {
-          DEFAULT: 'hsl(var(--secondary))',
-          foreground: 'hsl(var(--secondary-foreground))',
-        },
+        // primary: {
+        //   DEFAULT: 'hsl(var(--primary))',
+        //   foreground: 'hsl(var(--primary-foreground))',
+        // },
+        // secondary: {
+        //   DEFAULT: 'hsl(var(--secondary))',
+        //   foreground: 'hsl(var(--secondary-foreground))',
+        // },
         muted: {
           DEFAULT: 'hsl(var(--muted))',
           foreground: 'hsl(var(--muted-foreground))',
@@ -61,8 +63,23 @@ export default {
           '5': 'hsl(var(--chart-5))',
         },
       },
+      fontFamily: {
+        // Design system fonts
+        sans: ['Montserrat', 'sans-serif'],
+        display: ['Playfair Display', 'serif'],
+        
+        body: ['Montserrat', 'sans-serif'],
+        headline: ['Montserrat', 'sans-serif'],
+        code: ['monospace'],
+      },
+      boxShadow: {
+        'soft': '0 4px 20px -2px rgba(19, 182, 236, 0.1)',
+        'card': '0 10px 40px -10px rgba(0,0,0,0.05)'
+      },
       borderRadius: {
-        lg: 'var(--radius)',
+        lg: '1rem',
+        xl: '1.5rem',
+        '2xl': '2rem',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
       },
