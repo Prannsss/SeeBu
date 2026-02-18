@@ -1,0 +1,68 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 204 86% 94%;
+    --foreground: 207 60% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 207 60% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 207 60% 10%;
+    --primary: 207 89% 68%;
+    --primary-foreground: 207 60% 10%;
+    --secondary: 123 40% 74%;
+    --secondary-foreground: 123 60% 10%;
+    --muted: 204 40% 88%;
+    --muted-foreground: 207 20% 40%;
+    --accent: 123 40% 74%;
+    --accent-foreground: 123 60% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 207 30% 85%;
+    --input: 207 30% 85%;
+    --ring: 207 89% 68%;
+    --radius: 1.25rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-body leading-relaxed antialiased;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-headline font-bold;
+  }
+}
+
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+}
+
+.scroll-reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.hover-lift {
+  @apply transition-transform duration-300 hover:-translate-y-1;
+}
+
+.glass {
+  @apply bg-white/70 backdrop-blur-md border border-white/20;
+}
+
+::selection {
+  @apply bg-primary/30 text-primary-foreground;
+}
+
+/* 8px Grid Helper classes if needed (though tailwind covers this) */
+.gap-8px { gap: 8px; }
+.p-8px { padding: 8px; }

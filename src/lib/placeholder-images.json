@@ -1,0 +1,28 @@
+{
+  "placeholderImages": [
+    {
+      "id": "hero-cebu",
+      "description": "Panoramic view of Cebu City skyline",
+      "imageUrl": "https://images.unsplash.com/photo-1513171920216-2640b288471b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxjaXR5JTIwYWVyaWFsfGVufDB8fHx8MTc3MTQyMjIyNnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "city aerial"
+    },
+    {
+      "id": "feature-tracking",
+      "description": "Modern dashboard with tracking timeline",
+      "imageUrl": "https://images.unsplash.com/photo-1667284152849-850edc1b341e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxhcHAlMjBpbnRlcmZhY2V8ZW58MHx8fHwxNzcxMzQyODM5fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "app interface"
+    },
+    {
+      "id": "feature-reporting",
+      "description": "Mobile map view with report markers",
+      "imageUrl": "https://images.unsplash.com/photo-1532154078493-c1c3eef2023c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxtYXAlMjBsb2NhdGlvbnxlbnwwfHx8fDE3NzEzNTAzMTh8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "map location"
+    },
+    {
+      "id": "feature-service",
+      "description": "Clean mobile form for service request",
+      "imageUrl": "https://images.unsplash.com/photo-1762340273332-89b40f2868ab?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8bW9iaWxlJTIwZm9ybXxlbnwwfHx8fDE3NzE0MjIyMjZ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "mobile form"
+    }
+  ]
+}

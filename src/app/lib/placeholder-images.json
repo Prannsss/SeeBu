@@ -1,0 +1,29 @@
+
+{
+  "placeholderImages": [
+    {
+      "id": "hero-cebu",
+      "description": "Panoramic view of Cebu City skyline",
+      "imageUrl": "https://picsum.photos/seed/cebu-city-panorama/1200/800",
+      "imageHint": "city aerial"
+    },
+    {
+      "id": "feature-tracking",
+      "description": "Modern dashboard with tracking timeline",
+      "imageUrl": "https://picsum.photos/seed/tracking-dashboard/600/450",
+      "imageHint": "app interface"
+    },
+    {
+      "id": "feature-reporting",
+      "description": "Mobile map view with report markers",
+      "imageUrl": "https://picsum.photos/seed/map-reporting/600/450",
+      "imageHint": "map location"
+    },
+    {
+      "id": "feature-service",
+      "description": "Clean mobile form for service request",
+      "imageUrl": "https://picsum.photos/seed/service-request/600/450",
+      "imageHint": "mobile form"
+    }
+  ]
+}
