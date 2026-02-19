@@ -1,9 +1,19 @@
+"use client";
+
+import { useEffect, useState } from 'react';
+
 export function Hero() {
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    setIsVisible(true);
+  }, []);
+
   return (
-    <section id="top" className="relative min-h-screen flex items-center justify-center pt-32 pb-20 overflow-hidden bg-background dark:bg-gray-950 transition-colors">
+    <section id="top" className={`relative min-h-screen flex items-center justify-center pt-32 pb-20 overflow-hidden bg-background dark:bg-gray-950 transition-all duration-1000 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
       <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-12 items-center">
         {/* Left: Content */}
-        <div className="flex flex-col gap-8 z-10 text-center lg:text-left items-center lg:items-start">
+        <div className={`flex flex-col gap-8 z-10 text-center lg:text-left items-center lg:items-start transition-all duration-1000 delay-200 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
           <div className="space-y-4">
             <span className="inline-block py-1 px-3 rounded-full bg-blue-50 dark:bg-blue-900/30 text-primary text-xs font-bold tracking-wider uppercase border border-blue-100 dark:border-blue-800">
               Official Civic Hub
@@ -23,7 +33,7 @@ export function Hero() {
             </p>
           </div>
           <div className="flex flex-wrap gap-4 justify-center lg:justify-start">
-            <a href="client/report" className="flex items-center gap-2 bg-secondary hover:bg-secondary-dark text-white text-base font-bold h-14 px-8 rounded-xl transition-all shadow-lg shadow-secondary/25 hover:-translate-y-1">
+            <a href="client/report" className="flex items-center gap-2 bg-secondary hover:bg-secondary-dark text-white text-base font-bold h-14 px-8 rounded-xl transition-all shadow-lg shadow-secondary/25 hover:scale-105 btn-shine">
               <span className="material-symbols-outlined">campaign</span>
               Report an Issue
             </a>
@@ -34,7 +44,7 @@ export function Hero() {
           </div>
         </div>
         {/* Right: Visual */}
-        <div className="relative h-[500px] w-full flex items-center justify-center">
+        <div className={`relative h-[500px] w-full flex items-center justify-center transition-all duration-1000 delay-500 ${isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
           {/* Decorative dots pattern */}
           <div className="absolute inset-0 -z-10">
             <div className="absolute top-10 right-10 w-4 h-4 bg-primary/30 rounded-full"></div>

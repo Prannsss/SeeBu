@@ -15,11 +15,11 @@ export function CTASection() {
         <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-secondary/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
         <div className="relative z-10">
-          <h2 className="text-4xl lg:text-5xl font-black text-white mb-6">Be part of a smarter Cebu.</h2>
+          <h2 className="text-4xl lg:text-5xl font-black text-white mb-6">Be part of a <span className="font-display italic">smarter</span> Cebu.</h2>
           <p className="text-gray-400 text-lg mb-10 max-w-2xl mx-auto">Join thousands of residents making a difference. Download the app or sign up online today.</p>
-          <button className="bg-primary hover:bg-primary-dark text-white font-bold text-lg py-4 px-10 rounded-xl transition-transform hover:scale-105 shadow-lg shadow-primary/30">
+          <a href="/auth/register" className="inline-block bg-primary hover:bg-primary-dark text-white font-bold text-lg py-4 px-10 rounded-xl transition-transform hover:scale-105 shadow-lg shadow-primary/30">
             Get Started Now
-          </button>
+          </a>
         </div>
       </div>
     </section>

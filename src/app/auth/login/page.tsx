@@ -2,48 +2,89 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Building2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background">
-      <div className="w-full max-w-md space-y-8 animate-in fade-in zoom-in-95 duration-500">
-        <div className="flex flex-col items-center text-center">
-          <Link href="/" className="mb-8 inline-flex items-center text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Home
-          </Link>
-          <div className="h-12 w-12 rounded-xl bg-primary flex items-center justify-center text-primary-foreground mb-4">
-            <Building2 className="h-8 w-8" />
-          </div>
-          <h1 className="text-3xl font-bold font-headline tracking-tight">Welcome Back</h1>
-          <p className="text-muted-foreground mt-2">Access your SeeBu account to track your reports.</p>
-        </div>
+    <div className="min-h-screen flex bg-background-light dark:bg-gray-950">
+      {/* Logo on top left */}
+      <Link href="/" className="fixed top-4 left-4 sm:top-6 sm:left-6 z-50 flex items-center gap-2 hover:opacity-80 transition-opacity">
+        <img src="/assets/logo.svg" alt="SeeBu Logo" className="h-7 sm:h-8 w-auto" />
+      </Link>
 
-        <div className="bg-white p-8 rounded-2xl shadow-xl border">
-          <form className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email Address</Label>
-              <Input id="email" type="email" placeholder="juan.delacruz@email.com" required />
-            </div>
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <Label htmlFor="password">Password</Label>
-                <Link href="#" className="text-xs text-primary hover:underline">Forgot password?</Link>
-              </div>
-              <Input id="password" type="password" required />
-            </div>
-            <Button className="w-full h-12 text-lg bg-accent text-accent-foreground hover:bg-accent/90" type="submit">
-              Log In
-            </Button>
-          </form>
+      {/* Left Side - CTA & GIF (hidden on mobile) */}
+      <div className="hidden lg:flex lg:w-1/2 p-12 items-center justify-center relative overflow-hidden auth-bg">
+        
+        <div className="relative z-10 max-w-lg w-full">
+          <h1 className="text-4xl lg:text-5xl font-black text-gray-900 mb-6">
+            Be Part of the <span className="font-display italic text-yellow-500">Solution</span>
+          </h1>
+          <p className="text-gray-700 text-lg mb-8 leading-relaxed">
+            Welcome back! Continue making a difference in Cebu. Track your reports and see the impact you're making in your community.
+          </p>
           
-          <div className="mt-6 pt-6 border-t text-center">
-            <p className="text-sm text-muted-foreground">
-              Don't have an account? <Link href="/signup" className="text-primary font-bold hover:underline">Sign up now</Link>
-            </p>
+          {/* GIF */}
+          <div className="rounded-2xl overflow-hidden">
+            <img 
+              src="/gifs/auth.gif" 
+              alt="SeeBu in action" 
+              className="w-full h-auto"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Right Side - Form */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-8 lg:p-12 pt-20 sm:pt-24 lg:pt-12">
+        <div className="w-full max-w-md space-y-6 sm:space-y-8 animate-in fade-in duration-500">
+          <div className="text-center lg:text-left">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-text-main dark:text-white mb-2 sm:mb-3">Welcome Back</h2>
+            <p className="text-sm sm:text-base text-text-muted dark:text-gray-400">Access your SeeBu account to track your reports.</p>
+          </div>
+
+          <div>
+            <form className="space-y-5 sm:space-y-6">
+              {/* Email */}
+              <div className="floating-input">
+                <input 
+                  id="email" 
+                  type="email"
+                  placeholder=" "
+                  required 
+                  maxLength={100}
+                />
+                <label htmlFor="email">Email</label>
+                <span className="material-symbols-outlined input-icon">mail</span>
+              </div>
+
+              {/* Password */}
+              <div className="floating-input">
+                <input 
+                  id="password" 
+                  type="password"
+                  placeholder=" "
+                  required 
+                  minLength={8}
+                  maxLength={50}
+                />
+                <label htmlFor="password">Password</label>
+                <span className="material-symbols-outlined input-icon">lock</span>
+              </div>
+
+              <div className="flex justify-end -mt-2">
+                <Link href="/auth/forgot-pw" className="text-xs text-primary hover:text-primary-dark hover:underline">Forgot password?</Link>
+              </div>
+
+              <Button className="w-full h-12 text-lg bg-primary hover:bg-primary-dark text-white font-bold shadow-lg" type="submit">
+                Log In
+              </Button>
+            </form>
+            
+            <div className="mt-6 pt-6 border-t border-gray-300 dark:border-gray-700 text-center">
+              <p className="text-sm text-text-muted dark:text-gray-400">
+                Don't have an account? <Link href="/auth/register" className="text-primary font-bold hover:underline">Sign up now</Link>
+              </p>
+            </div>
           </div>
         </div>
       </div>

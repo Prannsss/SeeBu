@@ -80,3 +80,155 @@
 .animate-fade-in {
   animation: fadeIn 0.4s ease-out;
 }
+
+/* Floating Label Styles */
+.floating-input {
+  position: relative;
+  margin-top: 1.5rem;
+}
+
+.floating-input input,
+.floating-input textarea {
+  width: 100%;
+  padding: 0.875rem 1rem 0.875rem 2.75rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 1rem;
+  font-size: 0.9375rem;
+  transition: all 0.3s ease;
+  background: white;
+}
+
+@media (min-width: 640px) {
+  .floating-input input,
+  .floating-input textarea {
+    padding: 1rem 1rem 1rem 3rem;
+    font-size: 1rem;
+  }
+}
+
+.dark .floating-input input,
+.dark .floating-input textarea {
+  background: #1f2937;
+  border-color: #374151;
+  color: white;
+}
+
+.dark .floating-input input:focus,
+.dark .floating-input textarea:focus {
+  border-color: #13b6ec;
+  box-shadow: 0 0 0 3px rgba(19, 182, 236, 0.1);
+}
+
+.floating-input input:focus,
+.floating-input textarea:focus {
+  outline: none;
+  border-color: #13b6ec;
+  box-shadow: 0 0 0 3px rgba(19, 182, 236, 0.1);
+}
+
+.floating-input label {
+  position: absolute;
+  left: 2.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.9375rem;
+  color: #9ca3af;
+  pointer-events: none;
+  transition: all 0.3s ease;
+  background: transparent;
+  padding: 0 0.25rem;
+}
+
+@media (min-width: 640px) {
+  .floating-input label {
+    left: 3rem;
+    font-size: 1rem;
+  }
+}
+
+.dark .floating-input label {
+  color: #9ca3af;
+}
+
+.floating-input input:focus + label,
+.floating-input input:not(:placeholder-shown) + label,
+.floating-input textarea:focus + label,
+.floating-input textarea:not(:placeholder-shown) + label {
+  top: 0;
+  left: 2.25rem;
+  font-size: 0.6875rem;
+  color: #13b6ec;
+  font-weight: 600;
+  background: white;
+}
+
+@media (min-width: 640px) {
+  .floating-input input:focus + label,
+  .floating-input input:not(:placeholder-shown) + label,
+  .floating-input textarea:focus + label,
+  .floating-input textarea:not(:placeholder-shown) + label {
+    left: 2.5rem;
+    font-size: 0.75rem;
+  }
+}
+
+.dark .floating-input input:focus + label,
+.dark .floating-input input:not(:placeholder-shown) + label,
+.dark .floating-input textarea:focus + label,
+.dark .floating-input textarea:not(:placeholder-shown) + label {
+  background: #1f2937;
+}
+
+.floating-input .input-icon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ca3af;
+  transition: color 0.3s ease;
+  pointer-events: none;
+  font-size: 1.25rem;
+}
+
+@media (min-width: 640px) {
+  .floating-input .input-icon {
+    left: 1rem;
+    font-size: 1.5rem;
+  }
+}
+
+.floating-input input:focus ~ .input-icon,
+.floating-input textarea:focus ~ .input-icon {
+  color: #13b6ec;
+}
+
+/* Auth pages background */
+.auth-bg {
+  background-color: #E3F2FD;
+}
+
+/* Shine effect for buttons */
+.btn-shine {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-shine::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  transition: left 0.5s ease;
+}
+
+.btn-shine:hover::before {
+  left: 100%;
+}

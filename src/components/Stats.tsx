@@ -16,7 +16,7 @@ export function Stats() {
       {/* Impact Stats */}
       <section 
         ref={statsRef}
-        className={`py-16 bg-gradient-to-r from-primary to-primary-dark text-white relative overflow-hidden fade-in-section ${statsVisible ? 'is-visible' : ''}`}
+        className={`py-16 bg-primary text-white relative overflow-hidden fade-in-section ${statsVisible ? 'is-visible' : ''}`}
       >
         {/* Decorative bg pattern */}
         <div className="absolute inset-0 opacity-10" style={{backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "20px 20px"}}></div>
@@ -45,7 +45,7 @@ export function Stats() {
             {/* Citizens Card */}
             <div 
               ref={citizensRef}
-              className={`bg-white dark:bg-gray-800 rounded-3xl overflow-hidden shadow-xl border border-gray-100 dark:border-gray-700 fade-in-section ${citizensVisible ? 'is-visible' : ''}`}
+              className={`bg-blue-50 dark:bg-blue-900/20 rounded-3xl overflow-hidden shadow-xl border border-blue-100 dark:border-blue-800 fade-in-section ${citizensVisible ? 'is-visible' : ''}`}
             >
               <div className="p-10 lg:p-12 flex flex-col justify-center h-full">
                 <div className="inline-flex items-center gap-2 text-primary font-bold uppercase tracking-wider text-xs mb-4">
@@ -76,7 +76,7 @@ export function Stats() {
             {/* LGU Card */}
             <div 
               ref={lgusRef}
-              className={`bg-gradient-to-br from-blue-50 to-white dark:from-gray-800 dark:to-gray-900 rounded-3xl overflow-hidden shadow-xl border border-gray-100 dark:border-gray-700 fade-in-section ${lgusVisible ? 'is-visible' : ''}`}
+              className={`bg-pink-50 dark:bg-pink-900/20 rounded-3xl overflow-hidden shadow-xl border border-pink-100 dark:border-pink-800 fade-in-section ${lgusVisible ? 'is-visible' : ''}`}
             >
               <div className="p-10 lg:p-12 flex flex-col justify-center h-full">
                 <div className="inline-flex items-center gap-2 text-text-main dark:text-white font-bold uppercase tracking-wider text-xs mb-4">

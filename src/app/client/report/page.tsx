@@ -1,9 +1,35 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowLeft, ChevronLeft, ChevronRight, Upload, X } from 'lucide-react';
+import locationDataImport from './data.json';
+
+// Simulated auth state - in production, this would come from your auth provider
+const useAuth = () => {
+  // For demonstration, change this to true to simulate logged-in user
+  const [isLoggedIn] = useState(false);
+  const [user] = useState(isLoggedIn ? { name: 'John Doe', email: 'john@example.com' } : null);
+  return { isLoggedIn, user };
+};
+
+interface Barangay {
+  id: string;
+  name: string;
+}
+
+interface Municipality {
+  id: string;
+  name: string;
+  barangays: Barangay[];
+}
+
+interface LocationData {
+  municipalities: Municipality[];
+}
+
+const locationData = locationDataImport as unknown as LocationData;
 
 interface FormData {
   // Step 1: Issue Type
@@ -11,8 +37,9 @@ interface FormData {
   otherSpecify: string;
   
   // Step 2: Location
-  location: string;
+  municipality: string;
   barangay: string;
+  location: string;
   landmark: string;
   
   // Step 3: Details
@@ -30,12 +57,14 @@ interface FormData {
 }
 
 export default function ReportIssuePage() {
+  const { isLoggedIn, user } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<FormData>({
     issueType: '',
     otherSpecify: '',
-    location: '',
+    municipality: '',
     barangay: '',
+    location: '',
     landmark: '',
     title: '',
     description: '',
@@ -48,10 +77,42 @@ export default function ReportIssuePage() {
     contactNumber: '',
   });
 
-  const totalSteps = 4;
+  // If user is logged in, skip step 4 (contact info)
+  const totalSteps = isLoggedIn ? 3 : 4;
+
+  // Phone number formatter for Philippine format
+  const formatPhoneNumber = (value: string) => {
+    // Remove all non-digit characters
+    const digits = value.replace(/\D/g, '');
+    
+    // If it starts with 63, add +
+    if (digits.startsWith('63')) {
+      const remaining = digits.slice(2, 12); // Max 10 digits after 63
+      return '+63' + remaining;
+    }
+    
+    // If it starts with 0, replace with +63
+    if (digits.startsWith('0')) {
+      const remaining = digits.slice(1, 11); // Max 10 digits after 0
+      return '+63' + remaining;
+    }
+    
+    // Otherwise, add +63 prefix
+    const limited = digits.slice(0, 10); // Max 10 digits
+    return limited ? '+63' + limited : '';
+  };
 
   const updateFormData = (field: keyof FormData, value: string | boolean | File[]) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData(prev => {
+      const updated = { ...prev, [field]: value };
+      
+      // Reset dependent fields when municipality changes
+      if (field === 'municipality') {
+        updated.barangay = '';
+      }
+      
+      return updated;
+    });
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -80,7 +141,15 @@ export default function ReportIssuePage() {
   };
 
   const handleSubmit = () => {
-    console.log('Form submitted:', formData);
+    const submissionData = { ...formData };
+    
+    // If user is logged in, use their info automatically
+    if (isLoggedIn && user) {
+      submissionData.name = user.name;
+      submissionData.email = user.email;
+    }
+    
+    console.log('Form submitted:', submissionData);
     // Handle form submission logic here
     alert('Issue reported successfully!');
   };
@@ -101,20 +170,14 @@ export default function ReportIssuePage() {
     { value: 'high', label: 'High', color: 'bg-red-100 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800' },
   ];
 
-  // Complete list of 80 Cebu City Barangays
-  const cebuCityBarangays = [
-    'Adlaon', 'Agsungot', 'Apas', 'Babag', 'Bacayan', 'Banilad', 'Basak Pardo', 'Basak San Nicolas', 
-    'Binaliw', 'Bonbon', 'Budlaan', 'Buhisan', 'Bulacao', 'Buot-Taup Pardo', 'Busay', 'Calamba', 
-    'Cambinocot', 'Capitol Site', 'Carreta', 'Central', 'Cogon Pardo', 'Cogon Ramos', 'Day-as', 'Duljo Fatima',
-    'Ermita', 'Guba', 'Guadalupe', 'Hipodromo', 'Inayawan', 'Kalubihan', 'Kalunasan', 'Kamagayan',
-    'Kamputhaw', 'Kasambagan', 'Kinasang-an Pardo', 'Labangon', 'Lahug', 'Lorega San Miguel', 'Lusaran', 'Luz',
-    'Mabini', 'Mabolo', 'Malubog', 'Mambaling', 'Pahina Central', 'Pahina San Nicolas', 'Pamutan', 'Pardo',
-    'Pari-an', 'Paril', 'Pasil', 'Pit-os', 'Poblacion Pardo', 'Pulangbato', 'Pung-ol Sibugay', 'Punta Princesa',
-    'Quiot Pardo', 'Sambag I', 'Sambag II', 'San Antonio', 'San Jose', 'San Nicolas Central', 'San Nicolas Proper', 'San Roque',
-    'Santa Cruz', 'Sapangdaku', 'Sawang Calero', 'Sinsin', 'Sirao', 'Suba Pasil', 'Sudlon I', 'Sudlon II',
-    'T. Padilla', 'Tabunan', 'Tagbao', 'Talamban', 'Taptap', 'Tejero', 'Tinago', 'Tisa',
-    'To-ong Pardo', 'Zapatera'
-  ];
+  // Get available barangays based on selected municipality
+  const availableBarangays = useMemo(() => {
+    if (!formData.municipality) return [];
+    const municipality = locationData.municipalities.find(
+      m => m.id === formData.municipality
+    );
+    return municipality?.barangays || [];
+  }, [formData.municipality]);
 
   return (
     <>
@@ -197,7 +260,7 @@ export default function ReportIssuePage() {
                           updateFormData('otherSpecify', '');
                         }
                       }}
-                      className={`p-4 rounded-xl border-2 transition-all hover:scale-105 ${
+                      className={`p-4 rounded-lg border-2 transition-all hover:scale-105 ${
                         formData.issueType === type.value
                           ? 'border-primary bg-blue-50 dark:bg-blue-900/20'
                           : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-primary'
@@ -215,17 +278,17 @@ export default function ReportIssuePage() {
 
                 {/* Other Specify Input */}
                 {formData.issueType === 'other' && (
-                  <div className="animate-fade-in">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Please specify *
-                    </label>
+                  <div className="animate-fade-in floating-input">
                     <input
+                      id="otherSpecify"
                       type="text"
                       value={formData.otherSpecify}
                       onChange={(e) => updateFormData('otherSpecify', e.target.value)}
-                      placeholder="Describe the type of issue"
-                      className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
+                      placeholder=" "
+                      required
                     />
+                    <label htmlFor="otherSpecify">Please specify *</label>
+                    <span className="material-symbols-outlined input-icon">edit</span>
                   </div>
                 )}
               </div>
@@ -246,47 +309,69 @@ export default function ReportIssuePage() {
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Street Address *
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.location}
-                      onChange={(e) => updateFormData('location', e.target.value)}
-                      placeholder="e.g., 123 Osmeña Boulevard"
-                      className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Barangay *
+                      Municipality/City *
                     </label>
                     <select
-                      value={formData.barangay}
-                      onChange={(e) => updateFormData('barangay', e.target.value)}
-                      title="Select barangay"
-                      className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
+                      value={formData.municipality}
+                      onChange={(e) => updateFormData('municipality', e.target.value)}
+                      title="Select municipality"
+                      className="w-full px-4 py-3 pr-10 rounded-lg border-2 border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all appearance-none"
+                      style={{backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E")`, backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em'}}
                     >
-                      <option value="">Select Barangay</option>
-                      {cebuCityBarangays.map((barangay) => (
-                        <option key={barangay} value={barangay.toLowerCase().replace(/\s+/g, '-')}>
-                          {barangay}
+                      <option value="">Select Municipality/City</option>
+                      {locationData.municipalities.map((municipality) => (
+                        <option key={municipality.id} value={municipality.id}>
+                          {municipality.name}
                         </option>
                       ))}
                     </select>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Nearby Landmark (Optional)
-                    </label>
+                  {formData.municipality && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Barangay *
+                      </label>
+                      <select
+                        value={formData.barangay}
+                        onChange={(e) => updateFormData('barangay', e.target.value)}
+                        title="Select barangay"
+                        className="w-full px-4 py-3 pr-10 rounded-lg border-2 border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all appearance-none"
+                        style={{backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E")`, backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em'}}
+                      >
+                        <option value="">Select Barangay</option>
+                        {availableBarangays.map((barangay) => (
+                          <option key={barangay.id} value={barangay.id}>
+                            {barangay.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <div className="floating-input">
                     <input
+                      id="location"
+                      type="text"
+                      value={formData.location}
+                      onChange={(e) => updateFormData('location', e.target.value)}
+                      placeholder=" "
+                      required
+                    />
+                    <label htmlFor="location">Street Address *</label>
+                    <span className="material-symbols-outlined input-icon">location_on</span>
+                  </div>
+
+                  <div className="floating-input">
+                    <input
+                      id="landmark"
                       type="text"
                       value={formData.landmark}
                       onChange={(e) => updateFormData('landmark', e.target.value)}
-                      placeholder="e.g., Near SM City Cebu"
-                      className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
+                      placeholder=" "
                     />
+                    <label htmlFor="landmark">Nearby Landmark (Optional)</label>
+                    <span className="material-symbols-outlined input-icon">place</span>
                   </div>
                 </div>
               </div>
@@ -305,30 +390,31 @@ export default function ReportIssuePage() {
                 </div>
 
                 <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Issue Title *
-                    </label>
+                  <div className="floating-input">
                     <input
+                      id="title"
                       type="text"
                       value={formData.title}
                       onChange={(e) => updateFormData('title', e.target.value)}
-                      placeholder="e.g., Broken streetlight on main road"
-                      className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
+                      placeholder=" "
+                      required
                     />
+                    <label htmlFor="title">Issue Title *</label>
+                    <span className="material-symbols-outlined input-icon">title</span>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Description *
-                    </label>
+                  <div className="floating-input">
                     <textarea
+                      id="description"
                       value={formData.description}
                       onChange={(e) => updateFormData('description', e.target.value)}
-                      placeholder="Describe the issue in detail..."
+                      placeholder=" "
                       rows={5}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all resize-none"
+                      required
+                      className="resize-none"
                     />
+                    <label htmlFor="description">Description *</label>
+                    <span className="material-symbols-outlined input-icon">description</span>
                   </div>
 
                   <div>
@@ -340,7 +426,7 @@ export default function ReportIssuePage() {
                         <button
                           key={level.value}
                           onClick={() => updateFormData('urgency', level.value)}
-                          className={`px-4 py-3 rounded-xl border-2 font-medium transition-all hover:scale-105 ${
+                          className={`px-4 py-3 rounded-lg border-2 font-medium transition-all hover:scale-105 ${
                             formData.urgency === level.value
                               ? level.color
                               : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
@@ -359,7 +445,7 @@ export default function ReportIssuePage() {
                     </label>
                     <div className="space-y-3">
                       {formData.photos.length < 5 && (
-                        <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl cursor-pointer bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                        <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg cursor-pointer bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                           <div className="flex flex-col items-center justify-center pt-5 pb-6">
                             <Upload className="w-8 h-8 mb-2 text-gray-400" />
                             <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -404,19 +490,19 @@ export default function ReportIssuePage() {
             )}
 
             {/* Step 4: Contact */}
-            {currentStep === 4 && (
+            {currentStep === 4 && !isLoggedIn && (
               <div className="space-y-6 animate-fade-in">
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                    How can we reach you?
+                    Choose how to submit
                   </h2>
                   <p className="text-gray-600 dark:text-gray-400">
-                    We'll use this information to update you on the progress.
+                    Report anonymously or create an account for better tracking and validation.
                   </p>
                 </div>
 
                 <div className="space-y-4">
-                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
+                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                     <label className="flex items-start gap-3 cursor-pointer">
                       <input
                         type="checkbox"
@@ -434,67 +520,57 @@ export default function ReportIssuePage() {
                           Report Anonymously
                         </div>
                         <div className="text-sm text-gray-600 dark:text-gray-400">
-                          Your identity will be kept confidential. We'll only use your contact info for updates.
+                          Your identity will be kept confidential.
                         </div>
                       </div>
                     </label>
                   </div>
 
-                  {formData.anonymous ? (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Number to Contact *
-                      </label>
+                  {/* Optional Contact Number for Anonymous Reports */}
+                  {formData.anonymous && (
+                    <div className="floating-input">
                       <input
+                        id="contactNumber"
                         type="tel"
                         value={formData.contactNumber}
-                        onChange={(e) => updateFormData('contactNumber', e.target.value)}
-                        placeholder="+63 912 345 6789"
-                        className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
+                        onChange={(e) => {
+                          const formatted = formatPhoneNumber(e.target.value);
+                          updateFormData('contactNumber', formatted);
+                        }}
+                        placeholder=" "
+                        maxLength={13}
                       />
+                      <label htmlFor="contactNumber">Contact Number (Optional)</label>
+                      <span className="material-symbols-outlined input-icon">phone</span>
                     </div>
-                  ) : (
-                    <>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                          Full Name *
-                        </label>
-                        <input
-                          type="text"
-                          value={formData.name}
-                          onChange={(e) => updateFormData('name', e.target.value)}
-                          placeholder="Juan Dela Cruz"
-                          className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                          Email Address *
-                        </label>
-                        <input
-                          type="email"
-                          value={formData.email}
-                          onChange={(e) => updateFormData('email', e.target.value)}
-                          placeholder="juan@example.com"
-                          className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                          Phone Number *
-                        </label>
-                        <input
-                          type="tel"
-                          value={formData.phone}
-                          onChange={(e) => updateFormData('phone', e.target.value)}
-                          placeholder="+63 912 345 6789"
-                          className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
-                        />
-                      </div>
-                    </>
                   )}
+
+                  {/* Register Account Section */}
+                  <div className="p-4 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg space-y-3">
+                    <div className="flex items-start gap-2">
+                      <span className="material-symbols-outlined text-primary text-xl">account_circle</span>
+                      <div className="flex-1">
+                        <Link 
+                          href="/auth/register"
+                          className="font-semibold text-primary hover:text-primary/80 transition-colors"
+                        >
+                          Register an account
+                        </Link>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                          This helps us review and validate your report.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                      Already have an account?{' '}
+                      <Link 
+                        href="/auth/login"
+                        className="font-medium text-primary hover:text-primary/80 transition-colors"
+                      >
+                        Log in
+                      </Link>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -508,7 +584,7 @@ export default function ReportIssuePage() {
             {currentStep > 1 && (
               <button
                 onClick={handlePrevious}
-                className="flex items-center gap-2 px-6 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
+                className="flex items-center gap-2 px-6 py-3 rounded-lg border-2 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
               >
                 <ChevronLeft size={20} />
                 Previous
@@ -520,10 +596,10 @@ export default function ReportIssuePage() {
                 onClick={handleNext}
                 disabled={
                   (currentStep === 1 && (!formData.issueType || (formData.issueType === 'other' && !formData.otherSpecify))) ||
-                  (currentStep === 2 && (!formData.location || !formData.barangay)) ||
+                  (currentStep === 2 && (!formData.municipality || !formData.barangay || !formData.location)) ||
                   (currentStep === 3 && (!formData.title || !formData.description))
                 }
-                className="flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-primary text-white font-medium hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-primary text-white font-medium hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Next
                 <ChevronRight size={20} />
@@ -531,10 +607,7 @@ export default function ReportIssuePage() {
             ) : (
               <button
                 onClick={handleSubmit}
-                disabled={
-                  formData.anonymous ? !formData.contactNumber : (!formData.name || !formData.email || !formData.phone)
-                }
-                className="flex-1 px-6 py-3 rounded-xl bg-secondary text-white font-medium hover:bg-secondary-dark transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-6 py-3 rounded-lg bg-secondary text-white font-medium hover:bg-secondary-dark transition-all"
               >
                 Submit Report
               </button>
