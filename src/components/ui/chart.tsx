@@ -34,6 +34,16 @@ function useChart() {
   return context
 }
 
+function getSeriesColorClasses(seriesKey: string) {
+  if (seriesKey === "desktop") {
+    return "bg-[var(--color-desktop)] border-[var(--color-desktop)]"
+  }
+  if (seriesKey === "mobile") {
+    return "bg-[var(--color-mobile)] border-[var(--color-mobile)]"
+  }
+  return "bg-muted-foreground border-muted-foreground"
+}
+
 const ChartContainer = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"div"> & {
@@ -125,7 +135,6 @@ const ChartTooltipContent = React.forwardRef<
       labelFormatter,
       labelClassName,
       formatter,
-      color,
       nameKey,
       labelKey,
     },
@@ -188,7 +197,7 @@ const ChartTooltipContent = React.forwardRef<
           {payload.map((item, index) => {
             const key = `${nameKey || item.name || item.dataKey || "value"}`
             const itemConfig = getPayloadConfigFromPayload(config, item, key)
-            const indicatorColor = color || item.payload.fill || item.color
+            const seriesColorClasses = getSeriesColorClasses(String(item.dataKey || key))
 
             return (
               <div
@@ -208,21 +217,16 @@ const ChartTooltipContent = React.forwardRef<
                       !hideIndicator && (
                         <div
                           className={cn(
-                            "shrink-0 rounded-[2px] border-[--color-border] bg-[--color-bg]",
+                            "shrink-0 rounded-[2px]",
+                            seriesColorClasses,
                             {
                               "h-2.5 w-2.5": indicator === "dot",
                               "w-1": indicator === "line",
-                              "w-0 border-[1.5px] border-dashed bg-transparent":
+                              "w-0 border-[1.5px] border-dashed bg-transparent border-current":
                                 indicator === "dashed",
                               "my-0.5": nestLabel && indicator === "dashed",
                             }
                           )}
-                          style={
-                            {
-                              "--color-bg": indicatorColor,
-                              "--color-border": indicatorColor,
-                            } as React.CSSProperties
-                          }
                         />
                       )
                     )}
@@ -300,10 +304,10 @@ const ChartLegendContent = React.forwardRef<
                 <itemConfig.icon />
               ) : (
                 <div
-                  className="h-2 w-2 shrink-0 rounded-[2px]"
-                  style={{
-                    backgroundColor: item.color,
-                  }}
+                  className={cn(
+                    "h-2 w-2 shrink-0 rounded-[2px]",
+                    getSeriesColorClasses(String(item.dataKey || key))
+                  )}
                 />
               )}
               {itemConfig?.label}

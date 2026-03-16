@@ -3,10 +3,12 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowLeft, ChevronLeft, ChevronRight, Upload, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Upload, X } from 'lucide-react';
+import { gooeyToast } from 'goey-toast';
+import BackButton from '@/components/navigation/back-button';
+import { ClientDock } from '@/components/navigation/ClientDock';
 import locationDataImport from './data.json';
 
-// Simulated auth state - in production, this would come from your auth provider
 const useAuth = () => {
   // For demonstration, change this to true to simulate logged-in user
   const [isLoggedIn] = useState(false);
@@ -80,6 +82,19 @@ export default function ReportIssuePage() {
   // If user is logged in, skip step 4 (contact info)
   const totalSteps = isLoggedIn ? 3 : 4;
 
+  const getProgressWidthClass = () => {
+    if (totalSteps === 3) {
+      if (currentStep === 1) return 'w-1/3';
+      if (currentStep === 2) return 'w-2/3';
+      return 'w-full';
+    }
+
+    if (currentStep === 1) return 'w-1/4';
+    if (currentStep === 2) return 'w-1/2';
+    if (currentStep === 3) return 'w-3/4';
+    return 'w-full';
+  };
+
   // Phone number formatter for Philippine format
   const formatPhoneNumber = (value: string) => {
     // Remove all non-digit characters
@@ -141,17 +156,26 @@ export default function ReportIssuePage() {
   };
 
   const handleSubmit = () => {
-    const submissionData = { ...formData };
-    
-    // If user is logged in, use their info automatically
-    if (isLoggedIn && user) {
-      submissionData.name = user.name;
-      submissionData.email = user.email;
+    try {
+      const submissionData = { ...formData };
+
+      // If user is logged in, use their info automatically
+      if (isLoggedIn && user) {
+        submissionData.name = user.name;
+        submissionData.email = user.email;
+      }
+
+      console.log('Form submitted:', submissionData);
+      // Handle form submission logic here
+      gooeyToast.success("Report Submitted", {
+        description: "Your issue has been reported successfully!",
+      });
+    } catch (error) {
+      gooeyToast.error("Submission Failed", {
+        description: "We could not submit your report. Please review the details and try again.",
+      });
+      console.error('Report submission error:', error);
     }
-    
-    console.log('Form submitted:', submissionData);
-    // Handle form submission logic here
-    alert('Issue reported successfully!');
   };
 
   const issueTypes = [
@@ -193,13 +217,10 @@ export default function ReportIssuePage() {
         {/* Header */}
         <div className="p-6 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
           <div className="max-w-xl mx-auto flex items-center justify-between">
-            <Link 
-              href="/"
+            <BackButton
+              fallbackPath="/client"
               className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-primary dark:hover:text-primary transition-colors"
-            >
-              <ArrowLeft size={20} />
-              <span className="font-medium">Back</span>
-            </Link>
+            />
             
             <Link href="/" className="flex items-center gap-2">
               <Image 
@@ -227,8 +248,7 @@ export default function ReportIssuePage() {
             </div>
             <div className="h-2 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
               <div 
-                className="h-full bg-primary transition-all duration-300 ease-out"
-                style={{ width: `${(currentStep / totalSteps) * 100}%` }}
+                className={`h-full bg-primary transition-all duration-300 ease-out ${getProgressWidthClass()}`}
               />
             </div>
           </div>
@@ -315,8 +335,7 @@ export default function ReportIssuePage() {
                       value={formData.municipality}
                       onChange={(e) => updateFormData('municipality', e.target.value)}
                       title="Select municipality"
-                      className="w-full px-4 py-3 pr-10 rounded-lg border-2 border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all appearance-none"
-                      style={{backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E")`, backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em'}}
+                      className="report-select w-full px-4 py-3 pr-10 rounded-lg border-2 border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all appearance-none"
                     >
                       <option value="">Select Municipality/City</option>
                       {locationData.municipalities.map((municipality) => (
@@ -336,8 +355,7 @@ export default function ReportIssuePage() {
                         value={formData.barangay}
                         onChange={(e) => updateFormData('barangay', e.target.value)}
                         title="Select barangay"
-                        className="w-full px-4 py-3 pr-10 rounded-lg border-2 border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all appearance-none"
-                        style={{backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E")`, backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em'}}
+                        className="report-select w-full px-4 py-3 pr-10 rounded-lg border-2 border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all appearance-none"
                       >
                         <option value="">Select Barangay</option>
                         {availableBarangays.map((barangay) => (
@@ -629,6 +647,7 @@ export default function ReportIssuePage() {
         </div>
       </div>
     </div>
+    <ClientDock />
     </>
   );
 }

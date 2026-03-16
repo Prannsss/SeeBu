@@ -2,47 +2,54 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import BackButton from "@/components/navigation/back-button";
 import { Mail } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
-import { useToast } from "@/hooks/use-toast";
+import { gooeyToast } from "goey-toast";
 
 export default function VerifyPage() {
   const [code, setCode] = useState("");
-  const { toast } = useToast();
 
   const handleVerify = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (code.length !== 6) {
-      toast({
-        variant: "destructive",
-        title: "Invalid Code",
-        description: "Please enter a valid 6-digit verification code.",
+    try {
+      e.preventDefault();
+      if (code.length !== 6) {
+        gooeyToast.error("Invalid Code", {
+          description: "Please enter a valid 6-digit verification code.",
+        });
+        return;
+      }
+
+      // Simulate verification
+      gooeyToast.success("Verification Successful!", {
+        description: "Your account has been verified. Redirecting to login...",
       });
-      return;
+
+      // Redirect after delay
+      setTimeout(() => {
+        window.location.href = "/auth/login";
+      }, 2000);
+    } catch (error) {
+      gooeyToast.error("Verification Failed", {
+        description: "Something went wrong while verifying your account. Please try again.",
+      });
+      console.error("Verify flow error:", error);
     }
-    
-    // Simulate verification
-    toast({
-      variant: "success",
-      title: "Verification Successful!",
-      description: "Your account has been verified. Redirecting to login...",
-    });
-    
-    // Redirect after delay
-    setTimeout(() => {
-      window.location.href = "/auth/login";
-    }, 2000);
   };
 
   const handleResend = () => {
-    toast({
-      variant: "success",
-      title: "Code Sent!",
-      description: "A new verification code has been sent to your email.",
-    });
+    try {
+      gooeyToast.success("Code Sent!", {
+        description: "A new verification code has been sent to your email.",
+      });
+    } catch (error) {
+      gooeyToast.error("Resend Failed", {
+        description: "Unable to resend verification code right now. Please try again.",
+      });
+      console.error("Resend flow error:", error);
+    }
   };
-
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/\D/g, '').slice(0, 6);
     setCode(value);
@@ -50,10 +57,10 @@ export default function VerifyPage() {
 
   return (
     <div className="min-h-screen flex bg-background-light dark:bg-gray-950">
-      {/* Logo on top left */}
-      <Link href="/" className="fixed top-4 left-4 sm:top-6 sm:left-6 z-50 flex items-center gap-2 hover:opacity-80 transition-opacity">
-        <img src="/assets/logo.svg" alt="SeeBu Logo" className="h-7 sm:h-8 w-auto" />
-      </Link>
+      <BackButton
+        fallbackPath="/"
+        className="fixed top-4 left-4 sm:top-6 sm:left-6 z-50 flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors"
+      />
 
       {/* Left Side - CTA & GIF (hidden on mobile) */}
       <div className="hidden lg:flex lg:w-1/2 p-12 items-center justify-center relative overflow-hidden auth-bg">

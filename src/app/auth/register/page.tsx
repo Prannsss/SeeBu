@@ -3,6 +3,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import BackButton from "@/components/navigation/back-button";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -40,10 +41,10 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen flex bg-background-light dark:bg-gray-950">
-      {/* Logo on top left */}
-      <Link href="/" className="fixed top-4 left-4 sm:top-6 sm:left-6 z-50 flex items-center gap-2 hover:opacity-80 transition-opacity">
-        <img src="/assets/logo.svg" alt="SeeBu Logo" className="h-7 sm:h-8 w-auto" />
-      </Link>
+      <BackButton
+        fallbackPath="/"
+        className="fixed top-4 left-4 sm:top-6 sm:left-6 z-50 flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors"
+      />
 
       {/* Left Side - CTA & GIF (hidden on mobile) */}
       <div className="hidden lg:flex lg:w-1/2 p-12 items-center justify-center relative overflow-hidden auth-bg">

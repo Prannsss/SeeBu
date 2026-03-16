@@ -1,7 +1,9 @@
 
 import type {Metadata} from 'next';
 import './globals.css';
-import { Toaster } from '@/components/ui/toaster';
+import 'goey-toast/styles.css';
+import GooeyToasterProvider from '@/components/providers/gooey-toaster-provider';
+import { NavigationHistoryProvider } from '@/components/providers/navigation-history-provider';
 
 export const metadata: Metadata = {
   title: 'SeeBu | Build a Smarter Cebu City',
@@ -25,8 +27,10 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased bg-background text-foreground selection:bg-primary/30">
-        {children}
-        <Toaster />
+        <NavigationHistoryProvider>
+          {children}
+          <GooeyToasterProvider />
+        </NavigationHistoryProvider>
       </body>
     </html>
   );
