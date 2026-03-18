@@ -81,11 +81,9 @@ The system aims to improve transparency, efficiency, and citizen engagement by d
 
 ```
 SEEBU/
-│── frontend/
 │── backend/
-│── database/
-│── assets/
-│── docs/
+│── public/
+|── src/
 │── README.md
 ```
 
@@ -129,12 +127,15 @@ SEEBU/
 
 ---
 
-## Future Enhancements
+## Recommendations for Future Researchers
 
 * AI-based issue categorization
+* AI-generated uploads detection
 * Chatbot for assistance
 * Integration with emergency services
 * Mobile push notifications
+* Community feed
+* Upvoting for priority
 
 ---
 
