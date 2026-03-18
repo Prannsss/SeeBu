@@ -1,16 +1,13 @@
 "use client"
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { PlusSquare } from "lucide-react"
 import { SuperadminDock } from "@/components/navigation/SuperadminDock"
 
 export default function SuperadminAddPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-sky-50 to-white pb-32 dark:from-slate-950 dark:to-slate-900">
-      <div className="container mx-auto max-w-3xl px-4 py-10">
+    <div className="min-h-screen bg-white pb-32 dark:bg-slate-950 dark:text-slate-100">
+      <div className="container mx-auto max-w-2xl px-5 pt-10 pb-6">
         <div className="mb-6 flex items-center gap-3">
           <PlusSquare className="h-7 w-7 text-blue-600" />
           <div>
@@ -19,27 +16,32 @@ export default function SuperadminAddPage() {
           </div>
         </div>
 
-        <Card className="border-blue-100/70 bg-white/85 backdrop-blur">
-          <CardHeader>
-            <CardTitle>Create Platform Resource</CardTitle>
-            <CardDescription>Add a new managed entity with traceable metadata.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-2">
-              <Label htmlFor="resource-name">Resource Name</Label>
-              <Input id="resource-name" placeholder="Emergency Dispatch Feed" />
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 space-y-6">
+          <div>
+            <h3 className="font-bold text-lg text-text-main dark:text-white">Create Platform Resource</h3>
+            <p className="text-sm text-text-muted dark:text-gray-400">Add a new managed entity with traceable metadata.</p>
+          </div>
+          <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
+            <div className="floating-input">
+              <input type="text" id="resource-name" placeholder=" " />
+              <label htmlFor="resource-name">Resource Name</label>
+              <span className="material-symbols-outlined input-icon">dashboard_customize</span>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="resource-owner">Owner Team</Label>
-              <Input id="resource-owner" placeholder="Incident Operations" />
+            <div className="floating-input">
+              <input type="text" id="resource-owner" placeholder=" " />
+              <label htmlFor="resource-owner">Owner Team</label>
+              <span className="material-symbols-outlined input-icon">group</span>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="resource-zone">Coverage Zone</Label>
-              <Input id="resource-zone" placeholder="Metro Cebu" />
+            <div className="floating-input">
+              <input type="text" id="resource-zone" placeholder=" " />
+              <label htmlFor="resource-zone">Coverage Zone</label>
+              <span className="material-symbols-outlined input-icon">share_location</span>
             </div>
-            <Button className="w-full bg-blue-600 hover:bg-blue-700">Create Resource</Button>
-          </CardContent>
-        </Card>
+            <Button className="w-full h-12 mt-2 text-lg bg-primary hover:bg-primary-dark text-white font-bold shadow-lg" type="submit">
+              Create Resource
+            </Button>
+          </form>
+        </div>
       </div>
 
       <SuperadminDock />

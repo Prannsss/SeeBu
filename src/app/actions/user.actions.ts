@@ -49,7 +49,10 @@ async function verifyAuthAndGetSession() {
 // ============================================================================
 // 3. Server Actions
 // ============================================================================
-
+export async function logoutUser() {
+  const reqCookies = await cookies();
+  reqCookies.delete("session_token");
+}
 /**
  * Updates a user's profile securely.
  * Applies Backend Skill rules: Zod Validation, Auth checking, Error Catching.

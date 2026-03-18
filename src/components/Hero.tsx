@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
+import Image from "next/image";
 
 export function Hero() {
   const [isVisible, setIsVisible] = useState(false);
@@ -60,9 +61,12 @@ export function Hero() {
             <div className="absolute bottom-16 left-1/3 w-3 h-3 bg-primary/30 rounded-full"></div>
             <div className="absolute top-12 left-1/4 w-2 h-2 bg-primary/40 rounded-full"></div>
           </div>
-          <img 
+          <Image 
             src="/gifs/build.gif" 
             alt="Cebu City Civic Development Illustration" 
+            width={800}
+            height={600}
+            unoptimized
             className="w-full h-full object-contain relative z-10"
           />
         </div>

@@ -5,6 +5,13 @@ import * as RechartsPrimitive from "recharts"
 
 import { cn } from "@/lib/utils"
 
+function getDynamicColorStyle(key: string): React.CSSProperties {
+  return {
+    backgroundColor: `var(--color-${key})`,
+    borderColor: `var(--color-${key})`,
+  }
+}
+
 // Format: { THEME_NAME: CSS_SELECTOR }
 const THEMES = { light: "", dark: ".dark" } as const
 
@@ -34,15 +41,7 @@ function useChart() {
   return context
 }
 
-function getSeriesColorClasses(seriesKey: string) {
-  if (seriesKey === "desktop") {
-    return "bg-[var(--color-desktop)] border-[var(--color-desktop)]"
-  }
-  if (seriesKey === "mobile") {
-    return "bg-[var(--color-mobile)] border-[var(--color-mobile)]"
-  }
-  return "bg-muted-foreground border-muted-foreground"
-}
+// Removed getSeriesColorClasses since it was statically hardcoded
 
 const ChartContainer = React.forwardRef<
   HTMLDivElement,
@@ -197,7 +196,6 @@ const ChartTooltipContent = React.forwardRef<
           {payload.map((item, index) => {
             const key = `${nameKey || item.name || item.dataKey || "value"}`
             const itemConfig = getPayloadConfigFromPayload(config, item, key)
-            const seriesColorClasses = getSeriesColorClasses(String(item.dataKey || key))
 
             return (
               <div
@@ -218,15 +216,15 @@ const ChartTooltipContent = React.forwardRef<
                         <div
                           className={cn(
                             "shrink-0 rounded-[2px]",
-                            seriesColorClasses,
                             {
                               "h-2.5 w-2.5": indicator === "dot",
                               "w-1": indicator === "line",
-                              "w-0 border-[1.5px] border-dashed bg-transparent border-current":
+                              "w-0 border-[1.5px] border-dashed bg-transparent":
                                 indicator === "dashed",
                               "my-0.5": nestLabel && indicator === "dashed",
                             }
                           )}
+                          style={getDynamicColorStyle(String(item.dataKey || key))}
                         />
                       )
                     )}
@@ -305,9 +303,9 @@ const ChartLegendContent = React.forwardRef<
               ) : (
                 <div
                   className={cn(
-                    "h-2 w-2 shrink-0 rounded-[2px]",
-                    getSeriesColorClasses(String(item.dataKey || key))
+                    "h-2 w-2 shrink-0 rounded-[2px]"
                   )}
+                  style={getDynamicColorStyle(String(item.dataKey || key))}
                 />
               )}
               {itemConfig?.label}

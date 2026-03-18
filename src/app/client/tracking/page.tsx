@@ -16,31 +16,36 @@ export default function TrackingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-sky-50 to-white pb-32 dark:from-slate-950 dark:to-slate-900">
-      <div className="container mx-auto mt-8 max-w-3xl px-4">
-        <Card className="w-full border-blue-200/60 bg-white/85 backdrop-blur dark:bg-slate-900/60">
-          <CardHeader>
-            <CardTitle className="text-2xl font-bold">Track Your Request</CardTitle>
-            <CardDescription>
-              Enter your tracking number below to check the status of your reported issue.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleTrack} className="flex flex-col gap-3 sm:flex-row">
-              <Input
+    <div className="min-h-screen bg-white pb-32 dark:bg-slate-950">
+      <div className="container mx-auto max-w-lg px-4 pt-16">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-black text-text-main dark:text-white mb-2">Track Your Request</h1>
+          <p className="text-base text-text-muted dark:text-gray-400">
+            Enter your tracking number below to check the status of your reported issue.
+          </p>
+        </div>
+
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 sm:p-8 animate-in fade-in duration-500">
+          <form onSubmit={handleTrack} className="space-y-6">
+            <div className="floating-input">
+              <input
+                id="tracking"
                 type="text"
-                placeholder="e.g. TRK-123456"
+                placeholder=" "
+                required
                 value={trackingNumber}
                 onChange={(e) => setTrackingNumber(e.target.value)}
-                className="flex-1"
               />
-              <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
-                <Search className="mr-2 h-4 w-4" />
-                Track
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+              <label htmlFor="tracking">Tracking Number</label>
+              <span className="material-symbols-outlined input-icon">tag</span>
+            </div>
+            
+            <Button type="submit" className="w-full h-12 text-lg bg-primary hover:bg-primary-dark text-white font-bold shadow-lg">
+              <Search className="mr-2 h-5 w-5" />
+              Track Status
+            </Button>
+          </form>
+        </div>
       </div>
       <ClientDock />
     </div>

@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import BackButton from "@/components/navigation/back-button";
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
 
 export default function ForgotPasswordPage() {
@@ -38,9 +39,12 @@ export default function ForgotPasswordPage() {
           
           {/* GIF */}
           <div className="rounded-2xl overflow-hidden">
-            <img 
+            <Image 
               src="/gifs/verify.gif" 
               alt="Password reset process" 
+              width={800}
+              height={600}
+              unoptimized
               className="w-full h-auto"
             />
           </div>

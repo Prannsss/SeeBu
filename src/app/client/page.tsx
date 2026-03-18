@@ -7,9 +7,9 @@ import { ClientDock } from "@/components/navigation/ClientDock";
 
 export default function ClientDashboard() {
   return (
-    <div className="relative min-h-screen overflow-hidden bg-gradient-to-b from-sky-50 via-cyan-50 to-white pb-32 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-      <div className="absolute -left-24 top-16 h-64 w-64 rounded-full bg-cyan-300/30 blur-3xl dark:bg-cyan-500/20" />
-      <div className="absolute -right-24 bottom-24 h-64 w-64 rounded-full bg-blue-300/20 blur-3xl dark:bg-blue-500/20" />
+    <div className="relative min-h-screen overflow-hidden bg-white text-slate-900 pb-32 dark:bg-slate-950 dark:text-slate-100">
+      
+      
 
       <div className="container relative mx-auto max-w-5xl px-4 py-10 md:py-14">
         <div className="mb-8 flex items-center justify-between gap-4">
@@ -25,20 +25,28 @@ export default function ClientDashboard() {
           <Badge className="hidden bg-blue-600 px-3 py-1 text-white sm:inline-flex">Active</Badge>
         </div>
 
-        <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Card className="border-blue-200/60 bg-white/80 backdrop-blur">
-            <CardHeader className="pb-2">
-              <CardDescription>Open Reports</CardDescription>
-              <CardTitle className="text-2xl text-blue-700">04</CardTitle>
+        <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-3">
+          <Card className="border-red-200/60 bg-red-50/50 backdrop-blur dark:bg-red-950/20 dark:border-red-900/50">
+            <CardHeader className="pb-2 p-4 md:p-6">
+              <CardDescription className="text-red-600/80 font-medium text-xs md:text-sm">Open Reports</CardDescription>
+              <div className="flex items-center gap-2 mt-1">
+                <FileWarning className="h-5 w-5 md:h-6 md:w-6 text-red-600" />
+                <CardTitle className="text-2xl md:text-3xl text-red-700">04</CardTitle>
+              </div>
             </CardHeader>
           </Card>
-          <Card className="border-cyan-200/60 bg-white/80 backdrop-blur">
-            <CardHeader className="pb-2">
-              <CardDescription>Resolved This Month</CardDescription>
-              <CardTitle className="text-2xl text-cyan-700">17</CardTitle>
+          <Card className="border-emerald-200/60 bg-emerald-50/50 backdrop-blur dark:bg-emerald-950/20 dark:border-emerald-900/50">
+            <CardHeader className="pb-2 p-4 md:p-6">
+              <CardDescription className="text-emerald-600/80 font-medium text-xs md:text-sm">Resolved This Month</CardDescription>
+              <div className="flex items-center gap-2 mt-1">
+                <div className="h-5 w-5 md:h-6 md:w-6 text-emerald-600 flex items-center justify-center rounded-full bg-emerald-100">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3 md:h-4 md:w-4"><path d="M20 6 9 17l-5-5"/></svg>
+                </div>
+                <CardTitle className="text-2xl md:text-3xl text-emerald-700">17</CardTitle>
+              </div>
             </CardHeader>
           </Card>
-          <Card className="border-slate-200 bg-white/80 backdrop-blur sm:col-span-2 lg:col-span-1">
+          <Card className="border-slate-200 bg-white/80 backdrop-blur col-span-2 lg:col-span-1">
             <CardHeader className="pb-2">
               <CardDescription>Avg Resolution Time</CardDescription>
               <CardTitle className="text-2xl">2.4 Days</CardTitle>
@@ -59,7 +67,9 @@ export default function ClientDashboard() {
             </CardHeader>
             <CardContent>
               <Link href="/client/report">
-                <Button className="w-full bg-blue-600 hover:bg-blue-700">Start Report</Button>
+                <Button className="w-full h-12 text-lg bg-primary hover:bg-primary-dark text-white font-bold shadow-lg">
+                  Next <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="ml-1 leading-none"><path d="m9 18 6-6-6-6"/></svg>
+                </Button>
               </Link>
             </CardContent>
           </Card>
@@ -76,8 +86,8 @@ export default function ClientDashboard() {
             </CardHeader>
             <CardContent>
               <Link href="/client/tracking">
-                <Button variant="outline" className="w-full border-blue-300 text-blue-700 hover:bg-blue-50">
-                  Open Tracking
+                <Button className="w-full h-12 text-lg bg-primary hover:bg-primary-dark text-white font-bold shadow-lg">
+                  Next <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="ml-1 leading-none"><path d="m9 18 6-6-6-6"/></svg>
                 </Button>
               </Link>
             </CardContent>
@@ -93,7 +103,9 @@ export default function ClientDashboard() {
             </CardHeader>
             <CardContent>
               <Link href="/client/history">
-                <Button variant="outline" className="w-full">View History</Button>
+                <Button className="w-full h-12 text-lg bg-primary hover:bg-primary-dark text-white font-bold shadow-lg">
+                  Next <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="ml-1 leading-none"><path d="m9 18 6-6-6-6"/></svg>
+                </Button>
               </Link>
             </CardContent>
           </Card>
@@ -108,7 +120,9 @@ export default function ClientDashboard() {
             </CardHeader>
             <CardContent>
               <Link href="/client/profile">
-                <Button variant="outline" className="w-full">Manage Profile</Button>
+                <Button className="w-full h-12 text-lg bg-primary hover:bg-primary-dark text-white font-bold shadow-lg">
+                  Next <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="ml-1 leading-none"><path d="m9 18 6-6-6-6"/></svg>
+                </Button>
               </Link>
             </CardContent>
           </Card>

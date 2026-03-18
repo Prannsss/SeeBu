@@ -2,13 +2,15 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Activity, AlertTriangle, BarChart3, ClipboardList } from "lucide-react"
-import { ChartLineInteractive } from "@/components/ui/chart-line-interactive"
+import { Activity, AlertTriangle, BarChart3, ClipboardList, ArrowRight } from "lucide-react"
+import { ChartAreaInteractive } from "@/components/ui/chart-area-interactive"
 import { AdminDock } from "@/components/navigation/AdminDock"
+import Link from "next/link"
+import adminData from "../analytics/data.json"
 
 export default function AdminHomePage() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-sky-50 to-white pb-32 dark:from-slate-950 dark:to-slate-900">
+    <div className="min-h-screen bg-white pb-32 dark:from-slate-950 dark:to-slate-900">
       <div className="container mx-auto max-w-6xl px-4 py-10">
         <div className="mb-6 flex items-center justify-between gap-4">
           <div>
@@ -49,10 +51,32 @@ export default function AdminHomePage() {
           </Card>
         </div>
 
-        <ChartLineInteractive
-          title="Admin Traffic and Resolution Load"
-          description="Desktop and mobile operational activity over the last 3 months"
-        />
+        <div className="relative">
+          <ChartAreaInteractive
+            title="Reports Overview"
+            description="Last 7 days"
+            chartData={adminData.chartData}
+            defaultTimeRange="7d"
+            hideFilter={true}
+            headerAction={
+              <Link 
+                href="/admin/analytics" 
+                className="flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/50 dark:hover:bg-blue-900/50 px-3 py-1.5 rounded-full transition-colors"
+              >
+                Full Analytics <ArrowRight className="w-4 h-4" />
+              </Link>
+            }
+            chartConfig={{
+              views: {
+                label: "Reports",
+              },
+              reports: {
+                label: "Reports",
+                color: "#2563eb",
+              },
+            }}
+          />
+        </div>
       </div>
 
       <AdminDock />

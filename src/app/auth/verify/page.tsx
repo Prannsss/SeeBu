@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import BackButton from "@/components/navigation/back-button";
 import { Mail } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
 import { gooeyToast } from "goey-toast";
 
@@ -75,9 +76,12 @@ export default function VerifyPage() {
           
           {/* GIF */}
           <div className="rounded-2xl overflow-hidden">
-            <img 
+            <Image 
               src="/gifs/verify.gif" 
               alt="Verification process" 
+              width={800}
+              height={600}
+              unoptimized
               className="w-full h-auto"
             />
           </div>

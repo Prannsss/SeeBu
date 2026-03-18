@@ -597,7 +597,7 @@ export default function ReportIssuePage() {
         </div>
 
         {/* Navigation Buttons */}
-        <div className="p-6 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+        <div className="p-6 pb-28 md:pb-6 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 mt-auto">
           <div className="max-w-xl mx-auto flex gap-3">
             {currentStep > 1 && (
               <button
@@ -635,19 +635,22 @@ export default function ReportIssuePage() {
       </div>
 
       {/* Right Side - Image (Hidden on mobile) */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-gray-900 dark:to-gray-800 items-center justify-center p-12">
+      <div className="hidden lg:flex lg:w-1/2 bg-white dark:from-gray-900 dark:to-gray-800 items-center justify-center p-12">
         <div className="max-w-xl">
           <Image
             src="/gifs/info.gif"
             alt="Report Issue Illustration"
             width={600}
             height={600}
+            unoptimized
             className="w-full h-auto"
           />
         </div>
       </div>
     </div>
-    <ClientDock />
+    <div className="md:hidden block">
+      <ClientDock />
+    </div>
     </>
   );
 }

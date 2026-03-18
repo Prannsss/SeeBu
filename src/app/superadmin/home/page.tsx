@@ -2,13 +2,15 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Activity, ShieldCheck, ServerCog, TrendingUp } from "lucide-react"
-import { ChartLineInteractive } from "@/components/ui/chart-line-interactive"
+import { Activity, ShieldCheck, ServerCog, TrendingUp, ArrowRight } from "lucide-react"
+import { ChartAreaInteractive } from "@/components/ui/chart-area-interactive"
 import { SuperadminDock } from "@/components/navigation/SuperadminDock"
+import Link from "next/link"
+import superadminData from "../analytics/data.json"
 
 export default function SuperadminHomePage() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-sky-50 to-white pb-32 dark:from-slate-950 dark:to-slate-900">
+    <div className="min-h-screen bg-white pb-32 dark:from-slate-950 dark:to-slate-900">
       <div className="container mx-auto max-w-6xl px-4 py-10">
         <div className="mb-6 flex items-center justify-between gap-4">
           <div>
@@ -49,10 +51,40 @@ export default function SuperadminHomePage() {
           </Card>
         </div>
 
-        <ChartLineInteractive
-          title="System Traffic and Device Distribution"
-          description="Multi-channel platform load over the last 3 months"
-        />
+        <div className="relative">
+          <ChartAreaInteractive
+            title="Reports Overview"
+            description="Last 7 days"
+            chartData={superadminData.chartData}
+            defaultTimeRange="7d"
+            hideFilter={true}
+            headerAction={
+              <Link 
+                href="/superadmin/analytics" 
+                className="flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/50 dark:hover:bg-blue-900/50 px-3 py-1.5 rounded-full transition-colors"
+              >
+                Full Analytics <ArrowRight className="w-4 h-4" />
+              </Link>
+            }
+            chartConfig={{
+              views: {
+                label: "Reports"
+              },
+              cebu_city: {
+                label: "Cebu City",
+                color: "#2563eb"
+              },
+              mandaue: {
+                label: "Mandaue",
+                color: "#10b981"
+              },
+              lapu_lapu: {
+                label: "Lapu-Lapu",
+                color: "#f59e0b"
+              }
+            }}
+          />
+        </div>
       </div>
 
       <SuperadminDock />
