@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { FileWarning, Search, User, Clock3, CircleUserRound } from "lucide-react";
-import { ClientDock } from "@/components/navigation/ClientDock";
 
 export default function ClientDashboard() {
   return (
@@ -129,7 +128,7 @@ export default function ClientDashboard() {
         </div>
       </div>
 
-      <ClientDock />
+
     </div>
   );
 }

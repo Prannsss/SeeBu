@@ -1,22 +1,24 @@
 "use client";
 
-import { Home, BarChart3, PlusCircle, User } from 'lucide-react';
-import { InteractiveMenu, InteractiveMenuItem } from '@/components/ui/modern-mobile-menu';
+import { useRouter } from "next/navigation";
+import { Home, BarChart, PlusCircle, User } from "lucide-react";
+import Dock from "@/components/ui/dock";
 
-const superadminMenuItems: InteractiveMenuItem[] = [
-  { label: 'Home', icon: Home, href: '/superadmin/home' },
-  { label: 'Analytics', icon: BarChart3, href: '/superadmin/analytics' },
-  { label: 'Add', icon: PlusCircle, href: '/superadmin/add-x' },
-  { label: 'Profile', icon: User, href: '/superadmin/profile' },
-];
+export default function SuperadminDock() {
+  const router = useRouter();
 
-export function SuperadminDock() {
+  const items = [
+    { icon: <Home className="w-5 h-5" />, label: "Home", onClick: () => router.push('/superadmin') },
+    { icon: <BarChart className="w-5 h-5" />, label: "Analytics", onClick: () => router.push('/superadmin/analytics') },
+    { icon: <PlusCircle className="w-5 h-5" />, label: "Add", onClick: () => router.push('/superadmin/add-x') },
+    { icon: <User className="w-5 h-5" />, label: "Profile", onClick: () => router.push('/superadmin/profile') },
+  ];
+
   return (
-    <div className="fixed bottom-4 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:bottom-8 z-50 rounded-2xl bg-background/90 backdrop-blur-md border border-border shadow-xl md:w-max overflow-hidden">
-      <InteractiveMenu 
-        items={superadminMenuItems} 
-        className="w-full md:min-w-[400px] px-2"
-      />
+    <div className="fixed bottom-0 left-0 w-full z-[100] pointer-events-none flex justify-center pb-4">
+      <div className="pointer-events-auto relative h-20 w-full max-w-xl">
+        <Dock items={items} />
+      </div>
     </div>
   );
 }

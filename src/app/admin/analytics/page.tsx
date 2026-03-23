@@ -1,8 +1,7 @@
-﻿"use client"
+"use client"
 
 import { useState } from "react"
 import { BarChart3, ArrowUp, ArrowDown } from "lucide-react"
-import { AdminDock } from "@/components/navigation/AdminDock"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartAreaInteractive } from "@/components/ui/chart-area-interactive"
 import mockData from "./data.json"
@@ -80,7 +79,7 @@ export default function AdminAnalyticsPage() {
         </div>
       </div>
 
-      <AdminDock />
+
     </div>
   )
 }

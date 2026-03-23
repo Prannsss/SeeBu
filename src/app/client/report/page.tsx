@@ -6,7 +6,6 @@ import Image from 'next/image';
 import { ChevronLeft, ChevronRight, Upload, X } from 'lucide-react';
 import { gooeyToast } from 'goey-toast';
 import BackButton from '@/components/navigation/back-button';
-import { ClientDock } from '@/components/navigation/ClientDock';
 import locationDataImport from './data.json';
 
 const useAuth = () => {
@@ -649,7 +648,7 @@ export default function ReportIssuePage() {
       </div>
     </div>
     <div className="md:hidden block">
-      <ClientDock />
+
     </div>
     </>
   );

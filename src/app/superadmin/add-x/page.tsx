@@ -2,7 +2,6 @@
 
 import { Button } from "@/components/ui/button"
 import { PlusSquare } from "lucide-react"
-import { SuperadminDock } from "@/components/navigation/SuperadminDock"
 
 export default function SuperadminAddPage() {
   return (
@@ -44,7 +43,7 @@ export default function SuperadminAddPage() {
         </div>
       </div>
 
-      <SuperadminDock />
+
     </div>
   )
 }

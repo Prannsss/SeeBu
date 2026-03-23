@@ -1,22 +1,28 @@
 "use client";
 
-import { Home, History, Search, User } from 'lucide-react';
-import { InteractiveMenu, InteractiveMenuItem } from '@/components/ui/modern-mobile-menu';
+import { useRouter, usePathname } from "next/navigation";
+import { Home, History, MapPin, AlertCircle, User } from "lucide-react";
+import Dock from "@/components/ui/dock";
 
-const clientMenuItems: InteractiveMenuItem[] = [
-  { label: 'Home', icon: Home, href: '/client' },
-  { label: 'History', icon: History, href: '/client/history' }, // Placeholder for history
-  { label: 'Track', icon: Search, href: '/client/tracking' },
-  { label: 'Profile', icon: User, href: '/client/profile' },
-];
+export default function ClientDock() {
+  const router = useRouter();
+  const pathname = usePathname();
 
-export function ClientDock() {
+  const items = [
+    { icon: <Home className="w-5 h-5" />, label: "Home", onClick: () => router.push('/client') },
+    { icon: <History className="w-5 h-5" />, label: "History", onClick: () => router.push('/client/history') },
+    { icon: <MapPin className="w-5 h-5" />, label: "Tracking", onClick: () => router.push('/client/tracking') },
+    { icon: <AlertCircle className="w-5 h-5" />, label: "Report", onClick: () => router.push('/client/report') },
+    { icon: <User className="w-5 h-5" />, label: "Profile", onClick: () => router.push('/client/profile') },
+  ];
+
+  const isReportPage = pathname === '/client/report';
+
   return (
-    <div className="fixed bottom-4 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:bottom-8 z-50 rounded-2xl bg-background/90 backdrop-blur-md border border-border shadow-xl md:w-max overflow-hidden">
-      <InteractiveMenu 
-        items={clientMenuItems} 
-        className="w-full md:min-w-[400px] px-2"
-      />
+    <div className={`fixed bottom-0 left-0 w-full z-[100] pointer-events-none flex justify-center pb-4 ${isReportPage ? 'md:hidden' : ''}`}>
+      <div className="pointer-events-auto relative h-20 w-full max-w-xl">
+        <Dock items={items} />
+      </div>
     </div>
   );
 }

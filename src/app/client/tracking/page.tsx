@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Search } from "lucide-react";
-import { ClientDock } from "@/components/navigation/ClientDock";
 
 export default function TrackingPage() {
   const [trackingNumber, setTrackingNumber] = useState("");
@@ -47,7 +46,7 @@ export default function TrackingPage() {
           </form>
         </div>
       </div>
-      <ClientDock />
+
     </div>
   );
 }

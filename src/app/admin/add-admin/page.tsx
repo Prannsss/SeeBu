@@ -2,7 +2,6 @@
 
 import { Button } from "@/components/ui/button"
 import { UserPlus } from "lucide-react"
-import { AdminDock } from "@/components/navigation/AdminDock"
 
 export default function AddAdminPage() {
   return (
@@ -44,7 +43,7 @@ export default function AddAdminPage() {
         </div>
       </div>
 
-      <AdminDock />
+
     </div>
   )
 }

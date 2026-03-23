@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { LogOut, Pencil, Trash2 } from "lucide-react"
+import { LogOut, Pencil } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { logoutUser } from "@/app/actions/user.actions"
 import { Button } from "@/components/ui/button"
@@ -19,19 +19,13 @@ import {
 } from "@/components/ui/alert-dialog"
 import { gooeyToast } from "goey-toast"
 
-export default function ClientProfilePage() {
+export default function WorkforceProfilePage() {
   const router = useRouter()
   const [isEditing, setIsEditing] = useState(false)
 
   const handleLogout = async () => {
     await logoutUser()
     gooeyToast.success("Logged out successfully")
-    router.push("/auth/login")
-  }
-
-  const handleDeleteAccount = () => {
-    gooeyToast.success("Account deleted successfully")
-    // logic for account deletion goes here
     router.push("/auth/login")
   }
 
@@ -48,11 +42,11 @@ export default function ClientProfilePage() {
         <div className="mb-6 flex items-center gap-4">
           <Avatar className="h-16 w-16 border-2 border-primary/10">
             <AvatarImage src="/placeholder-user.jpg" alt="Profile" />
-            <AvatarFallback className="bg-primary/5 text-xl">U</AvatarFallback>
+            <AvatarFallback className="bg-primary/5 text-xl">JD</AvatarFallback>
           </Avatar>
           <div>
             <p className="text-slate-500 text-sm mb-1">Welcome,</p>
-            <h2 className="text-[22px] font-black uppercase tracking-tight text-text-main dark:text-white">USER</h2>
+            <h2 className="text-[22px] font-black uppercase tracking-tight text-text-main dark:text-white">JOHN DOE</h2>
           </div>
         </div>
 
@@ -73,45 +67,53 @@ export default function ClientProfilePage() {
 
           {!isEditing ? (
             <div className="space-y-4 pt-2">
-              
-              <div className="pb-3 border-b border-slate-100 dark:border-slate-800 last:border-0 last:pb-0">
+              <div className="pb-3 border-b border-slate-100 dark:border-slate-800">
                 <span className="block text-sm font-semibold text-slate-500 dark:text-slate-400 mb-1">Full Name</span>
-                <span className="block text-base text-text-main dark:text-white font-medium">Juan Dela Cruz</span>
+                <span className="block text-base text-text-main dark:text-white font-medium">John Doe</span>
               </div>
-              
+              <div className="pb-3 border-b border-slate-100 dark:border-slate-800">
+                <span className="block text-sm font-semibold text-slate-500 dark:text-slate-400 mb-1">Role / Department</span>
+                <span className="block text-base text-text-main dark:text-white font-medium">Operations Team Lead - Infrastructure Maintenance</span>
+              </div>
+              <div className="pb-3 border-b border-slate-100 dark:border-slate-800">
+                <span className="block text-sm font-semibold text-slate-500 dark:text-slate-400 mb-1">Email / Phone</span>
+                <span className="block text-base text-text-main dark:text-white font-medium">john.doe@workforce.tld / +1 (555) 123-4567</span>
+              </div>
+              <div className="pb-3 border-b border-slate-100 dark:border-slate-800">
+                <span className="block text-sm font-semibold text-slate-500 dark:text-slate-400 mb-1">Location</span>
+                <span className="block text-base text-text-main dark:text-white font-medium">Central Depot</span>
+              </div>
+              <div className="pb-3 border-b border-slate-100 dark:border-slate-800">
+                <span className="block text-sm font-semibold text-slate-500 dark:text-slate-400 mb-1">Shift Schedule</span>
+                <span className="block text-base text-text-main dark:text-white font-medium">Mon-Fri, 08:00 - 16:00</span>
+              </div>
               <div className="pb-3 border-b border-slate-100 dark:border-slate-800 last:border-0 last:pb-0">
-                <span className="block text-sm font-semibold text-slate-500 dark:text-slate-400 mb-1">Email</span>
-                <span className="block text-base text-text-main dark:text-white font-medium">juan@email.com</span>
+                <span className="block text-sm font-semibold text-slate-500 dark:text-slate-400 mb-1">Employee ID / Supervisor</span>
+                <span className="block text-base text-text-main dark:text-white font-medium">WF-8392 / Admin Jane Smith</span>
               </div>
-              
-              <div className="pb-3 border-b border-slate-100 dark:border-slate-800 last:border-0 last:pb-0">
-                <span className="block text-sm font-semibold text-slate-500 dark:text-slate-400 mb-1">Phone</span>
-                <span className="block text-base text-text-main dark:text-white font-medium">+639171234567</span>
-              </div>
-              
             </div>
           ) : (
             <form className="space-y-6 pt-2" onSubmit={handleSave}>
-              
               <div className="floating-input">
-                <input type="text" id="full-name" placeholder=" " defaultValue="Juan Dela Cruz" />
+                <input type="text" id="full-name" placeholder=" " defaultValue="John Doe" />
                 <label htmlFor="full-name">Full Name</label>
                 <span className="material-symbols-outlined input-icon">person</span>
               </div>
-              
               <div className="floating-input">
-                <input type="email" id="email" placeholder=" " defaultValue="juan@email.com" />
+                <input type="text" id="role" placeholder=" " defaultValue="Operations Team Lead" />
+                <label htmlFor="role">Role</label>
+                <span className="material-symbols-outlined input-icon">badge</span>
+              </div>
+              <div className="floating-input">
+                <input type="email" id="email" placeholder=" " defaultValue="john.doe@workforce.tld" />
                 <label htmlFor="email">Email</label>
                 <span className="material-symbols-outlined input-icon">mail</span>
               </div>
-              
               <div className="floating-input">
-                <input type="tel" id="phone" placeholder=" " defaultValue="+639171234567" />
+                <input type="tel" id="phone" placeholder=" " defaultValue="+1 (555) 123-4567" />
                 <label htmlFor="phone">Phone</label>
                 <span className="material-symbols-outlined input-icon">call</span>
               </div>
-              
-              
               <Button className="w-full h-12 mt-2 text-lg bg-primary hover:bg-primary-dark text-white font-bold shadow-lg" type="submit">
                 Save Changes
               </Button>
@@ -122,7 +124,7 @@ export default function ClientProfilePage() {
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <button
-              className="w-full flex items-center justify-center gap-3 bg-red-500 hover:bg-red-600 dark:bg-red-900/80 dark:hover:bg-red-900 text-white border border-transparent font-semibold py-4 rounded-[10px] shadow-sm mb-4 transition-colors"
+              className="w-full flex items-center justify-center gap-3 bg-red-500 hover:bg-red-600 dark:bg-red-900/80 dark:hover:bg-red-900 text-white border border-transparent font-semibold py-4 rounded-[10px] shadow-sm mb-8 transition-colors"
             >
               <LogOut className="h-[20px] w-[20px] stroke-[2] text-white" />
               <span className="text-[16px] text-white">Logout</span>
@@ -141,41 +143,8 @@ export default function ClientProfilePage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-
-        <div className="bg-[#fffafa] dark:bg-red-950/20 border border-red-100 dark:border-red-900/50 rounded-xl p-5 sm:p-6 mb-4 shadow-sm">
-          <div className="flex items-center justify-start gap-2 text-[#d93025] mb-2">
-            <Trash2 className="h-[20px] w-[20px] stroke-[2]" />
-            <h3 className="font-bold text-[16px]">Delete Account</h3>
-          </div>
-          <p className="text-[#e57373] text-[14px] mb-5 leading-relaxed">
-            This will permanently delete your account<br className="hidden sm:block" />and remove all your data.
-          </p>
-          
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <button className="w-full flex items-center justify-center gap-2 bg-[#ea4335] hover:bg-red-600 text-white font-semibold py-3.5 rounded-[10px] transition-colors shadow-sm">
-                <Trash2 className="h-[18px] w-[18px] stroke-[2]" />
-                <span className="text-[16px]">Delete Account</span>
-              </button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Are you sure you want to delete your account?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This action cannot be undone. This will permanently delete your account and remove your data from our servers.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDeleteAccount} className="bg-red-600 text-white hover:bg-red-700">Delete Account</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
-
       </div>
-
-
     </div>
   )
 }
+

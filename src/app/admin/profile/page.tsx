@@ -2,10 +2,22 @@
 
 import { useState } from "react"
 import { LogOut, Pencil } from "lucide-react"
-import { AdminDock } from "@/components/navigation/AdminDock"
 import { useRouter } from "next/navigation"
 import { logoutUser } from "@/app/actions/user.actions"
 import { Button } from "@/components/ui/button"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { gooeyToast } from "goey-toast"
 
 export default function AdminProfilePage() {
   const router = useRouter()
@@ -13,6 +25,7 @@ export default function AdminProfilePage() {
 
   const handleLogout = async () => {
     await logoutUser()
+    gooeyToast.success("Logged out successfully")
     router.push("/auth/login")
   }
 
@@ -26,9 +39,15 @@ export default function AdminProfilePage() {
       <div className="container mx-auto max-w-2xl px-5 pt-10 pb-6">
         <h1 className="text-3xl font-extrabold mb-8 text-text-main dark:text-white">Profile</h1>
         
-        <div className="mb-6">
-          <p className="text-slate-500 text-sm mb-1">Welcome,</p>
-          <h2 className="text-[22px] font-black uppercase tracking-tight text-text-main dark:text-white">USER</h2>
+        <div className="mb-6 flex items-center gap-4">
+          <Avatar className="h-16 w-16 border-2 border-primary/10">
+            <AvatarImage src="/placeholder-user.jpg" alt="Profile" />
+            <AvatarFallback className="bg-primary/5 text-xl">U</AvatarFallback>
+          </Avatar>
+          <div>
+            <p className="text-slate-500 text-sm mb-1">Welcome,</p>
+            <h2 className="text-[22px] font-black uppercase tracking-tight text-text-main dark:text-white">USER</h2>
+          </div>
         </div>
 
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm mb-6 p-5 sm:p-6 space-y-6">
@@ -94,16 +113,31 @@ export default function AdminProfilePage() {
           )}
         </div>
 
-        <button
-          onClick={handleLogout}
-          className="w-full flex items-center justify-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-semibold py-4 rounded-xl shadow-sm mb-8 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
-        >
-          <LogOut className="h-[20px] w-[20px] stroke-[2] text-red-600" />
-          <span className="text-[16px] text-red-600">Logout</span>
-        </button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <button
+              className="w-full flex items-center justify-center gap-3 bg-red-500 hover:bg-red-600 dark:bg-red-900/80 dark:hover:bg-red-900 text-white border border-transparent font-semibold py-4 rounded-[10px] shadow-sm mb-8 transition-colors"
+            >
+              <LogOut className="h-[20px] w-[20px] stroke-[2] text-white" />
+              <span className="text-[16px] text-white">Logout</span>
+            </button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure you want to logout?</AlertDialogTitle>
+              <AlertDialogDescription>
+                You will need to sign in again to access your account.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleLogout} className="bg-red-600 text-white hover:bg-red-700">Logout</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
 
-      <AdminDock />
+
     </div>
   )
 }

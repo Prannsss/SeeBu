@@ -3,7 +3,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { FileWarning, MapPin, AlertCircle, CheckCircle2, FileText, Filter } from "lucide-react"
-import { AdminDock } from "@/components/navigation/AdminDock"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useState } from "react"
@@ -128,7 +127,7 @@ export default function AdminReportsPage() {
         </Tabs>
       </div>
 
-      <AdminDock />
+
     </div>
   )
 }

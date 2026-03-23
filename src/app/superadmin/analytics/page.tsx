@@ -1,8 +1,7 @@
-﻿"use client"
+"use client"
 
 import { useState } from "react"
 import { BarChart3, ArrowUp, ArrowDown } from "lucide-react"
-import { SuperadminDock } from "@/components/navigation/SuperadminDock"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartAreaInteractive } from "@/components/ui/chart-area-interactive"
 import mockData from "./data.json"
@@ -88,7 +87,7 @@ export default function SuperadminAnalyticsPage() {
         </div>
       </div>
 
-      <SuperadminDock />
+
     </div>
   )
 }

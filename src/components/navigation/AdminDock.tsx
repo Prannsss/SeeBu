@@ -1,23 +1,25 @@
 "use client";
 
-import { Home, FileText, BarChart3, PlusCircle, User } from 'lucide-react';
-import { InteractiveMenu, InteractiveMenuItem } from '@/components/ui/modern-mobile-menu';
+import { useRouter } from "next/navigation";
+import { Home, FileText, BarChart, UserPlus, User } from "lucide-react";
+import Dock from "@/components/ui/dock";
 
-const adminMenuItems: InteractiveMenuItem[] = [
-  { label: 'Home', icon: Home, href: '/admin/home' },
-  { label: 'Reports', icon: FileText, href: '/admin/reports' },
-  { label: 'Analytics', icon: BarChart3, href: '/admin/analytics' },
-  { label: 'Add', icon: PlusCircle, href: '/admin/add-admin' },
-  { label: 'Profile', icon: User, href: '/admin/profile' },
-];
+export default function AdminDock() {
+  const router = useRouter();
 
-export function AdminDock() {
+  const items = [
+    { icon: <Home className="w-5 h-5" />, label: "Home", onClick: () => router.push('/admin') },
+    { icon: <FileText className="w-5 h-5" />, label: "Reports", onClick: () => router.push('/admin/reports') },
+    { icon: <BarChart className="w-5 h-5" />, label: "Analytics", onClick: () => router.push('/admin/analytics') },
+    { icon: <UserPlus className="w-5 h-5" />, label: "Add Admin", onClick: () => router.push('/admin/add-admin') },
+    { icon: <User className="w-5 h-5" />, label: "Profile", onClick: () => router.push('/admin/profile') },
+  ];
+
   return (
-    <div className="fixed bottom-4 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:bottom-8 z-50 rounded-2xl bg-background/90 backdrop-blur-md border border-border shadow-xl md:w-max overflow-hidden">
-      <InteractiveMenu 
-        items={adminMenuItems} 
-        className="w-full md:min-w-[450px] px-2"
-      />
+    <div className="fixed bottom-0 left-0 w-full z-[100] pointer-events-none flex justify-center pb-4">
+      <div className="pointer-events-auto relative h-20 w-full max-w-xl">
+        <Dock items={items} />
+      </div>
     </div>
   );
 }
