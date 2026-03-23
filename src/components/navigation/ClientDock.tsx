@@ -9,11 +9,11 @@ export default function ClientDock() {
   const pathname = usePathname();
 
   const items = [
-    { icon: <Home className="w-5 h-5" />, label: "Home", onClick: () => router.push('/client') },
-    { icon: <History className="w-5 h-5" />, label: "History", onClick: () => router.push('/client/history') },
-    { icon: <MapPin className="w-5 h-5" />, label: "Tracking", onClick: () => router.push('/client/tracking') },
-    { icon: <AlertCircle className="w-5 h-5" />, label: "Report", onClick: () => router.push('/client/report') },
-    { icon: <User className="w-5 h-5" />, label: "Profile", onClick: () => router.push('/client/profile') },
+    { icon: <Home className={`w-5 h-5 ${pathname === '/client' ? 'text-white' : ''}`} />, label: "Home", onClick: () => router.push('/client'), className: pathname === '/client' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
+    { icon: <History className={`w-5 h-5 ${pathname === '/client/history' ? 'text-white' : ''}`} />, label: "History", onClick: () => router.push('/client/history'), className: pathname === '/client/history' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
+    { icon: <MapPin className={`w-5 h-5 ${pathname === '/client/tracking' ? 'text-white' : ''}`} />, label: "Tracking", onClick: () => router.push('/client/tracking'), className: pathname === '/client/tracking' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
+    { icon: <AlertCircle className={`w-5 h-5 ${pathname === '/client/report' ? 'text-white' : ''}`} />, label: "Report", onClick: () => router.push('/client/report'), className: pathname === '/client/report' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
+    { icon: <User className={`w-5 h-5 ${pathname === '/client/profile' ? 'text-white' : ''}`} />, label: "Profile", onClick: () => router.push('/client/profile'), className: pathname === '/client/profile' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
   ];
 
   const isReportPage = pathname === '/client/report';

@@ -1,16 +1,17 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Home, ClipboardList, User } from "lucide-react";
 import Dock from "@/components/ui/dock";
 
 export default function WorkforceDock() {
   const router = useRouter();
+  const pathname = usePathname();
 
   const items = [
-    { icon: <Home className="w-5 h-5" />, label: "Home", onClick: () => router.push('/workforce') },
-    { icon: <ClipboardList className="w-5 h-5" />, label: "Tasks", onClick: () => router.push('/workforce/tasks') },
-    { icon: <User className="w-5 h-5" />, label: "Profile", onClick: () => router.push('/workforce/profile') },
+    { icon: <Home className={`w-5 h-5 ${pathname === '/workforce' ? 'text-white' : ''}`} />, label: "Home", onClick: () => router.push('/workforce'), className: pathname === '/workforce' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
+    { icon: <ClipboardList className={`w-5 h-5 ${pathname === '/workforce/tasks' ? 'text-white' : ''}`} />, label: "Tasks", onClick: () => router.push('/workforce/tasks'), className: pathname === '/workforce/tasks' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
+    { icon: <User className={`w-5 h-5 ${pathname === '/workforce/profile' ? 'text-white' : ''}`} />, label: "Profile", onClick: () => router.push('/workforce/profile'), className: pathname === '/workforce/profile' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
   ];
 
   return (

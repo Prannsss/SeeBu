@@ -118,7 +118,7 @@ export default function WorkforceTasks() {
                       </div>
                     </div>
                     <div className="bg-muted/50 px-6 py-4 flex items-center justify-center border-t md:border-t-0 md:border-l border-border md:w-48">
-                      <button className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90 transition-colors">
+                      <button className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-white shadow hover:bg-primary/90 transition-colors">
                         {getButtonText(task.status)}
                       </button>
                     </div>

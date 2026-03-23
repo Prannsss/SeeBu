@@ -60,7 +60,7 @@ export default function VerifyPage() {
     <div className="min-h-screen flex bg-background-light dark:bg-gray-950">
       <BackButton
         fallbackPath="/"
-        className="fixed top-4 left-4 sm:top-6 sm:left-6 z-50 flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors"
+        className="fixed top-4 left-4 sm:top-6 sm:left-6 z-50 hidden md:flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors"
       />
 
       {/* Left Side - CTA & GIF (hidden on mobile) */}
@@ -92,6 +92,9 @@ export default function VerifyPage() {
       <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-8 lg:p-12 pt-20 sm:pt-24 lg:pt-12">
         <div className="w-full max-w-md space-y-6 sm:space-y-8 animate-in fade-in duration-500">
           <div className="text-center lg:text-left">
+            <div className="md:hidden mb-4 flex justify-center">
+              <Image src="/assets/logo.svg" alt="SeeBu Logo" width={60} height={60} />
+            </div>
             <div className="flex justify-center lg:justify-start mb-6">
               <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center text-primary animate-pulse">
                 <Mail className="h-8 w-8" />

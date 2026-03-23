@@ -11,7 +11,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex bg-background-light dark:bg-gray-950">
       <BackButton
         fallbackPath="/"
-        className="fixed top-4 left-4 sm:top-6 sm:left-6 z-50 flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors"
+        className="fixed top-4 left-4 sm:top-6 sm:left-6 z-50 hidden md:flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors"
       />
 
       {/* Left Side - CTA & GIF (hidden on mobile) */}
@@ -43,6 +43,9 @@ export default function LoginPage() {
       <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-8 lg:p-12 pt-20 sm:pt-24 lg:pt-12">
         <div className="w-full max-w-md space-y-6 sm:space-y-8 animate-in fade-in duration-500">
           <div className="text-center lg:text-left">
+            <div className="md:hidden mb-4 flex justify-center">
+              <Image src="/assets/logo.svg" alt="SeeBu Logo" width={60} height={60} />
+            </div>
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-text-main dark:text-white mb-2 sm:mb-3">Welcome Back</h2>
             <p className="text-sm sm:text-base text-text-muted dark:text-gray-400">Access your SeeBu account to track your reports.</p>
           </div>
