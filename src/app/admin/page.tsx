@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Activity, AlertTriangle, BarChart3, ClipboardList, ArrowRight } from "lucide-react"
+import { Activity, AlertTriangle, BarChart3, ClipboardList, ArrowRight, Users, UserPlus } from "lucide-react"
 import { ChartAreaInteractive } from "@/components/ui/chart-area-interactive"
 import Link from "next/link"
 import adminData from "./analytics/data.json"
@@ -36,19 +36,20 @@ export default function AdminHomePage() {
           </Card>
           <Card>
             <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
-              <CardDescription className="text-xs sm:text-sm truncate" title="Resolved Today">Resolved Today</CardDescription>
-              <CardTitle className="text-lg sm:text-2xl text-emerald-600">47</CardTitle>
+              <CardDescription className="text-xs sm:text-sm truncate" title="Subordinate Admins">Subordinate Admins</CardDescription>
+              <CardTitle className="text-lg sm:text-2xl text-emerald-600">12</CardTitle>
             </CardHeader>
-            <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 text-[10px] sm:text-xs text-muted-foreground flex items-center min-w-0"><Activity className="mr-1 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" /> <span className="truncate">+12% from yesterday</span></CardContent>
+            <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 text-[10px] sm:text-xs text-muted-foreground flex items-center min-w-0"><UserPlus className="mr-1 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" /> <span className="truncate">In assigned area</span></CardContent>
           </Card>
           <Card>
             <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
-              <CardDescription className="text-xs sm:text-sm truncate" title="Performance Index">Performance Index</CardDescription>
-              <CardTitle className="text-lg sm:text-2xl text-blue-600">92%</CardTitle>
+              <CardDescription className="text-xs sm:text-sm truncate" title="Dept. Workforce">Dept. Workforce</CardDescription>
+              <CardTitle className="text-lg sm:text-2xl text-blue-600">84</CardTitle>
             </CardHeader>
-            <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 text-[10px] sm:text-xs text-muted-foreground flex items-center min-w-0"><BarChart3 className="mr-1 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" /> <span className="truncate">Weekly trend up</span></CardContent>
+            <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 text-[10px] sm:text-xs text-muted-foreground flex items-center min-w-0"><Users className="mr-1 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" /> <span className="truncate">Across departments</span></CardContent>
           </Card>
         </div>
+
 
         <div className="relative">
           <ChartAreaInteractive

@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Activity, ShieldCheck, ServerCog, TrendingUp, ArrowRight } from "lucide-react"
+import { Activity, ShieldCheck, Users, UserCog, HardHat, ServerCog, TrendingUp, ArrowRight } from "lucide-react"
 import { ChartAreaInteractive } from "@/components/ui/chart-area-interactive"
 import Link from "next/link"
 import superadminData from "./analytics/data.json"
@@ -22,31 +22,31 @@ export default function SuperadminHomePage() {
         <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           <Card>
             <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
+              <CardDescription className="text-xs sm:text-sm truncate" title="Total Clients">Total Clients</CardDescription>
+              <CardTitle className="text-lg sm:text-2xl text-blue-600">12,402</CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 text-[10px] sm:text-xs text-muted-foreground flex items-center min-w-0"><Users className="mr-1 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" /> <span className="truncate">Active citizens</span></CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
+              <CardDescription className="text-xs sm:text-sm truncate" title="Total Admins">Total Admins</CardDescription>
+              <CardTitle className="text-lg sm:text-2xl text-emerald-600">84</CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 text-[10px] sm:text-xs text-muted-foreground flex items-center min-w-0"><UserCog className="mr-1 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" /> <span className="truncate">Across municipalities</span></CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
+              <CardDescription className="text-xs sm:text-sm truncate" title="Total Workforce">Total Workforce</CardDescription>
+              <CardTitle className="text-lg sm:text-2xl text-indigo-600">2,140</CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 text-[10px] sm:text-xs text-muted-foreground flex items-center min-w-0"><HardHat className="mr-1 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" /> <span className="truncate">Officers & Depts</span></CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
               <CardDescription className="text-xs sm:text-sm truncate" title="Platform Health">Platform Health</CardDescription>
               <CardTitle className="text-lg sm:text-2xl text-emerald-600">99.94%</CardTitle>
             </CardHeader>
             <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 text-[10px] sm:text-xs text-muted-foreground flex items-center min-w-0"><ShieldCheck className="mr-1 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" /> <span className="truncate">Stable over 30 days</span></CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
-              <CardDescription className="text-xs sm:text-sm truncate" title="Active Services">Active Services</CardDescription>
-              <CardTitle className="text-lg sm:text-2xl">42</CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 text-[10px] sm:text-xs text-muted-foreground flex items-center min-w-0"><ServerCog className="mr-1 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" /> <span className="truncate">2 in scheduled maintenance</span></CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
-              <CardDescription className="text-xs sm:text-sm truncate" title="Daily Requests">Daily Requests</CardDescription>
-              <CardTitle className="text-lg sm:text-2xl text-blue-600">18,402</CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 text-[10px] sm:text-xs text-muted-foreground flex items-center min-w-0"><Activity className="mr-1 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" /> <span className="truncate">+8.2% week over week</span></CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
-              <CardDescription className="text-xs sm:text-sm truncate" title="Growth Trend">Growth Trend</CardDescription>
-              <CardTitle className="text-lg sm:text-2xl text-indigo-600">+14.7%</CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 text-[10px] sm:text-xs text-muted-foreground flex items-center min-w-0"><TrendingUp className="mr-1 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" /> <span className="truncate">Sustained monthly uplift</span></CardContent>
           </Card>
         </div>
 

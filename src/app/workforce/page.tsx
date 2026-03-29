@@ -70,7 +70,7 @@ export default function WorkforceDashboard() {
         </Card>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 md:grid-cols-1">
         <Card>
           <CardHeader>
             <CardTitle>Recent Announcements</CardTitle>
@@ -87,23 +87,6 @@ export default function WorkforceDashboard() {
                 <div className="text-sm text-muted-foreground mt-1">Shift changes for the upcoming holiday weekend have been posted.</div>
               </div>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-            <CardDescription className="text-xs sm:text-sm truncate" title="Common tools">Common tools</CardDescription>
-          </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-4">
-            <button className="flex flex-col items-center justify-center rounded-lg border bg-card p-6 text-card-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground">
-              <CheckCircle2 className="h-6 w-6 mb-2 text-emerald-500" />
-              <span className="text-sm font-medium">Log Task</span>
-            </button>
-            <button className="flex flex-col items-center justify-center rounded-lg border bg-card p-6 text-card-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground">
-              <AlertCircle className="h-6 w-6 mb-2 text-amber-500" />
-              <span className="text-sm font-medium">Report Issue</span>
-            </button>
           </CardContent>
         </Card>
       </div>

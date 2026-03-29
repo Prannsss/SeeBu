@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
-import { Home, ClipboardList, User } from "lucide-react";
+import { Home, ClipboardList, User, ShieldCheck } from "lucide-react";
 import Dock from "@/components/ui/dock";
 
 export default function WorkforceDock() {

@@ -11,7 +11,7 @@ const UpdateUserProfileSchema = z.object({
   id: z.string().uuid("Invalid User ID format"),
   name: z.string().min(2, "Name must be at least 2 characters").max(50),
   email: z.string().email("Invalid email format"),
-  role: z.enum(["USER", "ADMIN", "SUPERADMIN"]).optional(),
+  role: z.enum(["CLIENT", "USER", "ADMIN", "SUPERADMIN", "WORKFORCE_ADMIN", "WORKFORCE_OFFICER"]).optional(),
 });
 
 // Define expected structured return type wrapper

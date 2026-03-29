@@ -59,20 +59,23 @@ The system aims to improve transparency, efficiency, and citizen engagement by d
 
 ---
 
-## Target Users
+## Target Users & Roles
 
-* **Cebu City Residents** – report and track issues
-* **Local Government Units (LGUs)** – manage and resolve reports
-* **Administrators** – monitor system performance and analytics
+* **Clients (Residents)** – Report and track community issues.
+* **Workforce** – On-ground personnel assigned to resolve specific tasks.
+* **Workforce Admins** – Manage workforce personnel and allocation.
+* **Administrators** – Monitor LGU system performance and analytics.
+* **Superadmins** – Platform-wide oversight and management of administrators.
 
 ---
 
 ## Tech Stack
 
-* **Frontend:** HTML, CSS, JavaScript (PWA-enabled)
-* **Backend:** (Specify: Node.js / PHP / Firebase / etc.)
-* **Database:** (Specify: MySQL / Firestore / etc.)
-* **APIs:** Location services, notification system
+* **Framework:** Next.js (App Router), React, TypeScript
+* **Styling & UI:** Tailwind CSS, shadcn/ui
+* **Backend API:** Next.js Server Actions
+* **AI Integration:** Firebase Genkit, RAG (Retrieval-Augmented Generation)
+* **Hosting/Config:** Firebase App Hosting
 * **Tools:** VS Code, Git, GitHub
 
 ---
@@ -81,10 +84,23 @@ The system aims to improve transparency, efficiency, and citizen engagement by d
 
 ```
 SEEBU/
-│── backend/
-│── public/
-|── src/
-│── README.md
+├── backend/            # Additional backend services & documents
+├── public/             # Static assets (images, gifs)
+├── src/
+│   ├── ai/             # AI integration logic (Genkit, RAG)
+│   ├── app/            # Next.js App Router endpoints & layouts
+│   │   ├── admin/      # Admin dashboard functionalities
+│   │   ├── superadmin/ # Super admin dashboard & controls 
+│   │   ├── workforce/  # Workforce task management
+│   │   ├── workforce-admin/ # Workforce management panel
+│   │   └── client/     # Resident reporting portal
+│   ├── components/     # UI components (shadcn/ui), navigation docks
+│   ├── hooks/          # React hooks for animations/counters
+│   ├── lib/            # Utility functions
+│   └── types/          # Global TypeScript typings
+├── apphosting.yaml     # App Hosting configuration
+├── next.config.ts      # Next.js configuration
+└── tailwind.config.ts  # Theme configuration
 ```
 
 ---
@@ -127,15 +143,15 @@ SEEBU/
 
 ---
 
-## Recommendations for Future Researchers
+## Recommendations for Future Enhancements
 
-* AI-based issue categorization
-* AI-generated uploads detection
-* Chatbot for assistance
-* Integration with emergency services
+* Deeper AI-based issue categorization (building upon current Genkit/RAG logic)
+* AI-generated uploads detection and validation
+* Chatbot for instant assistance
+* Direct integration with emergency response services
 * Mobile push notifications
 * Community feed
-* Upvoting for priority
+* Upvoting system for issue prioritization
 
 ---
 
