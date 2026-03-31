@@ -6,15 +6,30 @@ import { UserPlus, ShieldAlert, ShieldCheck } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PasswordChecklist } from "@/components/ui/password-checklist"
+import { VerificationCodeUI } from "@/components/ui/verification-code"
+import { gooeyToast } from "goey-toast"
 
 export default function SuperadminAddPage() {
   const [activeTab, setActiveTab] = useState("admin")
   const [adminPassword, setAdminPassword] = useState("")
   const [superadminPassword, setSuperadminPassword] = useState("")
+  const [isVerifying, setIsVerifying] = useState(false)
+  const [verifyingEmail, setVerifyingEmail] = useState("")
   
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    alert(`${activeTab === "admin" ? "Admin" : "Superadmin"} creation initiated. Verification email sent.`)
+    setIsVerifying(true)
+    gooeyToast.success("Verification code sent!")
+  }
+
+  const handleVerifySuccess = () => {
+    setIsVerifying(false)
+    setAdminPassword("")
+    setSuperadminPassword("")
+  }
+
+  const handleVerifyCancel = () => {
+    setIsVerifying(false)
   }
 
   return (
@@ -30,7 +45,16 @@ export default function SuperadminAddPage() {
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        {isVerifying ? (
+          <div className="max-w-md mx-auto mt-12">
+            <VerificationCodeUI 
+              onVerify={handleVerifySuccess} 
+              onCancel={handleVerifyCancel} 
+              email={verifyingEmail || "the provided email"} 
+            />
+          </div>
+        ) : (
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-8 bg-transparent p-0 gap-2">
             <TabsTrigger 
               value="admin" 
@@ -71,7 +95,14 @@ export default function SuperadminAddPage() {
                 
                 <div className="flex flex-col gap-1">
                   <div className="floating-input !mt-0">
-                    <input id="admin-email" type="email" placeholder=" " required />
+                    <input 
+                      id="admin-email" 
+                      type="email" 
+                      placeholder=" " 
+                      required 
+                      value={verifyingEmail}
+                      onChange={(e) => setVerifyingEmail(e.target.value)}
+                    />
                     <label htmlFor="admin-email">Email Address</label>
                     <span className="material-symbols-outlined input-icon">mail</span>
                   </div>
@@ -145,7 +176,14 @@ export default function SuperadminAddPage() {
                 
                 <div className="flex flex-col gap-1">
                   <div className="floating-input !mt-0">
-                    <input id="sa-email" type="email" placeholder=" " required />
+                    <input 
+                      id="sa-email" 
+                      type="email" 
+                      placeholder=" " 
+                      required 
+                      value={verifyingEmail}
+                      onChange={(e) => setVerifyingEmail(e.target.value)}
+                    />
                     <label htmlFor="sa-email">Email Address</label>
                     <span className="material-symbols-outlined input-icon">mail</span>
                   </div>
@@ -178,6 +216,7 @@ export default function SuperadminAddPage() {
             </div>
           </TabsContent>
         </Tabs>
+        )}
       </div>
     </div>
   )

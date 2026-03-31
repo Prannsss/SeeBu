@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
-import { LayoutDashboard, UserPlus, User } from "lucide-react";
+import { LayoutDashboard, UserPlus, User, ClipboardList } from "lucide-react";
 import Dock from "@/components/ui/dock";
 
 export default function WorkforceAdminDock() {
@@ -11,6 +11,7 @@ export default function WorkforceAdminDock() {
   const items = [
     { icon: <LayoutDashboard className={`w-5 h-5 ${pathname === '/workforce-admin' ? 'text-white' : ''}`} />, label: "Dashboard", onClick: () => router.push('/workforce-admin'), className: pathname === '/workforce-admin' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
     { icon: <UserPlus className={`w-5 h-5 ${pathname === '/workforce-admin/add-officer' ? 'text-white' : ''}`} />, label: "Add Officer", onClick: () => router.push('/workforce-admin/add-officer'), className: pathname === '/workforce-admin/add-officer' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
+    { icon: <ClipboardList className={`w-5 h-5 ${pathname === '/workforce-admin/tasks' ? 'text-white' : ''}`} />, label: "Tasks", onClick: () => router.push('/workforce-admin/tasks'), className: pathname === '/workforce-admin/tasks' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
     { icon: <User className={`w-5 h-5 ${pathname === '/workforce-admin/profile' ? 'text-white' : ''}`} />, label: "Profile", onClick: () => router.push('/workforce-admin/profile'), className: pathname === '/workforce-admin/profile' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
   ];
 

@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
+import { gooeyToast } from "goey-toast"
+import { Textarea } from "@/components/ui/textarea"
 
 const reports = [
   { id: "RPT-1091", title: "Flooded street section", zone: "Mabolo", urgency: "High", status: "In Review", date: "Mar 14, 2026", timeline: "Awaiting site inspection." },
@@ -21,7 +23,26 @@ export default function AdminReportsPage() {
   const [activeTab, setActiveTab] = useState("In Review");
   const [urgencyFilter, setUrgencyFilter] = useState("All");
   const [delegationOpen, setDelegationOpen] = useState<string | null>(null);
+  const [reviewOpen, setReviewOpen] = useState<string | null>(null);
+  const [rejectMode, setRejectMode] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
   const [delegateToWorkforce, setDelegateToWorkforce] = useState("");
+
+  const handleApprove = (id: string) => {
+    gooeyToast.success(`Report ${id} approved!`);
+    setReviewOpen(null);
+  }
+
+  const handleReject = (id: string) => {
+    if (!rejectReason.trim()) {
+      gooeyToast.error("Please provide a reason for rejection.");
+      return;
+    }
+    gooeyToast.success(`Report ${id} rejected. Reason: ${rejectReason}`);
+    setRejectMode(false);
+    setRejectReason("");
+    setReviewOpen(null);
+  }
 
   const filteredItems = reports.filter((item) => {
     const matchesTab = item.status === activeTab;
@@ -124,7 +145,32 @@ export default function AdminReportsPage() {
                           </div>
                         </div>
 
-                        {item.status !== 'Resolved' && (
+                        {item.status === 'In Review' && (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="mt-2 w-full font-medium text-blue-600 border-blue-200 hover:bg-blue-50"
+                            onClick={() => {
+                              setReviewOpen(item.id)
+                              setRejectMode(false)
+                              setRejectReason("")
+                            }}
+                          >
+                            View
+                          </Button>
+                        )}
+
+                        {item.status === 'Action Taken' && (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="mt-2 w-full font-medium text-blue-600 border-blue-200 hover:bg-blue-50"
+                          >
+                            View Progress
+                          </Button>
+                        )}
+                        
+                        {(item.status !== 'Resolved' && item.status !== 'In Review' && item.status !== 'Action Taken') && (
                           <DialogTrigger asChild className="mt-2 text-blue-600 border-blue-200 hover:bg-blue-50">
                             <Button variant="outline" size="sm" className="w-full font-medium">Delegate Task</Button>
                           </DialogTrigger>
@@ -133,6 +179,76 @@ export default function AdminReportsPage() {
                       </CardContent>
                     </Card>
 
+                    {/* Review Dialog */}
+                    <Dialog open={reviewOpen === item.id} onOpenChange={(open) => {
+                      if (!open) {
+                        setReviewOpen(null);
+                        setRejectMode(false);
+                      }
+                    }}>
+                      <DialogContent className="w-[calc(100%-2rem)] sm:max-w-md rounded-lg">
+                        <DialogHeader>
+                          <DialogTitle>Review Report</DialogTitle>
+                          <DialogDescription>
+                            Assess the report details below before taking action.
+                          </DialogDescription>
+                        </DialogHeader>
+                        
+                        <div className="grid gap-4 py-4">
+                          <div className="rounded-lg bg-slate-50 dark:bg-slate-900 border p-4">
+                            <div className="font-semibold text-base text-slate-900 dark:text-slate-100">{item.title}</div>
+                            <div className="text-sm text-muted-foreground mt-2 grid gap-2">
+                              <div className="flex justify-between border-b pb-2">
+                                <span className="text-slate-500">Location:</span>
+                                <span className="font-medium text-slate-700 dark:text-slate-300">{item.zone}</span>
+                              </div>
+                              <div className="flex justify-between border-b pb-2">
+                                <span className="text-slate-500">Date Logged:</span>
+                                <span className="font-medium text-slate-700 dark:text-slate-300">{item.date}</span>
+                              </div>
+                              <div className="flex justify-between pb-1">
+                                <span className="text-slate-500">Urgency:</span>
+                                <span className="font-medium text-slate-700 dark:text-slate-300">{item.urgency}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {rejectMode ? (
+                            <div className="space-y-2 animate-in fade-in zoom-in duration-200">
+                              <label htmlFor="reject-reason" className="text-sm font-medium text-red-600 flex items-center gap-1.5"><AlertCircle className="w-4 h-4"/> Reason for Rejection *</label>
+                              <Textarea 
+                                id="reject-reason" 
+                                placeholder="Explain why this report is being rejected..." 
+                                value={rejectReason}
+                                onChange={(e) => setRejectReason(e.target.value)}
+                                className="min-h-[100px] border-red-200 focus-visible:ring-red-500 bg-red-50/30"
+                              />
+                            </div>
+                          ) : null}
+                        </div>
+                        
+                        <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3 mt-2">
+                          <Button variant="ghost" onClick={() => {
+                            setReviewOpen(null);
+                            setRejectMode(false);
+                          }}>Close</Button>
+                          
+                          {rejectMode ? (
+                            <>
+                              <Button variant="outline" onClick={() => setRejectMode(false)}>Back</Button>
+                              <Button onClick={() => handleReject(item.id)} variant="destructive">Confirm Rejection</Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button onClick={() => setRejectMode(true)} variant="outline" className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700">Reject</Button>
+                              <Button onClick={() => handleApprove(item.id)} className="bg-blue-600 hover:bg-blue-700 text-white">Approve Report</Button>
+                            </>
+                          )}
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+
+                    {/* Delegation Dialog */}
                     <DialogContent className="w-[calc(100%-2rem)] sm:max-w-md rounded-lg">
                       <DialogHeader>
                         <DialogTitle>Delegate Task</DialogTitle>

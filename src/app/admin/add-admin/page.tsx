@@ -6,18 +6,33 @@ import { UserPlus, HardHat, ShieldCheck, MapPin } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { PasswordChecklist } from "@/components/ui/password-checklist"
+import { VerificationCodeUI } from "@/components/ui/verification-code"
+import { gooeyToast } from "goey-toast"
 
 export default function AdminAddPage() {
   const [activeTab, setActiveTab] = useState("admin")
   const [adminPassword, setAdminPassword] = useState("")
   const [wfPassword, setWfPassword] = useState("")
+  const [isVerifying, setIsVerifying] = useState(false)
+  const [verifyingEmail, setVerifyingEmail] = useState("")
 
   // Mocking the inviter's area
   const currentAdminArea = "Cebu City"
 
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    alert(`${activeTab === "admin" ? "Co-Admin" : "Workforce Admin"} creation initiated for ${currentAdminArea}. Verification email sent.`)
+    setIsVerifying(true)
+    gooeyToast.success("Verification code sent!")
+  }
+
+  const handleVerifySuccess = () => {
+    setIsVerifying(false)
+    setAdminPassword("")
+    setWfPassword("")
+  }
+
+  const handleVerifyCancel = () => {
+    setIsVerifying(false)
   }
 
   return (
@@ -33,7 +48,16 @@ export default function AdminAddPage() {
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        {isVerifying ? (
+          <div className="max-w-md mx-auto mt-12">
+            <VerificationCodeUI 
+              onVerify={handleVerifySuccess} 
+              onCancel={handleVerifyCancel} 
+              email={verifyingEmail || "the provided email"} 
+            />
+          </div>
+        ) : (
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-8 bg-transparent p-0 gap-2">
             <TabsTrigger 
               value="admin" 
@@ -80,7 +104,14 @@ export default function AdminAddPage() {
 
                 <div className="flex flex-col gap-1">
                   <div className="floating-input !mt-0">
-                    <input id="admin-email" type="email" placeholder=" " required />
+                    <input 
+                      id="admin-email" 
+                      type="email" 
+                      placeholder=" " 
+                      required 
+                      value={verifyingEmail}
+                      onChange={(e) => setVerifyingEmail(e.target.value)}
+                    />
                     <label htmlFor="admin-email">Email Address</label>
                     <span className="material-symbols-outlined input-icon">mail</span>
                   </div>
@@ -145,7 +176,14 @@ export default function AdminAddPage() {
                 
                 <div className="flex flex-col gap-1">
                   <div className="floating-input !mt-0">
-                    <input id="wf-email" type="email" placeholder=" " required />
+                    <input 
+                      id="wf-email" 
+                      type="email" 
+                      placeholder=" " 
+                      required 
+                      value={verifyingEmail}
+                      onChange={(e) => setVerifyingEmail(e.target.value)}
+                    />
                     <label htmlFor="wf-email">Department Email Address</label>
                     <span className="material-symbols-outlined input-icon">mail</span>
                   </div>
@@ -178,6 +216,7 @@ export default function AdminAddPage() {
             </div>
           </TabsContent>
         </Tabs>
+        )}
       </div>
     </div>
   )

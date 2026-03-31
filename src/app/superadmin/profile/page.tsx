@@ -116,10 +116,10 @@ export default function SuperadminProfilePage() {
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <button
-              className="w-full flex items-center justify-center gap-3 bg-red-500 hover:bg-red-600 dark:bg-red-900/80 dark:hover:bg-red-900 text-white border border-transparent font-semibold py-4 rounded-[10px] shadow-sm mb-8 transition-colors"
+              className="w-full flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 dark:bg-red-900/80 dark:hover:bg-red-900 text-white border border-transparent font-bold h-12 rounded-[8px] shadow-sm mb-8 transition-colors"
             >
-              <LogOut className="h-[20px] w-[20px] stroke-[2] text-white" />
-              <span className="text-[16px] text-white">Logout</span>
+              <LogOut className="h-4 w-4 text-white" />
+              <span className="text-base text-white">Logout</span>
             </button>
           </AlertDialogTrigger>
           <AlertDialogContent>

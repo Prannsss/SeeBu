@@ -3,13 +3,27 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { PasswordChecklist } from "@/components/ui/password-checklist"
+import { VerificationCodeUI } from "@/components/ui/verification-code"
+import { gooeyToast } from "goey-toast"
 
 export default function AddOfficerPage() {
   const [officerPassword, setOfficerPassword] = useState("")
+  const [isVerifying, setIsVerifying] = useState(false)
+  const [verifyingEmail, setVerifyingEmail] = useState("")
 
   const handleAddOfficer = (e: React.FormEvent) => {
     e.preventDefault()
-    alert("Workforce Officer account created. Invitation sent.")
+    setIsVerifying(true)
+    gooeyToast.success("Verification code sent!")
+  }
+
+  const handleVerifySuccess = () => {
+    setIsVerifying(false)
+    setOfficerPassword("")
+  }
+
+  const handleVerifyCancel = () => {
+    setIsVerifying(false)
   }
 
   return (
@@ -23,20 +37,36 @@ export default function AddOfficerPage() {
           </p>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 sm:p-8 animate-in fade-in duration-500">
-          <form className="space-y-6" onSubmit={handleAddOfficer}>
-            
-            <div className="floating-input">
-              <input id="officer-name" type="text" placeholder=" " required />
-              <label htmlFor="officer-name">Full Name</label>
-              <span className="material-symbols-outlined input-icon">person</span>
-            </div>
-            
-            <div className="floating-input">
-              <input id="officer-email" type="email" placeholder=" " required />
-              <label htmlFor="officer-email">Email Address</label>
-              <span className="material-symbols-outlined input-icon">mail</span>
-            </div>
+        {isVerifying ? (
+          <div className="max-w-md mx-auto mt-6">
+            <VerificationCodeUI 
+              onVerify={handleVerifySuccess} 
+              onCancel={handleVerifyCancel} 
+              email={verifyingEmail || "the provided email"} 
+            />
+          </div>
+        ) : (
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 sm:p-8 animate-in fade-in duration-500">
+            <form className="space-y-6" onSubmit={handleAddOfficer}>
+              
+              <div className="floating-input">
+                <input id="officer-name" type="text" placeholder=" " required />
+                <label htmlFor="officer-name">Full Name</label>
+                <span className="material-symbols-outlined input-icon">person</span>
+              </div>
+              
+              <div className="floating-input">
+                <input 
+                  id="officer-email" 
+                  type="email" 
+                  placeholder=" " 
+                  required 
+                  value={verifyingEmail}
+                  onChange={(e) => setVerifyingEmail(e.target.value)}
+                />
+                <label htmlFor="officer-email">Email Address</label>
+                <span className="material-symbols-outlined input-icon">mail</span>
+              </div>
 
             <div className="floating-input">
               <input id="officer-contact" type="tel" placeholder=" " required />
@@ -68,6 +98,7 @@ export default function AddOfficerPage() {
             
           </form>
         </div>
+        )}
 
       </div>
     </div>
