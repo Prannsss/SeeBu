@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ClipboardList, Users, CheckCircle2, Clock } from "lucide-react"
+import { ClipboardList, Users, CheckCircle2, Clock, Link2 } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -17,12 +17,14 @@ type Task = {
   status: "Pending" | "Accepted" | "Completed"
   date: string
   officer?: string
+  related_report_id?: string | null
+  created_by?: string
 }
 
 const initialTasks: Task[] = [
-  { id: "TSK-001", title: "Fix Drainage at Mandaue", description: "Clear out the blocked main drainage pipeline on AS Fortuna.", status: "Pending", date: "Mar 31, 2026" },
-  { id: "TSK-002", title: "Pothole Repair Banilad", description: "Patch the large pothole causing traffic buildup.", status: "Pending", date: "Mar 30, 2026" },
-  { id: "TSK-003", title: "Replacing Streetlights", description: "Change broken bulbs at the south intersection.", status: "Completed", date: "Mar 28, 2026", officer: "John Doe" },
+  { id: "TSK-001", title: "Fix Drainage at Mandaue", description: "Clear out the blocked main drainage pipeline on AS Fortuna.", status: "Pending", date: "Mar 31, 2026", related_report_id: "RPT-1084", created_by: "Admin Reyes" },
+  { id: "TSK-002", title: "Pothole Repair Banilad", description: "Patch the large pothole causing traffic buildup.", status: "Pending", date: "Mar 30, 2026", related_report_id: "RPT-1079", created_by: "Admin Reyes" },
+  { id: "TSK-003", title: "Replacing Streetlights", description: "Change broken bulbs at the south intersection.", status: "Completed", date: "Mar 28, 2026", officer: "John Doe", related_report_id: "RPT-1077", created_by: "Admin Santos" },
 ]
 
 export default function WorkforceAdminTasksPage() {
@@ -103,6 +105,27 @@ export default function WorkforceAdminTasksPage() {
                     <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
                       {task.description}
                     </p>
+
+                    {/* related_report_id */}
+                    {task.related_report_id && (
+                      <div className="flex items-center gap-2 mb-2">
+                        <Link2 className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                        <span className="text-xs text-muted-foreground">Linked Report:</span>
+                        <span className="text-xs font-mono font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/50 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800">
+                          {task.related_report_id}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* created_by */}
+                    {task.created_by && (
+                      <div className="flex items-center gap-2 mb-3">
+                        <Users className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                        <span className="text-xs text-muted-foreground">Created by:</span>
+                        <span className="text-xs font-medium text-slate-700 dark:text-slate-300">{task.created_by}</span>
+                      </div>
+                    )}
+
                     {task.officer && (
                       <p className="text-sm font-medium mb-3">Delegated to: {task.officer}</p>
                     )}
@@ -182,6 +205,16 @@ export default function WorkforceAdminTasksPage() {
                     <p className="text-sm text-slate-500 mb-2">
                       {task.description}
                     </p>
+                    {/* related_report_id on completed tasks */}
+                    {task.related_report_id && (
+                      <div className="flex items-center gap-2 mb-2">
+                        <Link2 className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                        <span className="text-xs text-muted-foreground">Linked Report:</span>
+                        <span className="text-xs font-mono font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/50 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800">
+                          {task.related_report_id}
+                        </span>
+                      </div>
+                    )}
                     {task.officer && (
                       <p className="text-sm text-slate-500">Completed by: {task.officer}</p>
                     )}

@@ -106,7 +106,7 @@ CREATE TABLE verification_tokens (
 
 -- 4. Core Application Logic (Reports & Tasks)
 CREATE TABLE reports (
-    id VARCHAR(50) PRIMARY KEY, -- e.g., 'RPT-XXXX'
+    id VARCHAR(50) PRIMARY KEY, -- e.g., 'RPT-XXXX' used  in tracking
     reporter_id UUID REFERENCES clients(id) ON DELETE SET NULL, -- Null if anonymous
     issue_type VARCHAR(50) NOT NULL, -- infrastructure, sanitation, etc.
     other_type_specification VARCHAR(255),

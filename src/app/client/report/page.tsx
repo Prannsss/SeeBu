@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ChevronLeft, ChevronRight, Upload, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Upload, X, Copy, CheckCheck, Tag } from 'lucide-react';
 import { gooeyToast } from 'goey-toast';
 import BackButton from '@/components/navigation/back-button';
 import locationDataImport from './data.json';
@@ -49,17 +49,18 @@ interface FormData {
   urgency: string;
   photos: File[];
   
-  // Step 4: Contact
-  name: string;
-  email: string;
-  phone: string;
+  // Step 4: Contact (maps to reporter_name, reporter_email, reporter_phone, is_anonymous)
+  reporterName: string;
+  reporterEmail: string;
+  reporterPhone: string;
   anonymous: boolean;
-  contactNumber: string;
 }
 
 export default function ReportIssuePage() {
   const { isLoggedIn, user } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
+  const [trackingNumber, setTrackingNumber] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     issueType: '',
     otherSpecify: '',
@@ -71,11 +72,10 @@ export default function ReportIssuePage() {
     description: '',
     urgency: 'medium',
     photos: [],
-    name: '',
-    email: '',
-    phone: '',
+    reporterName: '',
+    reporterEmail: '',
+    reporterPhone: '',
     anonymous: false,
-    contactNumber: '',
   });
 
   // If user is logged in, skip step 4 (contact info)
@@ -124,6 +124,12 @@ export default function ReportIssuePage() {
       if (field === 'municipality') {
         updated.barangay = '';
       }
+
+      // Clear reporter identity fields when switching to anonymous
+      if (field === 'anonymous' && value === true) {
+        updated.reporterName = '';
+        updated.reporterEmail = '';
+      }
       
       return updated;
     });
@@ -154,21 +160,34 @@ export default function ReportIssuePage() {
     }
   };
 
+  // Generate a mock tracking number in RPT-XXXX format (matches schema reports.id)
+  const generateTrackingNumber = () => {
+    const num = Math.floor(1000 + Math.random() * 9000);
+    return `RPT-${num}`;
+  };
+
+  const handleCopyTracking = async () => {
+    if (!trackingNumber) return;
+    await navigator.clipboard.writeText(trackingNumber);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const handleSubmit = () => {
     try {
       const submissionData = { ...formData };
 
       // If user is logged in, use their info automatically
       if (isLoggedIn && user) {
-        submissionData.name = user.name;
-        submissionData.email = user.email;
+        submissionData.reporterName = user.name;
+        submissionData.reporterEmail = user.email;
       }
 
-      console.log('Form submitted:', submissionData);
-      // Handle form submission logic here
-      gooeyToast.success("Report Submitted", {
-        description: "Your issue has been reported successfully!",
-      });
+      const generatedId = generateTrackingNumber();
+      console.log('Form submitted with tracking number:', generatedId, submissionData);
+
+      // Show tracking number modal
+      setTrackingNumber(generatedId);
     } catch (error) {
       gooeyToast.error("Submission Failed", {
         description: "We could not submit your report. Please review the details and try again.",
@@ -514,22 +533,18 @@ export default function ReportIssuePage() {
                     Choose how to submit
                   </h2>
                   <p className="text-gray-600 dark:text-gray-400">
-                    Report anonymously or create an account for better tracking and validation.
+                    Report anonymously or provide your contact info for better tracking.
                   </p>
                 </div>
 
                 <div className="space-y-4">
+                  {/* Anonymous Toggle */}
                   <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                     <label className="flex items-start gap-3 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={formData.anonymous}
-                        onChange={(e) => {
-                          updateFormData('anonymous', e.target.checked);
-                          if (!e.target.checked) {
-                            updateFormData('contactNumber', '');
-                          }
-                        }}
+                        onChange={(e) => updateFormData('anonymous', e.target.checked)}
                         className="mt-1 w-4 h-4 text-primary rounded focus:ring-2 focus:ring-primary"
                       />
                       <div className="flex-1">
@@ -543,21 +558,68 @@ export default function ReportIssuePage() {
                     </label>
                   </div>
 
-                  {/* Optional Contact Number for Anonymous Reports */}
+                  {/* Non-anonymous: name + email + phone */}
+                  {!formData.anonymous && (
+                    <div className="space-y-4 animate-fade-in">
+                      <div className="floating-input">
+                        <input
+                          id="reporterName"
+                          type="text"
+                          value={formData.reporterName}
+                          onChange={(e) => updateFormData('reporterName', e.target.value)}
+                          placeholder=" "
+                          required
+                        />
+                        <label htmlFor="reporterName">Full Name *</label>
+                        <span className="material-symbols-outlined input-icon">person</span>
+                      </div>
+
+                      <div className="floating-input">
+                        <input
+                          id="reporterEmail"
+                          type="email"
+                          value={formData.reporterEmail}
+                          onChange={(e) => updateFormData('reporterEmail', e.target.value)}
+                          placeholder=" "
+                          required
+                        />
+                        <label htmlFor="reporterEmail">Email Address *</label>
+                        <span className="material-symbols-outlined input-icon">mail</span>
+                      </div>
+
+                      <div className="floating-input">
+                        <input
+                          id="reporterPhone"
+                          type="tel"
+                          value={formData.reporterPhone}
+                          onChange={(e) => {
+                            const formatted = formatPhoneNumber(e.target.value);
+                            updateFormData('reporterPhone', formatted);
+                          }}
+                          placeholder=" "
+                          maxLength={13}
+                        />
+                        <label htmlFor="reporterPhone">Phone Number (Optional)</label>
+                        <span className="material-symbols-outlined input-icon">phone</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Anonymous: phone only */}
                   {formData.anonymous && (
-                    <div className="floating-input">
+                    <div className="floating-input animate-fade-in">
                       <input
-                        id="contactNumber"
+                        id="reporterPhone"
                         type="tel"
-                        value={formData.contactNumber}
+                        value={formData.reporterPhone}
                         onChange={(e) => {
                           const formatted = formatPhoneNumber(e.target.value);
-                          updateFormData('contactNumber', formatted);
+                          updateFormData('reporterPhone', formatted);
                         }}
                         placeholder=" "
                         maxLength={13}
                       />
-                      <label htmlFor="contactNumber">Contact Number (Optional)</label>
+                      <label htmlFor="reporterPhone">Contact Number (Optional)</label>
                       <span className="material-symbols-outlined input-icon">phone</span>
                     </div>
                   )}
@@ -624,7 +686,8 @@ export default function ReportIssuePage() {
             ) : (
               <button
                 onClick={handleSubmit}
-                className="flex-1 px-6 py-3 rounded-lg bg-secondary text-white font-medium hover:bg-secondary-dark transition-all"
+                disabled={!isLoggedIn && !formData.anonymous && (!formData.reporterName.trim() || !formData.reporterEmail.trim())}
+                className="flex-1 px-6 py-3 rounded-lg bg-secondary text-white font-medium hover:bg-secondary-dark transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Submit Report
               </button>
@@ -650,6 +713,64 @@ export default function ReportIssuePage() {
     <div className="md:hidden block">
 
     </div>
+
+    {/* Tracking Number Success Modal */}
+    {trackingNumber && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-sm w-full p-8 flex flex-col items-center gap-5 border border-gray-100 dark:border-gray-800">
+          {/* Success icon */}
+          <div className="flex items-center justify-center w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/40">
+            <span className="material-symbols-outlined text-4xl text-green-600 dark:text-green-400">check_circle</span>
+          </div>
+
+          <div className="text-center space-y-1">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white">Report Submitted!</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Your report has been received. Use the tracking number below to monitor its status.
+            </p>
+          </div>
+
+          {/* Tracking Number Display */}
+          <div className="w-full bg-gray-50 dark:bg-gray-800 rounded-xl border-2 border-dashed border-primary/40 p-4 flex flex-col items-center gap-2">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-widest">
+              <Tag size={12} />
+              Tracking Number
+            </div>
+            <div className="text-3xl font-black text-primary tracking-widest">{trackingNumber}</div>
+            <button
+              onClick={handleCopyTracking}
+              className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-primary transition-colors mt-1"
+            >
+              {copied ? (
+                <><CheckCheck size={13} className="text-green-500" /> Copied!</>
+              ) : (
+                <><Copy size={13} /> Copy to clipboard</>
+              )}
+            </button>
+          </div>
+
+          <p className="text-xs text-gray-400 dark:text-gray-500 text-center">
+            Save this number — you&apos;ll need it to track your report.
+          </p>
+
+          <div className="flex flex-col w-full gap-2">
+            <Link
+              href="/client/tracking"
+              className="w-full text-center px-6 py-3 rounded-lg bg-primary text-white font-medium hover:bg-primary/90 transition-all"
+            >
+              Track My Report
+            </Link>
+            <Link
+              href="/client"
+              onClick={() => setTrackingNumber(null)}
+              className="w-full text-center px-6 py-3 rounded-lg border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
+            >
+              Back to Home
+            </Link>
+          </div>
+        </div>
+      </div>
+    )}
     </>
   );
 }

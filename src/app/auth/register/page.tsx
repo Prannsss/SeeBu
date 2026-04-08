@@ -8,10 +8,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
+import { gooeyToast } from "goey-toast";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const [contactNumber, setContactNumber] = useState("");
+  const [contactNumber, setContactNumber] = useState("+63");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Phone number formatter for Philippine format
   const formatPhoneNumber = (value: string) => {
@@ -35,9 +39,23 @@ export default function RegisterPage() {
     return limited ? '+63' + limited : '';
   };
 
-  const handleSignup = (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    router.push('/auth/verify');
+    setIsLoading(true);
+    try {
+      // TODO: replace with real API call
+      await new Promise(res => setTimeout(res, 800));
+      gooeyToast.success("Account Created!", {
+        description: "Check your email to verify your account.",
+      });
+      router.push('/auth/verify');
+    } catch {
+      gooeyToast.error("Sign Up Failed", {
+        description: "Something went wrong. Please try again.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -148,10 +166,10 @@ export default function RegisterPage() {
               </div>
 
               {/* Password */}
-              <div className="floating-input">
+              <div className="floating-input has-right-icon">
                 <input 
                   id="password" 
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   placeholder=" "
                   required 
                   minLength={8}
@@ -159,6 +177,15 @@ export default function RegisterPage() {
                 />
                 <label htmlFor="password">Password</label>
                 <span className="material-symbols-outlined input-icon">lock</span>
+                <button
+                  type="button"
+                  className="input-icon-right"
+                  onClick={() => setShowPassword(v => !v)}
+                  tabIndex={-1}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
               </div>
               <p className="text-xs text-text-muted dark:text-gray-400 -mt-3 ml-1">Minimum 8 characters with at least one number.</p>
 
@@ -168,8 +195,12 @@ export default function RegisterPage() {
                   I agree to SeeBu's <Link href="#" className="text-primary underline hover:text-primary-dark">Terms of Service</Link> and <Link href="#" className="text-primary underline hover:text-primary-dark">Privacy Policy</Link>.
                 </label>
               </div>
-              <Button className="w-full h-12 text-lg bg-primary hover:bg-primary-dark text-white font-bold shadow-lg" type="submit">
-                Create Account
+              <Button
+                className="w-full h-12 text-lg bg-primary hover:bg-primary-dark text-white font-bold shadow-lg disabled:opacity-60"
+                type="submit"
+                disabled={isLoading}
+              >
+                {isLoading ? "Creating account…" : "Create Account"}
               </Button>
             </form>
             

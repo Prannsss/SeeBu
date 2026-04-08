@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Search, CheckCircle, Clock, AlertTriangle, ArrowRight, XCircle } from "lucide-react";
-import { toast } from "sonner";
+import { Search, CheckCircle, Clock, AlertTriangle, XCircle } from "lucide-react";
+import { gooeyToast } from "goey-toast";
 import Image from "next/image";
 
 type TimelineEvent = {
@@ -59,10 +59,14 @@ export default function TrackingPage() {
     const data = MOCK_DB[trackingNumber.toUpperCase()];
     if (data) {
       setResult(data);
-      toast.success("Report found!");
+      gooeyToast.success("Report Found!", {
+        description: `Showing status for ${trackingNumber.toUpperCase()}.`,
+      });
     } else {
       setResult(null);
-      toast.error("Tracking number not found.");
+      gooeyToast.error("Not Found", {
+        description: "No report matches that tracking number. Please check and try again.",
+      });
     }
   };
 

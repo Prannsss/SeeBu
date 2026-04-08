@@ -202,6 +202,42 @@
   color: #13b6ec;
 }
 
+/* Right-side icon/button (e.g. password eye toggle) */
+.floating-input .input-icon-right {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ca3af;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+  font-size: 1.25rem;
+  line-height: 0;
+}
+
+.floating-input .input-icon-right:hover {
+  color: #13b6ec;
+}
+
+@media (min-width: 640px) {
+  .floating-input .input-icon-right {
+    right: 1rem;
+    font-size: 1.5rem;
+  }
+}
+
+/* When there is a right icon, add extra right padding to input */
+.floating-input.has-right-icon input {
+  padding-right: 3rem;
+}
+
+
 /* Auth pages background */
 .auth-bg {
   background-color: #E3F2FD;
@@ -240,7 +276,53 @@
   background-size: 1.5em 1.5em;
 }
 
-/* Gooey toast mobile centering and text containment */
+/* ============================================================
+   Gooey Toast Fixes: text containment, wrapping, no timestamp
+   ============================================================ */
+
+/* Hide the timestamp completely */
+.gooey-timestamp {
+  display: none !important;
+}
+
+/* Allow title to wrap for long text */
+.gooey-title {
+  white-space: normal !important;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 260px;
+  line-height: 1.3 !important;
+}
+
+/* Ensure the header row wraps and doesn't overflow */
+.gooey-header {
+  flex-wrap: wrap;
+  max-width: 280px;
+  align-items: flex-start !important;
+}
+
+/* Expanded (with description) — constrain width on all screens */
+.gooey-contentExpanded {
+  min-width: 260px;
+  max-width: min(380px, calc(100vw - 32px));
+  box-sizing: border-box;
+}
+
+/* Compact (title-only) — also constrain */
+.gooey-contentCompact {
+  max-width: min(340px, calc(100vw - 32px));
+  box-sizing: border-box;
+}
+
+/* Description always wraps */
+.gooey-description {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
+  max-width: 100%;
+}
+
+/* Mobile: center toaster and tighten sizing */
 @media (max-width: 640px) {
   [data-sonner-toaster][data-x-position="center"] {
     left: 0 !important;
@@ -263,14 +345,11 @@
     max-width: calc(100vw - 32px) !important;
   }
 
-  .gooey-header,
-  .gooey-title,
-  .gooey-description {
-    max-width: 100%;
-    overflow-wrap: anywhere;
+  .gooey-title {
+    max-width: calc(100vw - 80px);
+  }
+
+  .gooey-header {
+    max-width: calc(100vw - 48px);
   }
 }
-
-
-
-

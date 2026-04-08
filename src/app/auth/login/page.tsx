@@ -5,8 +5,34 @@ import { Button } from "@/components/ui/button";
 import BackButton from "@/components/navigation/back-button";
 import Link from "next/link";
 import Image from "next/image";
+import { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
+import { gooeyToast } from "goey-toast";
+import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
+  const router = useRouter();
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    try {
+      // TODO: replace with real API call
+      await new Promise(res => setTimeout(res, 800));
+      gooeyToast.success("Welcome back!", {
+        description: "You've been logged in successfully.",
+      });
+      router.push("/client");
+    } catch {
+      gooeyToast.error("Login Failed", {
+        description: "Invalid email or password. Please try again.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
   return (
     <div className="min-h-screen flex bg-background-light dark:bg-gray-950">
       <BackButton
@@ -51,7 +77,7 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <form className="space-y-5 sm:space-y-6">
+            <form className="space-y-5 sm:space-y-6" onSubmit={handleLogin}>
               {/* Email */}
               <div className="floating-input">
                 <input 
@@ -66,10 +92,10 @@ export default function LoginPage() {
               </div>
 
               {/* Password */}
-              <div className="floating-input">
+              <div className="floating-input has-right-icon">
                 <input 
                   id="password" 
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   placeholder=" "
                   required 
                   minLength={8}
@@ -77,14 +103,27 @@ export default function LoginPage() {
                 />
                 <label htmlFor="password">Password</label>
                 <span className="material-symbols-outlined input-icon">lock</span>
+                <button
+                  type="button"
+                  className="input-icon-right"
+                  onClick={() => setShowPassword(v => !v)}
+                  tabIndex={-1}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
               </div>
 
               <div className="flex justify-end -mt-2">
                 <Link href="/auth/forgot-pw" className="text-xs text-primary hover:text-primary-dark hover:underline">Forgot password?</Link>
               </div>
 
-              <Button className="w-full h-12 text-lg bg-primary hover:bg-primary-dark text-white font-bold shadow-lg" type="submit">
-                Log In
+              <Button
+                className="w-full h-12 text-lg bg-primary hover:bg-primary-dark text-white font-bold shadow-lg disabled:opacity-60"
+                type="submit"
+                disabled={isLoading}
+              >
+                {isLoading ? "Logging in…" : "Log In"}
               </Button>
             </form>
             

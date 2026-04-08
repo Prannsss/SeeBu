@@ -12,11 +12,12 @@ import { gooeyToast } from "goey-toast"
 import { Textarea } from "@/components/ui/textarea"
 
 const reports = [
-  { id: "RPT-1091", title: "Flooded street section", zone: "Mabolo", urgency: "High", status: "In Review", date: "Mar 14, 2026", timeline: "Awaiting site inspection." },
-  { id: "RPT-1084", title: "Damaged drainage cover", zone: "Talamban", urgency: "Medium", status: "Action Taken", date: "Mar 12, 2026", timeline: "Maintenance crew dispatched." },
-  { id: "RPT-1077", title: "Traffic light outage", zone: "Lahug", urgency: "High", status: "Resolved", date: "Mar 11, 2026", timeline: "Issue completely resolved and verified." },
-  { id: "RPT-1078", title: "Illegal dumping", zone: "Guadalupe", urgency: "Low", status: "In Review", date: "Mar 09, 2026", timeline: "Assigned to Public Works department." },
-  { id: "RPT-1079", title: "Road pothole", zone: "Capitol Site", urgency: "Medium", status: "Action Taken", date: "Mar 08, 2026", timeline: "Road blocked off, repair starting tomorrow." },
+  { id: "RPT-1091", title: "Flooded street section", issueType: "infrastructure", description: "Deep flooding blocking vehicle and foot traffic near the main road.", zone: "Mabolo", barangay: "Mabolo", urgency: "High", status: "In Review", date: "Mar 14, 2026", timeline: "Awaiting site inspection.", completedBy: null, rejectionReason: null },
+  { id: "RPT-1084", title: "Damaged drainage cover", issueType: "infrastructure", description: "Drainage cover is broken and poses a hazard to pedestrians and cyclists.", zone: "Talamban", barangay: "Talamban", urgency: "Medium", status: "Action Taken", date: "Mar 12, 2026", timeline: "Maintenance crew dispatched.", completedBy: null, rejectionReason: null },
+  { id: "RPT-1077", title: "Traffic light outage", issueType: "traffic", description: "Traffic light at the main intersection is completely non-functional for 3 days.", zone: "Lahug", barangay: "Lahug", urgency: "High", status: "Resolved", date: "Mar 11, 2026", timeline: "Issue completely resolved and verified.", completedBy: "Maria Garcia", rejectionReason: null },
+  { id: "RPT-1078", title: "Illegal dumping", issueType: "sanitation", description: "Large pile of construction waste illegally dumped in residential area.", zone: "Guadalupe", barangay: "Guadalupe", urgency: "Low", status: "In Review", date: "Mar 09, 2026", timeline: "Assigned to Public Works department.", completedBy: null, rejectionReason: null },
+  { id: "RPT-1079", title: "Road pothole", issueType: "infrastructure", description: "Large pothole causing traffic delay and vehicle damage on a busy stretch.", zone: "Capitol Site", barangay: "Capitol Site", urgency: "Medium", status: "Action Taken", date: "Mar 08, 2026", timeline: "Road blocked off, repair starting tomorrow.", completedBy: null, rejectionReason: null },
+  { id: "RPT-1065", title: "Broken streetlight", issueType: "utilities", description: "Streetlight on corner of M. Velez and V. Rama has been out for a week.", zone: "Lahug", barangay: "Lahug", urgency: "Low", status: "Rejected", date: "Mar 05, 2026", timeline: "Report rejected — outside jurisdiction.", completedBy: null, rejectionReason: "This area falls under a different administrative jurisdiction. Please re-submit to the correct barangay." },
 ]
 
 export default function AdminReportsPage() {
@@ -97,6 +98,12 @@ export default function AdminReportsPage() {
             >
               Resolved
             </TabsTrigger>
+            <TabsTrigger
+              value="Rejected"
+              className="flex-1 text-sm md:text-base py-3 px-4 sm:px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-red-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-red-600 font-medium transition-all duration-300 ease-in-out whitespace-nowrap"
+            >
+              Rejected
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value={activeTab} className="m-0 focus-visible:outline-none">
@@ -113,16 +120,33 @@ export default function AdminReportsPage() {
                         <div>
                           <CardTitle className="text-lg">{item.title}</CardTitle>
                           <CardDescription className="mt-1 flex items-center gap-1.5">
-                            <MapPin className="h-3.5 w-3.5" /> {item.zone} • {item.date}
+                            <MapPin className="h-3.5 w-3.5" /> {item.barangay} • {item.date}
                           </CardDescription>
                         </div>
-                        <Badge variant="outline" className="border-blue-300 text-blue-700 bg-blue-50/50 mt-2 sm:mt-0 whitespace-nowrap">{item.id}</Badge>
+                        <Badge variant="outline" className="border-blue-300 text-blue-700 bg-blue-50/50 mt-2 sm:mt-0 whitespace-nowrap font-mono">{item.id}</Badge>
                       </CardHeader>
                       <CardContent className="flex flex-col gap-3">
                         <div className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-400">
                           <FileText className="h-4 w-4 mt-0.5 shrink-0" />
                           <span className="leading-snug">{item.timeline}</span>
                         </div>
+
+                        {/* completed_by — shown on Resolved cards */}
+                        {item.status === 'Resolved' && item.completedBy && (
+                          <div className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-400">
+                            <CheckCircle2 className="h-4 w-4 shrink-0" />
+                            <span>Completed by: <span className="font-semibold">{item.completedBy}</span></span>
+                          </div>
+                        )}
+
+                        {/* rejection_reason — shown on Rejected cards */}
+                        {item.status === 'Rejected' && item.rejectionReason && (
+                          <div className="flex items-start gap-2 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900 rounded-lg p-3">
+                            <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                            <span className="leading-snug"><span className="font-semibold">Reason:</span> {item.rejectionReason}</span>
+                          </div>
+                        )}
+
                         <div className="flex justify-between items-center mt-2 border-t pt-3">
                           <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Status • Urgency</span>
                           <div className="flex items-center gap-2">
@@ -156,7 +180,7 @@ export default function AdminReportsPage() {
                               setRejectReason("")
                             }}
                           >
-                            View
+                            View &amp; Review
                           </Button>
                         )}
 
@@ -170,7 +194,7 @@ export default function AdminReportsPage() {
                           </Button>
                         )}
                         
-                        {(item.status !== 'Resolved' && item.status !== 'In Review' && item.status !== 'Action Taken') && (
+                        {(item.status !== 'Resolved' && item.status !== 'In Review' && item.status !== 'Action Taken' && item.status !== 'Rejected') && (
                           <DialogTrigger asChild className="mt-2 text-blue-600 border-blue-200 hover:bg-blue-50">
                             <Button variant="outline" size="sm" className="w-full font-medium">Delegate Task</Button>
                           </DialogTrigger>
@@ -196,11 +220,19 @@ export default function AdminReportsPage() {
                         
                         <div className="grid gap-4 py-4">
                           <div className="rounded-lg bg-slate-50 dark:bg-slate-900 border p-4">
-                            <div className="font-semibold text-base text-slate-900 dark:text-slate-100">{item.title}</div>
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="font-semibold text-base text-slate-900 dark:text-slate-100">{item.title}</div>
+                              <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950 px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-800">{item.id}</span>
+                            </div>
+                            <div className="text-sm text-slate-600 dark:text-slate-400 mb-3 leading-relaxed">{item.description}</div>
                             <div className="text-sm text-muted-foreground mt-2 grid gap-2">
                               <div className="flex justify-between border-b pb-2">
-                                <span className="text-slate-500">Location:</span>
-                                <span className="font-medium text-slate-700 dark:text-slate-300">{item.zone}</span>
+                                <span className="text-slate-500">Issue Type:</span>
+                                <span className="font-medium text-slate-700 dark:text-slate-300 capitalize">{item.issueType}</span>
+                              </div>
+                              <div className="flex justify-between border-b pb-2">
+                                <span className="text-slate-500">Barangay:</span>
+                                <span className="font-medium text-slate-700 dark:text-slate-300">{item.barangay}</span>
                               </div>
                               <div className="flex justify-between border-b pb-2">
                                 <span className="text-slate-500">Date Logged:</span>
