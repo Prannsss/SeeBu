@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Search, CheckCircle, Clock, AlertTriangle, XCircle } from "lucide-react";
 import { gooeyToast } from "goey-toast";
@@ -49,7 +49,7 @@ const MOCK_DB: Record<string, MockData> = {
   }
 };
 
-export default function TrackingPage() {
+function TrackingContent() {
   const searchParams = useSearchParams();
   const defaultQuery = searchParams.get("id") || "";
   const [trackingNumber, setTrackingNumber] = useState(defaultQuery);
@@ -206,5 +206,13 @@ const handleTrack = async (e: React.FormEvent) => {
         )}
       </div>
     </div>
+  );
+}
+
+export default function TrackingPage() {
+  return (
+    <React.Suspense fallback={<div className="container mx-auto max-w-2xl px-4 pt-16 text-center">Loading tracking details...</div>}>
+      <TrackingContent />
+    </React.Suspense>
   );
 }
