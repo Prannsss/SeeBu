@@ -266,6 +266,40 @@ export default function RegisterPage() {
               </Button>
             </form>
             
+            <div className="mt-8 flex items-center justify-center space-x-4">
+              <span className="h-px bg-gray-300 dark:bg-gray-700 w-full"></span>
+              <span className="text-gray-500 font-medium text-sm">OR</span>
+              <span className="h-px bg-gray-300 dark:bg-gray-700 w-full"></span>
+            </div>
+
+            <div className="mt-6 flex flex-col space-y-4">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full h-12 flex items-center justify-center gap-3 font-semibold text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+                onClick={() => loginGoogle()}
+              >
+                <Image src="/assets/google.svg" alt="Google" width={24} height={24} />
+                Continue with Google
+              </Button>
+              <FacebookLogin
+                appId={process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || ""}
+                callback={handleFacebookCallback}
+                fields="name,email,picture"
+                render={(renderProps: any) => (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full h-12 flex items-center justify-center gap-3 font-semibold text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+                    onClick={renderProps.onClick}
+                  >
+                    <Image src="/assets/facebook.svg" alt="Facebook" width={24} height={24} />
+                    Continue with Facebook
+                  </Button>
+                )}
+              />
+            </div>
+
             <div className="mt-6 pt-6 border-t border-gray-300 dark:border-gray-700 text-center">
               <p className="text-sm text-text-muted dark:text-gray-400">
                 Already have an account? <Link href="/auth/login" className="text-primary font-bold hover:underline">Log in</Link>
