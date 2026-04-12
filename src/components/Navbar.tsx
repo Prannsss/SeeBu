@@ -19,16 +19,25 @@ export function Navbar({ items = [] }: NavbarProps) {
   const [isOpen, setIsOpen] = useState(false);
   
   const defaultItems: NavItem[] = [
-    { label: 'About', href: '#about' },
-    { label: 'Process', href: '#process' },
-    { label: 'Features', href: '#features' },
-    { label: 'Contact', href: '#contact' }
+    { label: 'Home', href: '/#top' },
+    { label: 'Process', href: '/#process' },
+    { label: 'Features', href: '/#features' },
+    { label: 'Contact', href: '/#contact' },
+    { label: 'Track Report', href: '/track' }
   ];
 
   const navItems = items.length > 0 ? items : defaultItems;
 
   const scrollToTarget = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    if (href.startsWith('/#')) {
+      href = href.substring(1); // remove the slash for the in-page scrolling logic
+    }
     if (href.startsWith('#')) {
+      const isHomePage = window.location.pathname === '/';
+      if (!isHomePage) {
+        // Let normal navigation happen if we are not on the homepage
+        return;
+      }
       e.preventDefault();
       const target = document.querySelector(href);
       if (target) {

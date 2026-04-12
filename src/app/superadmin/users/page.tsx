@@ -8,26 +8,30 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-
-const MOCK_USERS = [
-  { id: "1", name: "Juan Dela Cruz", role: "ADMIN", area: "Cebu City", email: "juan@cebucity.gov.ph", status: "Active" },
-  { id: "2", name: "Maria Clara", role: "SUPERADMIN", area: "Global", email: "maria@seebu.ph", status: "Active" },
-  { id: "3", name: "Pedro Penduko", role: "WORKFORCE_ADMIN", area: "Mandaue City", email: "pedro@mandaue.gov.ph", status: "Active" },
-  { id: "4", name: "Andres Bonifacio", role: "WORKFORCE_OFFICER", area: "Cebu City", email: "andres@cebucity.gov.ph", status: "Active" },
-  { id: "5", name: "Gabriela Silang", role: "CLIENT", area: "Lapu-Lapu City", email: "gabi@gmail.com", status: "Active" },
-  { id: "6", name: "Apolinario Mabini", role: "ADMIN", area: "Talisay City", email: "apolinario@talisay.gov.ph", status: "Pending" },
-]
+import { useQuery } from "@tanstack/react-query"
 
 export default function SuperadminUsersPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [roleFilter, setRoleFilter] = useState("ALL")
   const [areaFilter, setAreaFilter] = useState("ALL")
 
-  const filteredUsers = MOCK_USERS.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) || user.email.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesRole = roleFilter === "ALL" || user.role === roleFilter
-    const matchesArea = areaFilter === "ALL" || user.area === areaFilter
-    return matchesSearch && matchesRole && matchesArea
+  const { data: users, isLoading } = useQuery({
+    queryKey: ["superadmin-users"],
+    queryFn: async () => {
+      const res = await fetch("http://localhost:5000/api/v1/users")
+      if (!res.ok) throw new Error("Failed to fetch users")
+      const json = await res.json()
+      return json.data
+    }
+  })
+
+  const userList = Array.isArray(users) ? users : [];
+
+  const filteredUsers = userList.filter((user: any) => {
+    const nameMatch = user.name?.toLowerCase().includes(searchTerm.toLowerCase()) || user.email?.toLowerCase().includes(searchTerm.toLowerCase())
+    const roleMatch = roleFilter === "ALL" || user.role === roleFilter        
+    const areaMatch = areaFilter === "ALL" || user.area === areaFilter        
+    return nameMatch && roleMatch && areaMatch
   })
 
   // Helper method for badge styles

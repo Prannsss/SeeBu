@@ -67,8 +67,8 @@ export async function generateDocumentSummary(query: string, userId: string): Pr
     });
 
     // Output is fully verified against the Zod schema by Genkit natively.
-    const result = response.output();
-    
+    const result = response.output;
+
     if (!result) {
       throw new Error("AI returned a null or invalid response");
     }

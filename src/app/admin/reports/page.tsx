@@ -10,28 +10,53 @@ import { Button } from "@/components/ui/button"
 import { useState } from "react"
 import { gooeyToast } from "goey-toast"
 import { Textarea } from "@/components/ui/textarea"
-
-const reports = [
-  { id: "RPT-1091", title: "Flooded street section", issueType: "infrastructure", description: "Deep flooding blocking vehicle and foot traffic near the main road.", zone: "Mabolo", barangay: "Mabolo", urgency: "High", status: "In Review", date: "Mar 14, 2026", timeline: "Awaiting site inspection.", completedBy: null, rejectionReason: null },
-  { id: "RPT-1084", title: "Damaged drainage cover", issueType: "infrastructure", description: "Drainage cover is broken and poses a hazard to pedestrians and cyclists.", zone: "Talamban", barangay: "Talamban", urgency: "Medium", status: "Action Taken", date: "Mar 12, 2026", timeline: "Maintenance crew dispatched.", completedBy: null, rejectionReason: null },
-  { id: "RPT-1077", title: "Traffic light outage", issueType: "traffic", description: "Traffic light at the main intersection is completely non-functional for 3 days.", zone: "Lahug", barangay: "Lahug", urgency: "High", status: "Resolved", date: "Mar 11, 2026", timeline: "Issue completely resolved and verified.", completedBy: "Maria Garcia", rejectionReason: null },
-  { id: "RPT-1078", title: "Illegal dumping", issueType: "sanitation", description: "Large pile of construction waste illegally dumped in residential area.", zone: "Guadalupe", barangay: "Guadalupe", urgency: "Low", status: "In Review", date: "Mar 09, 2026", timeline: "Assigned to Public Works department.", completedBy: null, rejectionReason: null },
-  { id: "RPT-1079", title: "Road pothole", issueType: "infrastructure", description: "Large pothole causing traffic delay and vehicle damage on a busy stretch.", zone: "Capitol Site", barangay: "Capitol Site", urgency: "Medium", status: "Action Taken", date: "Mar 08, 2026", timeline: "Road blocked off, repair starting tomorrow.", completedBy: null, rejectionReason: null },
-  { id: "RPT-1065", title: "Broken streetlight", issueType: "utilities", description: "Streetlight on corner of M. Velez and V. Rama has been out for a week.", zone: "Lahug", barangay: "Lahug", urgency: "Low", status: "Rejected", date: "Mar 05, 2026", timeline: "Report rejected — outside jurisdiction.", completedBy: null, rejectionReason: "This area falls under a different administrative jurisdiction. Please re-submit to the correct barangay." },
-]
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 
 export default function AdminReportsPage() {
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("In Review");
   const [urgencyFilter, setUrgencyFilter] = useState("All");
-  const [delegationOpen, setDelegationOpen] = useState<string | null>(null);
+  const [delegationOpen, setDelegationOpen] = useState<string | null>(null);    
   const [reviewOpen, setReviewOpen] = useState<string | null>(null);
   const [rejectMode, setRejectMode] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [delegateToWorkforce, setDelegateToWorkforce] = useState("");
 
+  const { data: reportsData, isLoading } = useQuery({
+    queryKey: ['admin-reports'],
+    queryFn: async () => {
+      const res = await fetch('http://localhost:5000/api/v1/reports?municipality_id=cebu-city');
+      if (!res.ok) throw new Error('Failed to fetch reports');
+      const json = await res.json();
+      return json.data;
+    }
+  });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async (payload: { id: string, status: string, notes?: string, rejection_reason?: string, delegated_to?: string }) => {
+      const res = await fetch(`http://localhost:5000/api/v1/reports/${payload.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer simulated-jwt-token' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error('Failed to update report');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-reports'] });
+    }
+  });
+
   const handleApprove = (id: string) => {
-    gooeyToast.success(`Report ${id} approved!`);
-    setReviewOpen(null);
+    updateStatusMutation.mutate({ id, status: 'Approved', notes: 'Report approved by Admin.' }, {
+      onSuccess: () => {
+        gooeyToast.success(`Report ${id} approved!`);
+        setReviewOpen(null);
+      },
+      onError: (err) => {
+        gooeyToast.error(err.message);
+      }
+    });
   }
 
   const handleReject = (id: string) => {
@@ -39,13 +64,49 @@ export default function AdminReportsPage() {
       gooeyToast.error("Please provide a reason for rejection.");
       return;
     }
-    gooeyToast.success(`Report ${id} rejected. Reason: ${rejectReason}`);
-    setRejectMode(false);
-    setRejectReason("");
-    setReviewOpen(null);
+    updateStatusMutation.mutate({ id, status: 'Rejected', notes: 'Report rejected.', rejection_reason: rejectReason }, {
+      onSuccess: () => {
+        gooeyToast.success(`Report ${id} rejected. Reason: ${rejectReason}`);       
+        setRejectMode(false);
+        setRejectReason("");
+        setReviewOpen(null);
+      },
+      onError: (err) => {
+        gooeyToast.error(err.message);
+      }
+    });
   }
 
-  const filteredItems = reports.filter((item) => {
+  const handleDelegate = (id: string) => {
+    if (!delegateToWorkforce) return;
+    updateStatusMutation.mutate({ id, status: 'Delegated', notes: `Delegated to ${delegateToWorkforce}`, delegated_to: delegateToWorkforce }, {
+      onSuccess: () => {
+        gooeyToast.success(`Report ${id} delegated successfully!`);
+        setDelegationOpen(null);
+        setDelegateToWorkforce("");
+      },
+      onError: (err) => {
+        gooeyToast.error(err.message);
+      }
+    });
+  }
+
+  const reportsList = Array.isArray(reportsData) ? reportsData.map(r => ({
+    id: r.id,
+    title: r.title,
+    issueType: r.issue_type,
+    description: r.description,
+    zone: r.barangays?.name || "Unknown",
+    barangay: r.barangays?.name || "Unknown",
+    urgency: r.urgency,
+    status: r.status,
+    date: new Date(r.created_at).toLocaleDateString(),
+    timeline: r.report_timeline?.[0]?.notes || 'No timeline records.',
+    completedBy: r.completed_by,
+    rejectionReason: r.rejection_reason
+  })) : [];
+
+  const filteredItems = reportsList.filter((item: any) => {
     const matchesTab = item.status === activeTab;
     const matchesUrgency = urgencyFilter === "All" || item.urgency === urgencyFilter;
     return matchesTab && matchesUrgency;
@@ -319,7 +380,7 @@ export default function AdminReportsPage() {
                       <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3">
                         <Button variant="outline" onClick={() => setDelegationOpen(null)}>Cancel</Button>
                         <Button 
-                          onClick={() => { console.log(`Delegated ${item.id} to:`, delegateToWorkforce); setDelegationOpen(null); }}
+                          onClick={() => { handleDelegate(item.id) }}
                           disabled={!delegateToWorkforce}
                           className="bg-blue-600 hover:bg-blue-700 text-white"
                         >

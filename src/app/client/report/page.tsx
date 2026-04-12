@@ -1,17 +1,29 @@
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ChevronLeft, ChevronRight, Upload, X, Copy, CheckCheck, Tag } from 'lucide-react';
 import { gooeyToast } from 'goey-toast';
+import { useQuery } from '@tanstack/react-query';
 import BackButton from '@/components/navigation/back-button';
-import locationDataImport from './data.json';
 
 const useAuth = () => {
-  // For demonstration, change this to true to simulate logged-in user
-  const [isLoggedIn] = useState(false);
-  const [user] = useState(isLoggedIn ? { name: 'John Doe', email: 'john@example.com' } : null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [user, setUser] = useState<{ name: string; email: string } | null>(null);
+
+  useEffect(() => {
+    // Check for auth-token in cookies on the client side
+    if (typeof document !== 'undefined') {
+      const hasToken = document.cookie.split('; ').find(row => row.startsWith('auth-token='));
+      if (hasToken) {
+        setIsLoggedIn(true);
+        // Mock user details or read from local storage / another cookie ideally
+        setUser({ name: 'John Doe', email: 'john@example.com' });
+      }
+    }
+  }, []);
+
   return { isLoggedIn, user };
 };
 
@@ -29,8 +41,6 @@ interface Municipality {
 interface LocationData {
   municipalities: Municipality[];
 }
-
-const locationData = locationDataImport as unknown as LocationData;
 
 interface FormData {
   // Step 1: Issue Type
@@ -56,7 +66,21 @@ interface FormData {
   anonymous: boolean;
 }
 
-export default function ReportIssuePage() {
+export default function ReportPage() {
+  const {
+    data: locationData,
+    isLoading: isLoadingLocations
+  } = useQuery({
+    queryKey: ['locations'],
+    queryFn: async () => {
+      const res = await fetch('http://localhost:5000/api/v1/locations');
+      if (!res.ok) throw new Error('Failed to fetch locations');
+      const json = await res.json();
+      return { municipalities: json.data } as LocationData;
+    }
+  });
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { isLoggedIn, user } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [trackingNumber, setTrackingNumber] = useState<string | null>(null);
@@ -173,8 +197,9 @@ export default function ReportIssuePage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     try {
+      setIsSubmitting(true);
       const submissionData = { ...formData };
 
       // If user is logged in, use their info automatically
@@ -183,16 +208,50 @@ export default function ReportIssuePage() {
         submissionData.reporterEmail = user.email;
       }
 
-      const generatedId = generateTrackingNumber();
-      console.log('Form submitted with tracking number:', generatedId, submissionData);
+      // Convert formData to backend format
+      const payload = {
+        issue_type: formData.issueType,
+        other_type_specification: formData.otherSpecify,
+        title: formData.title,
+        description: formData.description,
+        municipality_id: formData.municipality,
+        barangay_id: formData.barangay,
+        location: formData.location,
+        landmark: formData.landmark,
+        urgency: formData.urgency,
+        is_anonymous: formData.anonymous,
+        reporter_name: submissionData.reporterName,
+        reporter_email: submissionData.reporterEmail,
+        reporter_phone: submissionData.reporterPhone,
+        photos: [] // Placeholder until file upload service implemented
+      };
+
+      const res = await fetch('http://localhost:5000/api/v1/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to create report on the server');
+      }
+
+      const { data } = await res.json();
+      console.log('Form submitted successfully:', data);
 
       // Show tracking number modal
-      setTrackingNumber(generatedId);
+      setTrackingNumber(data.id);
+      setCurrentStep(5);
+      gooeyToast.success("Report Submitted", {
+        description: `Your tracking ID is ${data.id}`
+      });
     } catch (error) {
       gooeyToast.error("Submission Failed", {
         description: "We could not submit your report. Please review the details and try again.",
       });
       console.error('Report submission error:', error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -214,12 +273,12 @@ export default function ReportIssuePage() {
 
   // Get available barangays based on selected municipality
   const availableBarangays = useMemo(() => {
-    if (!formData.municipality) return [];
+    if (!formData.municipality || !locationData?.municipalities) return [];
     const municipality = locationData.municipalities.find(
       m => m.id === formData.municipality
     );
     return municipality?.barangays || [];
-  }, [formData.municipality]);
+  }, [formData.municipality, locationData]);
 
   return (
     <>
@@ -236,7 +295,7 @@ export default function ReportIssuePage() {
         <div className="p-6 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
           <div className="max-w-xl mx-auto flex items-center justify-between">
             <BackButton
-              fallbackPath="/client"
+              fallbackPath={isLoggedIn ? "/client" : "/"}
               className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-primary dark:hover:text-primary transition-colors"
             />
             
@@ -353,10 +412,11 @@ export default function ReportIssuePage() {
                       value={formData.municipality}
                       onChange={(e) => updateFormData('municipality', e.target.value)}
                       title="Select municipality"
-                      className="report-select w-full px-4 py-3 pr-10 rounded-lg border-2 border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all appearance-none"
+                      disabled={isLoadingLocations}
+                      className="report-select w-full px-4 py-3 pr-10 rounded-lg border-2 border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all appearance-none disabled:opacity-50"
                     >
-                      <option value="">Select Municipality/City</option>
-                      {locationData.municipalities.map((municipality) => (
+                      <option value="">{isLoadingLocations ? 'Loading areas...' : 'Select Municipality/City'}</option>
+                      {locationData?.municipalities?.map((municipality) => (
                         <option key={municipality.id} value={municipality.id}>
                           {municipality.name}
                         </option>
@@ -373,10 +433,11 @@ export default function ReportIssuePage() {
                         value={formData.barangay}
                         onChange={(e) => updateFormData('barangay', e.target.value)}
                         title="Select barangay"
-                        className="report-select w-full px-4 py-3 pr-10 rounded-lg border-2 border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all appearance-none"
+                        disabled={isLoadingLocations || !availableBarangays.length}
+                        className="report-select w-full px-4 py-3 pr-10 rounded-lg border-2 border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all appearance-none disabled:opacity-50"
                       >
                         <option value="">Select Barangay</option>
-                        {availableBarangays.map((barangay) => (
+                        {availableBarangays?.map((barangay) => (
                           <option key={barangay.id} value={barangay.id}>
                             {barangay.name}
                           </option>
@@ -686,10 +747,10 @@ export default function ReportIssuePage() {
             ) : (
               <button
                 onClick={handleSubmit}
-                disabled={!isLoggedIn && !formData.anonymous && (!formData.reporterName.trim() || !formData.reporterEmail.trim())}
+                disabled={isSubmitting || (!isLoggedIn && !formData.anonymous && (!formData.reporterName.trim() || !formData.reporterEmail.trim()))}
                 className="flex-1 px-6 py-3 rounded-lg bg-secondary text-white font-medium hover:bg-secondary-dark transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Submit Report
+                {isSubmitting ? 'Submitting...' : 'Submit Report'}
               </button>
             )}
           </div>
@@ -755,13 +816,13 @@ export default function ReportIssuePage() {
 
           <div className="flex flex-col w-full gap-2">
             <Link
-              href="/client/tracking"
+              href="/track"
               className="w-full text-center px-6 py-3 rounded-lg bg-primary text-white font-medium hover:bg-primary/90 transition-all"
             >
               Track My Report
             </Link>
             <Link
-              href="/client"
+              href={isLoggedIn ? "/client" : "/"}
               onClick={() => setTrackingNumber(null)}
               className="w-full text-center px-6 py-3 rounded-lg border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
             >

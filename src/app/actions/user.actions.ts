@@ -11,6 +11,7 @@ const UpdateUserProfileSchema = z.object({
   id: z.string().uuid("Invalid User ID format"),
   name: z.string().min(2, "Name must be at least 2 characters").max(50),
   email: z.string().email("Invalid email format"),
+  phone: z.string().optional(),
   role: z.enum(["CLIENT", "USER", "ADMIN", "SUPERADMIN", "WORKFORCE_ADMIN", "WORKFORCE_OFFICER"]).optional(),
 });
 
@@ -34,24 +35,52 @@ async function verifyAuthAndGetSession() {
   }
 
   // 2. Validate session token presence
-  const sessionToken = reqCookies.get("session_token")?.value;
+  const sessionToken = reqCookies.get("auth-token")?.value;
   if (!sessionToken) {
     throw new Error("Missing authentication token");
   }
 
-  // 3. (Mock) verify token and extract user
-  // const verifiedUser = await verifyToken(sessionToken);
-  const currentUserId = "mock-verified-uuid-from-token"; // Replace with actual verification
-  
-  return { userId: currentUserId, role: "USER" };
+  // 3. We cannot decrypt JWT reliably without the secret on the edge, 
+  // so we'll just pass the token to the backend when needed.
+  return { token: sessionToken };
 }
 
 // ============================================================================
 // 3. Server Actions
 // ============================================================================
+export async function getUserProfile() {
+  try {
+    const session = await verifyAuthAndGetSession();
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+    
+    const response = await fetch(`${apiUrl}/api/v1/users/me`, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${session.token}`,
+        "Content-Type": "application/json"
+      },
+      cache: 'no-store'
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error("Unauthorized");
+      }
+      throw new Error(`Failed to fetch profile: ${response.statusText}`);
+    }
+
+    const { data } = await response.json();
+    return data;
+  } catch (error: any) {
+    console.error("[getUserProfile_ERROR]", error.message);
+    return null;
+  }
+}
+
 export async function logoutUser() {
   const reqCookies = await cookies();
-  reqCookies.delete("session_token");
+  reqCookies.delete("auth-token");
+  reqCookies.delete("user-role");
 }
 /**
  * Updates a user's profile securely.
@@ -75,17 +104,24 @@ export async function updateUserProfile(
       };
     }
 
-    const { id, name, email } = validatedData.data;
+    const { id, name, email, phone } = validatedData.data;
 
-    // 2. Ownership / Role Verification
-    if (session.userId !== id && session.role !== "ADMIN" && session.role !== "SUPERADMIN") {
-      return { success: false, error: "Unauthorized operation on this resource." };
+    // 2. Business Logic / Database Transaction (Separation of concerns: delegate to Service layer usually)
+    // We send a request to backend to update user
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+    const response = await fetch(`${apiUrl}/api/v1/users/me`, {
+      method: "PATCH",
+      headers: {
+        "Authorization": `Bearer ${session.token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ full_name: name, email, contact_number: phone })
+    });
+
+    if (!response.ok) {
+      return { success: false, error: "Profile update failed in backend" };
     }
 
-    // 3. Business Logic / Database Transaction (Separation of concerns: delegate to Service layer usually)
-    // const updatedUser = await UserService.update(id, { name, email });
-
-    // Mock successful update
     return {
       success: true,
       data: {

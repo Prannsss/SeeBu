@@ -4,6 +4,8 @@ import './globals.css';
 import 'goey-toast/styles.css';
 import GooeyToasterProvider from '@/components/providers/gooey-toaster-provider';
 import { NavigationHistoryProvider } from '@/components/providers/navigation-history-provider';
+import { QueryProvider } from '@/components/providers/query-provider';
+import GoogleAuthProvider from '@/components/providers/google-auth-provider';
 
 export const metadata: Metadata = {
   title: 'SeeBu | Build a Smarter Cebu City',
@@ -27,10 +29,14 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased bg-background text-foreground selection:bg-primary/30">
-        <NavigationHistoryProvider>
-          {children}
-          <GooeyToasterProvider />
-        </NavigationHistoryProvider>
+        <GoogleAuthProvider>
+        <QueryProvider>
+          <NavigationHistoryProvider>
+            {children}
+            <GooeyToasterProvider />
+          </NavigationHistoryProvider>
+        </QueryProvider>
+        </GoogleAuthProvider>
       </body>
     </html>
   );

@@ -8,6 +8,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useGoogleLogin } from "@react-oauth/google";
+import FacebookLogin from "react-facebook-login/dist/facebook-login-render-props";
 import { Eye, EyeOff } from "lucide-react";
 import { gooeyToast } from "goey-toast";
 
@@ -16,6 +18,66 @@ export default function RegisterPage() {
   const [contactNumber, setContactNumber] = useState("+63");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const handleOAuthBackendSync = async (provider: 'google' | 'facebook', payload: any) => {
+    const res = await fetch(`http://localhost:5000/api/v1/auth/${provider}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'OAuth Registration failed');
+
+    document.cookie = `auth-token=${data.token}; path=/; max-age=86400; SameSite=Lax`;
+    if (data.user && data.user.role) {
+      document.cookie = `user-role=${data.user.role}; path=/; max-age=86400; SameSite=Lax`;
+    }
+
+    gooeyToast.success('Registration via OAuth successful!', { description: `Logged in via ${provider}` });
+    router.push('/client');
+  };
+
+  const loginGoogle = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      try {
+        setIsLoading(true);
+        const userInfo = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
+        }).then(res => res.json());
+        
+        await handleOAuthBackendSync('google', {
+          email: userInfo.email,
+          full_name: userInfo.name,
+          google_id: userInfo.sub
+        });
+      } catch (err: any) {
+        gooeyToast.error('Google Login Failed', { description: err.message });
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    onError: () => {
+      gooeyToast.error('Google Login Failed', { description: 'Failed to connect to Google.' });
+    }
+  });
+
+  const handleFacebookCallback = async (response: any) => {
+    if (response?.status === 'unknown' || response?.error) {
+      return;
+    }
+    setIsLoading(true);
+    try {
+      await handleOAuthBackendSync('facebook', {
+        email: response.email,
+        full_name: response.name,
+        facebook_id: response.id
+      });
+    } catch (err: any) {
+       gooeyToast.error('Facebook Login Failed', { description: err.message });
+    } finally {
+       setIsLoading(false);
+    }
+  };
 
   // Phone number formatter for Philippine format
   const formatPhoneNumber = (value: string) => {

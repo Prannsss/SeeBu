@@ -2,12 +2,13 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { UserPlus, ShieldAlert, ShieldCheck } from "lucide-react"
+import { UserPlus, ShieldAlert, ShieldCheck, Loader2 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PasswordChecklist } from "@/components/ui/password-checklist"
 import { VerificationCodeUI } from "@/components/ui/verification-code"
 import { gooeyToast } from "goey-toast"
+import { useMutation } from "@tanstack/react-query"
 
 export default function SuperadminAddPage() {
   const [activeTab, setActiveTab] = useState("admin")
@@ -15,17 +16,71 @@ export default function SuperadminAddPage() {
   const [superadminPassword, setSuperadminPassword] = useState("")
   const [isVerifying, setIsVerifying] = useState(false)
   const [verifyingEmail, setVerifyingEmail] = useState("")
+  const [municipalityId, setMunicipalityId] = useState("")
+
+  const provisionMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await fetch("http://localhost:5000/api/v1/auth/provision", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      })
+      
+      const result = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to provision user")
+      }
+      
+      return result
+    },
+    onSuccess: () => {
+      gooeyToast.success("Verification code sent!")
+      setIsVerifying(true)
+    },
+    onError: (error: any) => {
+      gooeyToast.error(error.message || "Failed to add user")
+    }
+  })
   
-  const handleAddSubmit = (e: React.FormEvent) => {
+  const handleAddSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    setIsVerifying(true)
-    gooeyToast.success("Verification code sent!")
+    const form = e.currentTarget
+    
+    // We get the inputs based on the active tab
+    const prefix = activeTab === "admin" ? "admin" : "sa"
+    const fullNameElement = form.querySelector(`#${prefix}-name`) as HTMLInputElement
+    const contactElement = form.querySelector(`#${prefix}-contact`) as HTMLInputElement
+    
+    const payload: any = {
+      user_role: activeTab,
+      full_name: fullNameElement.value,
+      contact_number: contactElement.value,
+      email: verifyingEmail,
+      password: activeTab === "admin" ? adminPassword : superadminPassword,
+    }
+    
+    if (activeTab === "admin") {
+      if (!municipalityId) {
+        gooeyToast.error("Please select a municipality")
+        return
+      }
+      payload.municipality_id = municipalityId
+    }
+
+    provisionMutation.mutate(payload)
   }
 
   const handleVerifySuccess = () => {
     setIsVerifying(false)
     setAdminPassword("")
     setSuperadminPassword("")
+    setVerifyingEmail("")
+    setMunicipalityId("")
+    // Find inputs to reset them
+    const inputs = document.querySelectorAll('input')
+    inputs.forEach(input => input.value = '')
+    gooeyToast.success(`${activeTab === 'admin' ? 'Admin' : 'Superadmin'} added successfully!`)
   }
 
   const handleVerifyCancel = () => {
@@ -111,7 +166,7 @@ export default function SuperadminAddPage() {
 
                 <div className="space-y-1 mt-2">
                   <label className="text-sm font-medium text-slate-700 dark:text-slate-300 ml-1">Assigned Area (Municipality/City)</label>
-                  <Select required>
+                  <Select required onValueChange={setMunicipalityId} value={municipalityId}>
                     <SelectTrigger className="w-full h-[52px] sm:h-[56px] rounded-[1rem] border-2 border-[#e5e7eb] dark:border-[#374151] bg-white dark:bg-[#1f2937] text-base px-4 focus:ring-0 focus:border-[#00B2E2] focus:shadow-[0_0_0_3px_rgba(0,178,226,0.1)] transition-all">
                       <SelectValue placeholder="Select a municipality" />
                     </SelectTrigger>
@@ -144,7 +199,8 @@ export default function SuperadminAddPage() {
                   </div>
                 </div>
 
-                <Button className="w-full h-12 mt-4 text-base bg-[#00B2E2] hover:bg-[#0096C7] text-white font-medium shadow-sm transition-all rounded-lg" type="submit">
+                <Button disabled={provisionMutation.isPending} className="w-full h-12 mt-4 text-base bg-[#00B2E2] hover:bg-[#0096C7] text-white font-medium shadow-sm transition-all rounded-lg" type="submit">
+                  {provisionMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                   Send Admin Invitation
                 </Button>
               </form>
@@ -209,7 +265,8 @@ export default function SuperadminAddPage() {
                   </div>
                 </div>
 
-                <Button className="w-full h-12 mt-4 text-base bg-[#00B2E2] hover:bg-[#0096C7] text-white font-medium shadow-sm transition-all rounded-lg" type="submit">
+                <Button disabled={provisionMutation.isPending} className="w-full h-12 mt-4 text-base bg-[#00B2E2] hover:bg-[#0096C7] text-white font-medium shadow-sm transition-all rounded-lg" type="submit">
+                  {provisionMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                   Create Global Superadmin
                 </Button>
               </form>

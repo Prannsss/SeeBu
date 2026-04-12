@@ -1,11 +1,12 @@
 "use client"
 
-import { useState } from "react"
-import { LogOut, Pencil } from "lucide-react"
+import { useState, useEffect } from "react"
+import { LogOut, Pencil, Trash2 } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { logoutUser } from "@/app/actions/user.actions"
+import { logoutUser, getUserProfile } from "@/app/actions/user.actions"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,6 +23,31 @@ import { gooeyToast } from "goey-toast"
 export default function WorkforceProfilePage() {
   const router = useRouter()
   const [isEditing, setIsEditing] = useState(false)
+  const [profile, setProfile] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Form State
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phone: ""
+  })
+
+  useEffect(() => {
+    async function loadProfile() {
+      const data = await getUserProfile();
+      if (data) {
+        setProfile(data);
+        setFormData({
+          name: data.full_name || "",
+          email: data.email || "",
+          phone: data.contact_number || ""
+        });
+      }
+      setIsLoading(false);
+    }
+    loadProfile();
+  }, []);
 
   const handleLogout = async () => {
     await logoutUser()
@@ -29,122 +55,152 @@ export default function WorkforceProfilePage() {
     router.push("/auth/login")
   }
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleDeleteAccount = () => {
+    gooeyToast.success("Account deleted successfully")
+    router.push("/auth/login")
+  }
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsEditing(false)
+    
+    try {
+      const { updateUserProfile } = await import("@/app/actions/user.actions");
+      const res = await updateUserProfile({
+        id: profile.id,
+        name: formData.name,
+        email: formData.email
+      });
+      
+      if (res.success) {
+        gooeyToast.success("Profile updated successfully");
+        setProfile((prev: any) => ({ ...prev, full_name: formData.name, email: formData.email, contact_number: formData.phone }));
+        setIsEditing(false);
+      } else {
+        gooeyToast.error(res.error || "Update failed");
+      }
+    } catch (err) {
+      gooeyToast.error("Failed to update profile");
+    }
+  }
+
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center dark:bg-slate-950 dark:text-white">Loading profile...</div>
   }
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 pb-32 dark:bg-slate-950 dark:text-slate-100">
-      <div className="container mx-auto max-w-2xl px-5 pt-10 pb-6">
-        <h1 className="text-3xl font-extrabold mb-8 text-text-main dark:text-white">Profile</h1>
-        
-        <div className="mb-6 flex items-center gap-4">
-          <Avatar className="h-16 w-16 border-2 border-primary/10">
-            <AvatarImage src="/placeholder-user.jpg" alt="Profile" />
-            <AvatarFallback className="bg-primary/5 text-xl">JD</AvatarFallback>
-          </Avatar>
+    <div className="min-h-screen bg-slate-50 text-slate-900 pb-32 dark:bg-slate-950 dark:text-slate-100">
+      <div className="container mx-auto max-w-4xl px-4 py-8 sm:py-10">
+        <div className="mb-6 flex items-center justify-between gap-4">
           <div>
-            <p className="text-slate-500 text-sm mb-1">Welcome,</p>
-            <h2 className="text-[22px] font-black uppercase tracking-tight text-text-main dark:text-white">JOHN DOE</h2>
+            <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white">Workforce Profile</h1>
+            <p className="text-muted-foreground mt-1 tracking-tight">Manage your account settings and preferences.</p>
           </div>
         </div>
+        
+        <Card className="mb-6 border-slate-200 dark:border-slate-800 shadow-none sm:shadow-sm bg-white dark:bg-slate-900">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-4">
+              <Avatar className="h-16 w-16 border-2 border-slate-200 dark:border-slate-800 shadow-sm">
+                <AvatarFallback className="bg-blue-50 dark:bg-blue-900/30 text-xl font-bold text-blue-600 dark:text-blue-400">
+                  {profile?.full_name?.charAt(0)?.toUpperCase() || 'U'}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <p className="text-slate-500 font-bold uppercase text-xs tracking-wider mb-1">WORKFORCE</p>
+                <h2 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">
+                  {profile?.full_name || 'Loading...'}
+                </h2>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm mb-6 p-5 sm:p-6 space-y-6">
-          <div className="flex justify-between items-start">
+        <Card className="mb-6 border-slate-200 dark:border-slate-800 shadow-none sm:shadow-sm bg-white dark:bg-slate-900">
+          <CardHeader className="flex flex-row items-center justify-between pb-4">
             <div>
-              <h3 className="font-bold text-lg text-text-main dark:text-white">Personal Information</h3>
-              <p className="text-sm text-text-muted dark:text-gray-400">Keep your details up to date.</p>
+              <CardTitle className="text-xl font-bold text-slate-900 dark:text-white">Information</CardTitle>
+              <CardDescription className="mt-1">Keep your details up to date.</CardDescription>
             </div>
             <button 
               onClick={() => setIsEditing(!isEditing)}
-              className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
+              className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors shadow-sm"
               aria-label="Edit Profile"
             >
-              <Pencil className="w-5 h-5" />
+              <Pencil className="w-4 h-4" />
             </button>
-          </div>
-
-          {!isEditing ? (
-            <div className="space-y-4 pt-2">
-              <div className="pb-3 border-b border-slate-100 dark:border-slate-800">
-                <span className="block text-sm font-semibold text-slate-500 dark:text-slate-400 mb-1">Full Name</span>
-                <span className="block text-base text-text-main dark:text-white font-medium">John Doe</span>
+          </CardHeader>
+          <CardContent>
+            {!isEditing ? (
+              <div className="space-y-4 pt-1">
+                <div className="pb-4 border-b border-slate-100 dark:border-slate-800/60 last:border-0 last:pb-0">
+                  <span className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-2">Full Name</span>
+                  <span className="block text-base text-slate-900 dark:text-white font-medium">{profile?.full_name || 'N/A'}</span>
+                </div>
+                <div className="pb-4 border-b border-slate-100 dark:border-slate-800/60 last:border-0 last:pb-0">
+                  <span className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-2">Email</span>
+                  <span className="block text-base text-slate-900 dark:text-white font-medium">{profile?.email || 'N/A'}</span>
+                </div>
+                <div className="pb-4 border-b border-slate-100 dark:border-slate-800/60 last:border-0 last:pb-0">
+                  <span className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-2">Phone</span>
+                  <span className="block text-base text-slate-900 dark:text-white font-medium">{profile?.contact_number || 'N/A'}</span>
+                </div>
+              
+                <div className="pb-4 border-b border-slate-100 dark:border-slate-800/60 last:border-0 last:pb-0">
+                  <span className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-2">Role/Assignment</span>
+                  <span className="block text-base text-slate-900 dark:text-white font-medium">{profile?.role || 'N/A'}</span>
+                </div>
+              
+              
               </div>
-              <div className="pb-3 border-b border-slate-100 dark:border-slate-800">
-                <span className="block text-sm font-semibold text-slate-500 dark:text-slate-400 mb-1">Role / Department</span>
-                <span className="block text-base text-text-main dark:text-white font-medium">Operations Team Lead - Infrastructure Maintenance</span>
-              </div>
-              <div className="pb-3 border-b border-slate-100 dark:border-slate-800">
-                <span className="block text-sm font-semibold text-slate-500 dark:text-slate-400 mb-1">Email / Phone</span>
-                <span className="block text-base text-text-main dark:text-white font-medium">john.doe@workforce.tld / +1 (555) 123-4567</span>
-              </div>
-              <div className="pb-3 border-b border-slate-100 dark:border-slate-800">
-                <span className="block text-sm font-semibold text-slate-500 dark:text-slate-400 mb-1">Location</span>
-                <span className="block text-base text-text-main dark:text-white font-medium">Central Depot</span>
-              </div>
-              <div className="pb-3 border-b border-slate-100 dark:border-slate-800">
-                <span className="block text-sm font-semibold text-slate-500 dark:text-slate-400 mb-1">Shift Schedule</span>
-                <span className="block text-base text-text-main dark:text-white font-medium">Mon-Fri, 08:00 - 16:00</span>
-              </div>
-              <div className="pb-3 border-b border-slate-100 dark:border-slate-800 last:border-0 last:pb-0">
-                <span className="block text-sm font-semibold text-slate-500 dark:text-slate-400 mb-1">Employee ID / Supervisor</span>
-                <span className="block text-base text-text-main dark:text-white font-medium">WF-8392 / Admin Jane Smith</span>
-              </div>
-            </div>
-          ) : (
-            <form className="space-y-6 pt-2" onSubmit={handleSave}>
-              <div className="floating-input">
-                <input type="text" id="full-name" placeholder=" " defaultValue="John Doe" />
-                <label htmlFor="full-name">Full Name</label>
-                <span className="material-symbols-outlined input-icon">person</span>
-              </div>
-              <div className="floating-input">
-                <input type="text" id="role" placeholder=" " defaultValue="Operations Team Lead" />
-                <label htmlFor="role">Role</label>
-                <span className="material-symbols-outlined input-icon">badge</span>
-              </div>
-              <div className="floating-input">
-                <input type="email" id="email" placeholder=" " defaultValue="john.doe@workforce.tld" />
-                <label htmlFor="email">Email</label>
-                <span className="material-symbols-outlined input-icon">mail</span>
-              </div>
-              <div className="floating-input">
-                <input type="tel" id="phone" placeholder=" " defaultValue="+1 (555) 123-4567" />
-                <label htmlFor="phone">Phone</label>
-                <span className="material-symbols-outlined input-icon">call</span>
-              </div>
-              <Button className="w-full h-12 mt-2 text-lg bg-primary hover:bg-primary-dark text-white font-bold shadow-lg" type="submit">
-                Save Changes
-              </Button>
-            </form>
-          )}
-        </div>
+            ) : (
+              <form className="space-y-6 pt-2" onSubmit={handleSave}>
+                <div className="floating-input">
+                  <input type="text" id="full-name" placeholder=" " value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required/>
+                  <label htmlFor="full-name">Full Name</label>
+                  <span className="material-symbols-outlined input-icon">person</span>
+                </div>
+                <div className="floating-input">
+                  <input type="email" id="email" placeholder=" " value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} required/>
+                  <label htmlFor="email">Email</label>
+                  <span className="material-symbols-outlined input-icon">mail</span>
+                </div>
+                <div className="floating-input">
+                  <input type="tel" id="phone" placeholder=" " value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+                  <label htmlFor="phone">Phone</label>
+                  <span className="material-symbols-outlined input-icon">call</span>
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <Button type="button" variant="outline" className="flex-1 h-11 border-slate-200 dark:border-slate-700 font-bold" onClick={() => setIsEditing(false)}>Cancel</Button>
+                  <Button className="flex-1 h-11 bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-sm" type="submit">Save Changes</Button>
+                </div>
+              </form>
+            )}
+          </CardContent>
+        </Card>
 
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <button
-              className="w-full flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 dark:bg-red-900/80 dark:hover:bg-red-900 text-white border border-transparent font-bold h-12 rounded-[8px] shadow-sm mb-8 transition-colors"
-            >
-              <LogOut className="h-4 w-4 text-white" />
-              <span className="text-base text-white">Logout</span>
+            <button className="w-full flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold h-12 rounded-xl shadow-sm mb-4 transition-colors">
+              <LogOut className="h-4 w-4" />
+              <span className="tracking-wide">Logout</span>
             </button>
           </AlertDialogTrigger>
-          <AlertDialogContent>
+          <AlertDialogContent className="sm:rounded-[16px] rounded-[16px] max-w-[90vw] sm:max-w-md w-full">
             <AlertDialogHeader>
-              <AlertDialogTitle>Are you sure you want to logout?</AlertDialogTitle>
-              <AlertDialogDescription>
-                You will need to sign in again to access your account.
+              <AlertDialogTitle className="text-xl">Logout of account</AlertDialogTitle>
+              <AlertDialogDescription className="text-base text-slate-500 dark:text-slate-400">
+                Are you sure you want to end your current session?
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleLogout} className="bg-red-600 text-white hover:bg-red-700">Logout</AlertDialogAction>
+            <AlertDialogFooter className="mt-4 gap-2 sm:gap-0">
+              <AlertDialogCancel className="h-11 rounded-lg font-bold border-slate-200 dark:border-slate-700 mt-2 sm:mt-0">Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleLogout} className="h-11 rounded-lg bg-red-600 text-white hover:bg-red-700 font-bold shadow-sm">Logout</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        
       </div>
     </div>
   )
 }
-

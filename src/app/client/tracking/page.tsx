@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Search, CheckCircle, Clock, AlertTriangle, XCircle } from "lucide-react";
 import { gooeyToast } from "goey-toast";
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 
 type TimelineEvent = {
   id: string;
@@ -49,23 +50,54 @@ const MOCK_DB: Record<string, MockData> = {
 };
 
 export default function TrackingPage() {
-  const [trackingNumber, setTrackingNumber] = useState("");
+  const searchParams = useSearchParams();
+  const defaultQuery = searchParams.get("id") || "";
+  const [trackingNumber, setTrackingNumber] = useState(defaultQuery);
   const [result, setResult] = useState<MockData | null>(null);
 
-  const handleTrack = (e: React.FormEvent) => {
+  // Trigger search on mount if a query parameter exists
+  useEffect(() => {
+    if (defaultQuery) {
+      handleTrack(new Event("submit") as any);
+    }
+  }, [defaultQuery]);
+
+const handleTrack = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!trackingNumber) return;
-    
-    const data = MOCK_DB[trackingNumber.toUpperCase()];
-    if (data) {
-      setResult(data);
+
+    try {
+      const res = await fetch(`http://localhost:5000/api/v1/reports/${trackingNumber.toUpperCase()}`);
+      if (!res.ok) {
+        if (res.status === 404) throw new Error("No report matches that tracking number. Please check and try again.");
+        throw new Error("Failed to fetch report");
+      }
+      
+      const { data } = await res.json();
+      
+      // Transform backend data to frontend MockData structure
+      const formattedData: MockData = {
+        title: data.title,
+        status: data.status,
+        location: `${data.location}${data.barangays ? `, ${data.barangays.name}` : ''}${data.municipalities ? `, ${data.municipalities.name}` : ''}`,
+        rejection_reason: data.rejection_reason,
+        completion_photos: data.report_photos?.filter((p: any) => p.is_completion_photo).map((p: any) => p.photo_url) || [],
+        timeline: data.report_timeline?.map((t: any) => ({
+          id: t.id,
+          status: t.status,
+          date: new Date(t.created_at).toLocaleString(),
+          notes: t.notes
+        })).sort((a: any, b: any) => new Date(a.date).getTime() < new Date(b.date).getTime() ? 1 : -1) || []
+      };
+
+      setResult(formattedData);
       gooeyToast.success("Report Found!", {
-        description: `Showing status for ${trackingNumber.toUpperCase()}.`,
+        description: `Showing status for ${data.id}.`,     
       });
-    } else {
+    } catch (err: any) {
       setResult(null);
       gooeyToast.error("Not Found", {
-        description: "No report matches that tracking number. Please check and try again.",
+        description: err.message || "No report matches that tracking number.",
       });
     }
   };

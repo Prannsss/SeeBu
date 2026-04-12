@@ -1,18 +1,38 @@
 "use client"
 
 import { useState } from "react"
-import { BarChart3, ArrowUp, ArrowDown } from "lucide-react"
+import { BarChart3, ArrowUp, ArrowDown, Activity } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartAreaInteractive } from "@/components/ui/chart-area-interactive"
-import mockData from "./data.json"
+import { useQuery } from "@tanstack/react-query"
 
 export default function SuperadminAnalyticsPage() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
 
-  const sortedData = [...mockData.recurringData].sort((a, b) => {
+  const { data: analyticsData, isLoading } = useQuery({
+    queryKey: ['superadmin-analytics'],
+    queryFn: async () => {
+      const res = await fetch('http://localhost:5000/api/v1/analytics/superadmin')
+      if (!res.ok) throw new Error('Failed to fetch analytics')
+      return res.json()
+    }
+  })
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-slate-950">
+        <Activity className="h-8 w-8 animate-spin text-blue-600" />
+      </div>
+    )
+  }
+
+  const recurringData = analyticsData?.recurringData || []
+  const chartData = analyticsData?.chartData || [{ name: 'Loading', reports: 0 }]
+
+  const sortedData = [...recurringData].sort((a: any, b: any) => {
     return sortOrder === "asc"
-      ? a.reports - b.reports
-      : b.reports - a.reports
+      ? a.count - b.count
+      : b.count - a.count
   })
 
   return (
@@ -34,7 +54,7 @@ export default function SuperadminAnalyticsPage() {
             className="lg:col-span-2 lg:h-[600px]"
             title="Global Reports Overview" 
             description="Visualizing reports received across all active locations." 
-            chartData={mockData.chartData} 
+            chartData={chartData} 
             chartConfig={{
               views: {
                 label: "Reports"
@@ -70,14 +90,14 @@ export default function SuperadminAnalyticsPage() {
             </CardHeader>
             <CardContent className="overflow-y-auto flex-1 px-6 pb-8 pt-4">
               <div className="space-y-4">
-                                {sortedData.map((d, i) => (
+                                {sortedData.map((d: any, i: number) => (
                   <div key={i} className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 last:border-0">
                     <div>
-                      <div className="font-semibold text-sm">{d.issueType}</div>
+                      <div className="font-semibold text-sm">{d.issue}</div>
                       <div className="text-xs text-muted-foreground">{d.area}</div>
                     </div>
                     <div className="font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full text-sm">
-                      {d.reports}
+                      {d.count}
                     </div>
                   </div>
                 ))}

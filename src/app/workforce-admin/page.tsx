@@ -1,9 +1,58 @@
-"use client"
-
 import { Users, ClipboardList, CheckCircle, TrendingUp, Shield } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { cookies } from "next/headers";
 
-export default function WorkforceAdminPage() {
+async function getWorkforceAdminStats() {
+  const reqCookies = await cookies();
+  const token = reqCookies.get("auth-token")?.value;
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  
+  try {
+    const profileRes = await fetch(`${apiUrl}/api/v1/users/me`, {
+      headers: { "Authorization": `Bearer ${token}` },
+      cache: 'no-store'
+    });
+    const profileData = await profileRes.json();
+    const deptId = profileData?.data?.department_id;
+
+    if (!deptId) return { activeTasks: 0, headcount: 0, completedToday: 0 };
+
+    // Fetch users to count headcount
+    const usersRes = await fetch(`${apiUrl}/api/v1/users`, {
+      headers: { "Authorization": `Bearer ${token}` },
+      cache: 'no-store'
+    });
+    const usersData = await usersRes.json();
+    const headcount = (usersData?.data || []).filter((u: any) => u.area === deptId && u.role === 'WORKFORCE_OFFICER').length;
+
+    // Fetch tasks to calculate active and completed
+    // As an admin, we might want to query all tasks but filter by assigned_to (department)
+    const taskRes = await fetch(`${apiUrl}/api/v1/tasks?assigned_to=${deptId}`, {
+      headers: { "Authorization": `Bearer ${token}` },
+      cache: 'no-store'
+    });
+    const tasksData = await taskRes.json();
+    const tasks = tasksData?.data || [];
+
+    const activeTasks = tasks.filter((t: any) => t.status === "Assigned" || t.status === "Accepted").length;
+    
+    const today = new Date().toDateString();
+    const completedToday = tasks.filter((t: any) => {
+      if (t.status !== "Resolved") return false;
+      const completedDate = new Date(t.updated_at || t.created_at).toDateString();
+      return completedDate === today;
+    }).length;
+
+    return { activeTasks, headcount, completedToday, user: profileData.data };
+  } catch (error) {
+    console.error("Error fetching stats:", error);
+    return { activeTasks: 0, headcount: 0, completedToday: 0, user: null };
+  }
+}
+
+export default async function WorkforceAdminPage() {
+  const { activeTasks, headcount, completedToday, user } = await getWorkforceAdminStats();
+
   return (
     <div className="min-h-screen bg-slate-50 pb-32 dark:bg-slate-950 dark:text-slate-100">
       <div className="container mx-auto max-w-5xl px-5 pt-10 pb-6">
@@ -13,7 +62,7 @@ export default function WorkforceAdminPage() {
           </div>
           <div>
             <h1 className="text-3xl font-bold">Workforce Admin</h1>
-            <p className="text-muted-foreground">Department: Sanitation &bull; Assigned Area: Cebu City</p>
+            <p className="text-muted-foreground">Department: {user?.department_id || 'Global'}</p>
           </div>
         </div>
 
@@ -22,17 +71,17 @@ export default function WorkforceAdminPage() {
             <Card>
               <CardHeader className="pb-2">
                 <CardDescription>Active Tasks</CardDescription>
-                <CardTitle className="text-3xl text-blue-600">24</CardTitle>
+                <CardTitle className="text-3xl text-blue-600">{activeTasks}</CardTitle>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground flex items-center gap-2">
-                <ClipboardList className="w-4 h-4" /> 10 in progress, 14 pending
+                <ClipboardList className="w-4 h-4" /> active tasks across workforce
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="pb-2">
                 <CardDescription>Department Headcount</CardDescription>
-                <CardTitle className="text-3xl text-indigo-600">18</CardTitle>
+                <CardTitle className="text-3xl text-indigo-600">{headcount}</CardTitle>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground flex items-center gap-2">
                 <Users className="w-4 h-4" /> Available field officers
@@ -42,10 +91,10 @@ export default function WorkforceAdminPage() {
             <Card>
               <CardHeader className="pb-2">
                 <CardDescription>Completed Today</CardDescription>
-                <CardTitle className="text-3xl text-emerald-600">45</CardTitle>
+                <CardTitle className="text-3xl text-emerald-600">{completedToday}</CardTitle>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground flex items-center gap-2">
-                <CheckCircle className="w-4 h-4" /> <TrendingUp className="w-3 h-3 text-emerald-500"/> 12% vs yesterday
+                <CheckCircle className="w-4 h-4" /> <TrendingUp className="w-3 h-3 text-emerald-500"/> Tasks successfully resolved
               </CardContent>
             </Card>
           </div>

@@ -9,25 +9,120 @@ import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { gooeyToast } from "goey-toast";
 import { useRouter } from "next/navigation";
+import { useGoogleLogin } from "@react-oauth/google";
+import FacebookLogin from "react-facebook-login/dist/facebook-login-render-props";
 
 export default function LoginPage() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  const handleOAuthBackendSync = async (provider: 'google' | 'facebook', payload: any) => {
+    const res = await fetch(`http://localhost:5000/api/v1/auth/${provider}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'OAuth Login failed');
+
+    document.cookie = `auth-token=${data.token}; path=/; max-age=86400; SameSite=Lax`;
+    if (data.user && data.user.role) {
+      document.cookie = `user-role=${data.user.role}; path=/; max-age=86400; SameSite=Lax`;
+    }
+
+    gooeyToast.success("Welcome back!", { description: `Logged in via ${provider}` });
+    router.push('/client'); // OAuth strictly assigns client
+  };
+
+  const loginGoogle = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      try {
+        setIsLoading(true);
+        const userInfo = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
+        }).then(res => res.json());
+        
+        await handleOAuthBackendSync('google', {
+          email: userInfo.email,
+          full_name: userInfo.name,
+          google_id: userInfo.sub
+        });
+      } catch (err: any) {
+        gooeyToast.error("Google Login Failed", { description: err.message });
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    onError: () => {
+      gooeyToast.error("Google Login Failed", { description: "Failed to connect to Google." });
+    }
+  });
+
+  const handleFacebookCallback = async (response: any) => {
+    if (response?.status === "unknown" || response?.error) {
+      return;
+    }
+    setIsLoading(true);
+    try {
+      await handleOAuthBackendSync('facebook', {
+        email: response.email,
+        full_name: response.name,
+        facebook_id: response.id
+      });
+    } catch (err: any) {
+       gooeyToast.error("Facebook Login Failed", { description: err.message });
+    } finally {
+       setIsLoading(false);
+    }
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    
+    // Defaulting role to user for constituent login. 
+    // You can adjust this if this page is intended for admins too.
+    const payload = {
+      email: (document.getElementById("email") as HTMLInputElement).value,
+      password: (document.getElementById("password") as HTMLInputElement).value,
+      role: "user" 
+    };
+
     try {
-      // TODO: replace with real API call
-      await new Promise(res => setTimeout(res, 800));
+      const res = await fetch('http://localhost:5000/api/v1/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || 'Login failed');
+      }
+
+      // Save token and role to cookies for Next.js Middleware
+      document.cookie = `auth-token=${data.token}; path=/; max-age=86400; SameSite=Lax`;
+      if (data.user && data.user.role) {
+        document.cookie = `user-role=${data.user.role}; path=/; max-age=86400; SameSite=Lax`;
+      }
+
       gooeyToast.success("Welcome back!", {
         description: "You've been logged in successfully.",
       });
-      router.push("/client");
-    } catch {
+      
+      if (data.user?.role === 'admin') router.push('/admin');
+      else if (data.user?.role === 'superadmin') router.push('/superadmin');
+      else if (data.user?.role === 'workforce') router.push('/workforce');
+      else if (data.user?.role === 'workforce-admin') router.push('/workforce-admin');
+      else router.push('/client');
+    } catch (err: any) {
       gooeyToast.error("Login Failed", {
-        description: "Invalid email or password. Please try again.",
+        description: err.message || "Invalid email or password. Please try again.",
       });
     } finally {
       setIsLoading(false);
@@ -126,8 +221,42 @@ export default function LoginPage() {
                 {isLoading ? "Logging in…" : "Log In"}
               </Button>
             </form>
+
+            <div className="mt-8 flex items-center justify-center space-x-4">
+              <span className="h-px bg-gray-300 dark:bg-gray-700 w-full"></span>
+              <span className="text-gray-500 font-medium text-sm">OR</span>
+              <span className="h-px bg-gray-300 dark:bg-gray-700 w-full"></span>
+            </div>
+
+            <div className="mt-6 flex flex-col space-y-4">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full h-12 flex items-center justify-center gap-3 font-semibold text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+                onClick={() => loginGoogle()}
+              >
+                <Image src="/assets/google.svg" alt="Google" width={24} height={24} />
+                Continue with Google
+              </Button>
+              <FacebookLogin
+                appId={process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || ""}
+                callback={handleFacebookCallback}
+                fields="name,email,picture"
+                render={(renderProps: any) => (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full h-12 flex items-center justify-center gap-3 font-semibold text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+                    onClick={renderProps.onClick}
+                  >
+                    <Image src="/assets/facebook.svg" alt="Facebook" width={24} height={24} />
+                    Continue with Facebook
+                  </Button>
+                )}
+              />
+            </div>
             
-            <div className="mt-6 pt-6 border-t border-gray-300 dark:border-gray-700 text-center">
+            <div className="mt-8 pt-6 border-t border-gray-300 dark:border-gray-700 text-center">
               <p className="text-sm text-text-muted dark:text-gray-400">
                 Don't have an account? <Link href="/auth/register" className="text-primary font-bold hover:underline">Sign up now</Link>
               </p>

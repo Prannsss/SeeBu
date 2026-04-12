@@ -2,17 +2,34 @@
 
 import { useState } from "react"
 import { BarChart3, ArrowUp, ArrowDown } from "lucide-react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartAreaInteractive } from "@/components/ui/chart-area-interactive"
-import mockData from "./data.json"
+import { useQuery } from '@tanstack/react-query'
 
 export default function AdminAnalyticsPage() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
 
-  const sortedData = [...mockData.recurringData].sort((a, b) => {
+  // For demonstration, fetch for cebu-city. In production, pass context admin's municipality_id
+  const { data: analyticsData, isLoading } = useQuery({
+    queryKey: ['admin-analytics', 'cebu-city'],
+    queryFn: async () => {
+      const res = await fetch('http://localhost:5000/api/v1/analytics/admin/cebu-city', {
+        headers: {
+          'Authorization': 'Bearer simulated-jwt-token'
+        }
+      });
+      if (!res.ok) throw new Error('Failed to fetch analytics');
+      return await res.json();
+    }
+  });
+
+  const chartData = analyticsData?.chartData || [];
+  const recurringData = analyticsData?.recurringData || [];
+
+  const sortedData = [...recurringData].sort((a, b) => {
     return sortOrder === "asc"
-      ? a.reports - b.reports
-      : b.reports - a.reports
+      ? a.count - b.count
+      : b.count - a.count
   })
 
   return (
@@ -34,7 +51,7 @@ export default function AdminAnalyticsPage() {
             className="lg:col-span-2 lg:h-[600px]"
             title="Reports Overview"
             description="Visualizing total reports received over time." 
-            chartData={mockData.chartData} 
+            chartData={chartData.length > 0 ? chartData : [{ name: 'Loading', count: 0 }]} 
             chartConfig={{
               views: {
                 label: "Reports",
@@ -62,14 +79,16 @@ export default function AdminAnalyticsPage() {
             </CardHeader>
             <CardContent className="overflow-y-auto flex-1 px-6 pb-8 pt-4">
               <div className="space-y-4">
-                {sortedData.map((d, i) => (
+                {isLoading ? (
+                   <div className="text-center py-10 text-muted-foreground text-sm">Loading reports...</div>
+                ) : sortedData.map((d: any, i: number) => (
                   <div key={i} className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 last:border-0">
                     <div>
-                      <div className="font-semibold text-sm">{d.issueType}</div>
-                      <div className="text-xs text-muted-foreground">{d.barangay}</div>
+                      <div className="font-semibold text-sm">{d.issueType || d.issue || 'General'}</div>
+                      <div className="text-xs text-muted-foreground">{d.barangay || d.area}</div>
                     </div>
                     <div className="font-bold text-blue-600 bg-blue-50 dark:bg-blue-900/20 px-3 py-1 rounded-full text-sm">
-                      {d.reports}
+                      {d.count}
                     </div>
                   </div>
                 ))}
