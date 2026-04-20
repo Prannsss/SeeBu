@@ -2,10 +2,12 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Clock3, FileText, CheckCircle2 } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Clock3, FileText, CheckCircle2, Copy } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useQuery } from '@tanstack/react-query'
+import { gooeyToast } from "goey-toast"
 
 function truncate(str: string, length = 60) {
   if (!str) return '';
@@ -14,37 +16,83 @@ function truncate(str: string, length = 60) {
 
 export default function ClientHistoryPage() {
   const [activeTab, setActiveTab] = useState("all");
-  const [userId, setUserId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  useEffect(() => {
-    // In a real app we'd decode JWT or use a dedicated context. 
-    // Since backend returns `user` in login, we realistically could store user Id in local storage or context.
-    const storedUserStr = localStorage.getItem('user');
-    if (storedUserStr) {
-      try {
-        setUserId(JSON.parse(storedUserStr).id);
-      } catch (e) {}
+  const handleCopyTracking = async (trackingId: string) => {
+    try {
+      await navigator.clipboard.writeText(trackingId);
+      setCopiedId(trackingId);
+      gooeyToast.success("Tracking ID copied.");
+      setTimeout(() => setCopiedId((current) => (current === trackingId ? null : current)), 1500);
+    } catch {
+      gooeyToast.error("Unable to copy tracking ID.");
     }
-  }, []);
+  };
+
+  const decodeJwtPayload = (token: string) => {
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
+
+    // JWT payload uses base64url encoding, so normalize before decoding.
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+    return JSON.parse(atob(padded));
+  };
+
+  const getFallbackIdentityFromCookie = () => {
+    if (typeof document === 'undefined') return { id: null as string | null, email: null as string | null };
+    const match = document.cookie.match(/(?:^|;\s*)auth-token=([^;]*)/);
+    if (!match?.[1]) return { id: null as string | null, email: null as string | null };
+
+    try {
+      const token = decodeURIComponent(match[1]);
+      const payload = decodeJwtPayload(token);
+      const payloadId = payload?.id || payload?.uuid || payload?.user_id || payload?.client_id || payload?.sub || null;
+      return {
+        id: payloadId,
+        email: payload?.email || null,
+      };
+    } catch {
+      return { id: null as string | null, email: null as string | null };
+    }
+  };
+
+  const { data: profileData } = useQuery({
+    queryKey: ['client-me'],
+    queryFn: async () => {
+      const { apiClient } = await import('@/lib/api');
+      try {
+        const json = await apiClient.users.me();
+        return json.data;
+      } catch {
+        return null;
+      }
+    },
+  });
+
+  const fallbackIdentity = getFallbackIdentityFromCookie();
+  const userId = profileData?.id || profileData?.uuid || profileData?.user_id || profileData?.client_id || fallbackIdentity.id;
+  const userEmail = profileData?.email || fallbackIdentity.email;
 
   const { data: reportData, isLoading } = useQuery({
-    queryKey: ['client-reports', userId],
+    queryKey: ['client-reports', userId, userEmail],
     queryFn: async () => {
-      // In production, append ?reporter_id=user.id to fetch user specific reports
-      let url = 'http://localhost:5000/api/v1/reports';
-      if (userId) url += `?reporter_id=${userId}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error('Failed to fetch reports');
-      const json = await res.json();
-      return json.data;
-    }
+      if (!userId && !userEmail) return [];
+      const { apiClient } = await import('@/lib/api');
+      const json = await apiClient.reports.getAll({
+        reporter_id: userId || undefined,
+        reporter_email: userEmail || undefined,
+      });
+      return json.data || [];
+    },
+    enabled: !!userId || !!userEmail
   });
 
   const items = reportData || [];
 
   const filteredItems = items.filter((item: any) => {
     if (activeTab === "all") return true;
-    if (activeTab === "pending") return ['In Review', 'Action Taken', 'Delegated', 'In Progress'].includes(item.status);
+    if (activeTab === "pending") return !['Resolved', 'Completed'].includes(item.status);
     if (activeTab === "resolved") return ['Resolved', 'Completed'].includes(item.status);
     return true;
   });
@@ -96,13 +144,42 @@ export default function ClientHistoryPage() {
                         <CardTitle className="text-lg">{item.title}</CardTitle>
                         <CardDescription className="mt-1">{item.created_at ? new Date(item.created_at).toLocaleDateString() : 'N/A'}</CardDescription>
                       </div>
-                      <Badge variant="outline" className="border-blue-300 text-blue-700 bg-blue-50/50 mt-2 sm:mt-0 whitespace-nowrap">{item.id}</Badge>
+                      <div className="mt-2 sm:mt-0 flex items-center gap-2">
+                        <Badge variant="outline" className="border-blue-300 text-blue-700 bg-blue-50/50 whitespace-nowrap">{item.id}</Badge>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-7 w-7 border-blue-200 text-blue-700 hover:bg-blue-50"
+                          onClick={() => handleCopyTracking(item.id)}
+                          aria-label={`Copy tracking ID ${item.id}`}
+                        >
+                          {copiedId === item.id ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                        </Button>
+                      </div>
                     </CardHeader>
                     <CardContent className="flex flex-col gap-3">
                       <div className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-400">
                         <FileText className="h-4 w-4 mt-0.5 shrink-0" />
                         <span className="leading-snug">{truncate(item.description)}</span>
                       </div>
+                      {Array.isArray(item.report_photos) && item.report_photos.length > 0 ? (
+                        <div className="flex items-center gap-2">
+                          {item.report_photos.slice(0, 3).map((photo: any, idx: number) => (
+                            <div key={`${item.id}-photo-${idx}`} className="h-12 w-12 overflow-hidden rounded-md border border-slate-200 bg-slate-100">
+                              <img
+                                src={photo.photo_url}
+                                alt={`Report ${item.id} photo ${idx + 1}`}
+                                loading="lazy"
+                                className="h-full w-full object-cover"
+                              />
+                            </div>
+                          ))}
+                          {item.report_photos.length > 3 ? (
+                            <span className="text-xs text-slate-500">+{item.report_photos.length - 3} more</span>
+                          ) : null}
+                        </div>
+                      ) : null}
                       <div className="flex justify-between items-center mt-2 border-t pt-3">
                         <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Status</span>
                         <div className={`flex items-center gap-1.5 text-sm font-semibold px-2.5 py-1 rounded-full ${

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Search, CheckCircle, Clock, AlertTriangle, XCircle } from "lucide-react";
+import { Search, CheckCircle, Clock, XCircle } from "lucide-react";
 import { gooeyToast } from "goey-toast";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
@@ -14,7 +14,13 @@ type TimelineEvent = {
   date: string;
 };
 
-type MockData = {
+type DelegatedDepartment = {
+  id: number;
+  name: string;
+};
+
+type ReportData = {
+  id: string;
   status: string;
   title: string;
   location: string;
@@ -23,97 +29,179 @@ type MockData = {
   timeline: TimelineEvent[];
 };
 
-const MOCK_DB: Record<string, MockData> = {
-  "RPT-123": {
-    status: "Completed",
-    title: "Pothole on Main St.",
-    location: "Main St, Cebu City",
-    completion_photos: ["https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?auto=format&fit=crop&q=80&w=400"],
-    timeline: [
-      { id: "1", status: "In Review", date: "2024-03-20 10:00 AM", notes: "Report submitted." },
-      { id: "2", status: "Approved", date: "2024-03-20 11:30 AM", notes: "Verified by Admin." },
-      { id: "3", status: "Delegated", date: "2024-03-21 09:00 AM", notes: "Assigned to Public Works." },
-      { id: "4", status: "In Progress", date: "2024-03-22 08:00 AM", notes: "Team dispatched." },
-      { id: "5", status: "Completed", date: "2024-03-22 04:00 PM", notes: "Pothole patched." }
-    ]
-  },
-  "RPT-404": {
-    status: "Rejected",
-    title: "Unknown noise",
-    location: "Central, Cebu City",
-    rejection_reason: "Insufficient details provided to locate the issue. Please submit a new report with photos.",
-    timeline: [
-      { id: "1", status: "In Review", date: "2024-03-21 14:00 PM", notes: "Report submitted." },
-      { id: "2", status: "Rejected", date: "2024-03-21 15:00 PM", notes: "Report rejected by Admin." }
-    ]
+const normalizeTrackingId = (value: string) => {
+  const compact = value
+    .trim()
+    .toUpperCase()
+    .replace(/[\s_]+/g, "-")
+    .replace(/[^A-Z0-9-]/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  if (compact.startsWith("RPT") && !compact.startsWith("RPT-")) {
+    return compact.replace(/^RPT-?/, "RPT-");
   }
+
+  return compact;
 };
 
 function TrackingContent() {
   const searchParams = useSearchParams();
-  const defaultQuery = searchParams.get("id") || "";
+  const defaultQuery = normalizeTrackingId(searchParams.get("id") || "");
   const [trackingNumber, setTrackingNumber] = useState(defaultQuery);
-  const [result, setResult] = useState<MockData | null>(null);
+  const [result, setResult] = useState<ReportData | null>(null);
+  const [activeTrackingId, setActiveTrackingId] = useState<string | null>(null);
 
   // Trigger search on mount if a query parameter exists
   useEffect(() => {
     if (defaultQuery) {
-      handleTrack(new Event("submit") as any);
+      handleTrack(new Event("submit") as any, true);
     }
   }, [defaultQuery]);
 
-const handleTrack = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!trackingNumber) return;
+  const fetchTrackingData = async (reportId: string, showToast = true) => {
+    const normalizedReportId = normalizeTrackingId(reportId);
+    if (!normalizedReportId) {
+      throw new Error("Please enter a valid tracking number.");
+    }
 
-    try {
-      const res = await fetch(`http://localhost:5000/api/v1/reports/${trackingNumber.toUpperCase()}`);
-      if (!res.ok) {
-        if (res.status === 404) throw new Error("No report matches that tracking number. Please check and try again.");
-        throw new Error("Failed to fetch report");
-      }
-      
-      const { data } = await res.json();
-      
-      // Transform backend data to frontend MockData structure
-      const formattedData: MockData = {
-        title: data.title,
-        status: data.status,
-        location: `${data.location}${data.barangays ? `, ${data.barangays.name}` : ''}${data.municipalities ? `, ${data.municipalities.name}` : ''}`,
-        rejection_reason: data.rejection_reason,
-        completion_photos: data.report_photos?.filter((p: any) => p.is_completion_photo).map((p: any) => p.photo_url) || [],
-        timeline: data.report_timeline?.map((t: any) => ({
+    const { apiClient } = await import("@/lib/api");
+    const { data } = await apiClient.reports.getById(normalizedReportId);
+    const delegatedDepartment: DelegatedDepartment | null = data.delegated_department || null;
+
+    const normalizeTimelineNotes = (notes?: string) => {
+      if (!notes) return notes;
+      return notes.replace(/department\s+(\d+)/gi, (_match, idValue: string) => {
+        const noteDepartmentId = Number(idValue);
+        if (
+          delegatedDepartment?.id &&
+          Number.isFinite(noteDepartmentId) &&
+          Number(delegatedDepartment.id) === noteDepartmentId
+        ) {
+          return delegatedDepartment.name;
+        }
+        return `department ${idValue}`;
+      });
+    };
+
+    // Sort by raw timestamp, then format for display.
+    const sortedTimeline = (data.report_timeline || [])
+      .slice()
+      .sort(
+        (a: any, b: any) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+
+    const formattedData: ReportData = {
+      id: data.id,
+      title: data.title,
+      status: data.status,
+      location: `${data.location}${data.barangays ? `, ${data.barangays.name}` : ""}${data.municipalities ? `, ${data.municipalities.name}` : ""}`,
+      rejection_reason: data.rejection_reason,
+      completion_photos:
+        data.report_photos
+          ?.filter((p: any) => p.is_completion_photo)
+          .map((p: any) => p.photo_url) || [],
+      timeline:
+        sortedTimeline.map((t: any) => ({
           id: t.id,
           status: t.status,
           date: new Date(t.created_at).toLocaleString(),
-          notes: t.notes
-        })).sort((a: any, b: any) => new Date(a.date).getTime() < new Date(b.date).getTime() ? 1 : -1) || []
-      };
+          notes: normalizeTimelineNotes(t.notes),
+        })) || [],
+    };
 
-      setResult(formattedData);
+    setResult(formattedData);
+    setActiveTrackingId(data.id);
+
+    if (showToast) {
       gooeyToast.success("Report Found!", {
-        description: `Showing status for ${data.id}.`,     
+        description: `Showing status for ${data.id}.`,
       });
+    }
+  };
+
+const handleTrack = async (e: React.FormEvent, silent = false) => {
+    e.preventDefault();
+    const normalizedTrackingId = normalizeTrackingId(trackingNumber);
+    if (!normalizedTrackingId) return;
+    setTrackingNumber(normalizedTrackingId);
+
+    try {
+      await fetchTrackingData(normalizedTrackingId, !silent);
     } catch (err: any) {
       setResult(null);
+      setActiveTrackingId(null);
       gooeyToast.error("Not Found", {
         description: err.message || "No report matches that tracking number.",
       });
     }
   };
 
+  useEffect(() => {
+    if (!activeTrackingId) return;
+
+    const intervalId = window.setInterval(async () => {
+      try {
+        await fetchTrackingData(activeTrackingId, false);
+      } catch {
+        // Ignore background refresh errors while preserving current result.
+      }
+    }, 10000);
+
+    return () => window.clearInterval(intervalId);
+  }, [activeTrackingId]);
+
+  const getStatusKind = (status: string): "success" | "pending" | "rejected" => {
+    const normalized = status.trim().toLowerCase();
+    if (normalized === "rejected") return "rejected";
+    if (normalized === "completed" || normalized === "resolved") return "success";
+    return "pending";
+  };
+
   const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "Completed": return <CheckCircle className="h-6 w-6 text-green-500" />;
-      case "Rejected": return <XCircle className="h-6 w-6 text-red-500" />;
-      case "In Progress": return <Clock className="h-6 w-6 text-blue-500" />;
-      default: return <AlertTriangle className="h-6 w-6 text-amber-500" />;
+    const kind = getStatusKind(status);
+    if (kind === "success") return <CheckCircle className="h-5 w-5 text-green-600" />;
+    if (kind === "rejected") return <XCircle className="h-5 w-5 text-red-600" />;
+    return <Clock className="h-5 w-5 text-amber-600" />;
+  };
+
+  const getStatusCircleClass = (status: string) => {
+    const kind = getStatusKind(status);
+    if (kind === "success") return "bg-green-50 border-green-200";
+    if (kind === "rejected") return "bg-red-50 border-red-200";
+    return "bg-amber-50 border-amber-200";
+  };
+
+  const getTimelineDisplayKind = (event: TimelineEvent, index: number, total: number) => {
+    const isLatestEvent = index === 0;
+    const kind = getStatusKind(event.status);
+    const normalizedStatus = event.status.trim().toLowerCase();
+    if (kind === "rejected") return "rejected" as const;
+    if (isLatestEvent && (normalizedStatus === "assigned" || normalizedStatus === "accepted")) {
+      return "success" as const;
     }
+    if (!isLatestEvent) return "success" as const;
+    return kind;
+  };
+
+  const getTimelineIcon = (event: TimelineEvent, index: number, total: number) => {
+    const kind = getTimelineDisplayKind(event, index, total);
+    if (kind === "success") return <CheckCircle className="h-5 w-5 text-green-600" />;
+    if (kind === "rejected") return <XCircle className="h-5 w-5 text-red-600" />;
+    return <Clock className="h-5 w-5 text-amber-600" />;
+  };
+
+  const getTimelineCircleClass = (event: TimelineEvent, index: number, total: number) => {
+    const kind = getTimelineDisplayKind(event, index, total);
+    if (kind === "success") return "bg-green-50 border-green-200";
+    if (kind === "rejected") return "bg-red-50 border-red-200";
+    return "bg-amber-50 border-amber-200";
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-32">
-      <div className="container mx-auto max-w-2xl px-4 pt-16 space-y-8">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-32" suppressHydrationWarning>
+      <div className="container mx-auto max-w-2xl px-4 pt-16 space-y-8" suppressHydrationWarning>
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-black text-slate-900 dark:text-white">Track Report</h1>
           <p className="text-slate-500 dark:text-slate-400">
@@ -136,7 +224,7 @@ const handleTrack = async (e: React.FormEvent) => {
               />
             </div>
             
-            <Button type="submit" className="w-full py-6 text-lg font-bold shadow-lg">
+            <Button type="submit" className="w-full py-6 text-lg font-bold shadow-lg text-white hover:text-white">
               Track Status
             </Button>
           </form>
@@ -145,12 +233,14 @@ const handleTrack = async (e: React.FormEvent) => {
         {result && (
           <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500 fade-in">
             <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-              <div className="flex items-start justify-between">
+                <div className="flex items-start justify-between gap-3">
                 <div>
                   <h2 className="text-xl font-bold text-slate-900 dark:text-white">{result.title}</h2>
                   <p className="text-slate-500">{result.location}</p>
                 </div>
-                {getStatusIcon(result.status)}
+                  <div className={`h-10 w-10 rounded-full border flex items-center justify-center ${getStatusCircleClass(result.status)}`}>
+                    {getStatusIcon(result.status)}
+                  </div>
               </div>
               
               <div className="inline-flex items-center px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-sm font-medium">
@@ -166,7 +256,7 @@ const handleTrack = async (e: React.FormEvent) => {
                 </div>
               )}
 
-              {result.status === "Completed" && result.completion_photos && result.completion_photos.length > 0 && (
+              {(result.status === "Completed" || result.status === "Resolved") && result.completion_photos && result.completion_photos.length > 0 && (
                 <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
                   <h3 className="font-bold flex items-center gap-2 text-slate-900 dark:text-white">
                     <CheckCircle className="h-4 w-4 text-green-500" /> Completion Proof
@@ -187,8 +277,8 @@ const handleTrack = async (e: React.FormEvent) => {
               <div className="relative space-y-6 before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-slate-200 dark:before:bg-slate-800">
                 {result.timeline.map((event, index) => (
                   <div key={event.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white dark:border-slate-900 bg-primary text-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">
-                      {getStatusIcon(event.status)}
+                    <div className={`flex items-center justify-center w-10 h-10 rounded-full border-4 border-white dark:border-slate-900 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 ${getTimelineCircleClass(event, index, result.timeline.length)}`}>
+                      {getTimelineIcon(event, index, result.timeline.length)}
                     </div>
                     
                     <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700">

@@ -19,12 +19,14 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { gooeyToast } from "goey-toast"
+import ProfileLoadingSkeleton from "@/components/ui/profile-loading-skeleton"
 
 export default function AdminProfilePage() {
   const router = useRouter()
   const [isEditing, setIsEditing] = useState(false)
   const [profile, setProfile] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [areaDisplay, setAreaDisplay] = useState<string | null>(null)
 
   // Form State
   const [formData, setFormData] = useState({
@@ -37,12 +39,19 @@ export default function AdminProfilePage() {
     async function loadProfile() {
       const data = await getUserProfile();
       if (data) {
+        // Format municipality name: convert 'cebu-city' to 'Cebu City'
+        let areaDisplay = data.municipality_name || data.municipality_id || null;
+        if (areaDisplay && areaDisplay.includes('-')) {
+          areaDisplay = areaDisplay.replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+        }
+        
         setProfile(data);
         setFormData({
           name: data.full_name || "",
           email: data.email || "",
           phone: data.contact_number || ""
         });
+        setAreaDisplay(areaDisplay);
       }
       setIsLoading(false);
     }
@@ -55,9 +64,19 @@ export default function AdminProfilePage() {
     router.push("/auth/login")
   }
 
-  const handleDeleteAccount = () => {
-    gooeyToast.success("Account deleted successfully")
-    router.push("/auth/login")
+  const handleDeleteAccount = async () => {
+    try {
+      const { deleteAccount } = await import("@/app/actions/user.actions");
+      const res = await deleteAccount();
+      if (res.success) {
+        gooeyToast.success("Account deleted successfully");
+        router.push("/auth/login");
+      } else {
+        gooeyToast.error(res.error || "Failed to delete account");
+      }
+    } catch (err) {
+      gooeyToast.error("Failed to delete account");
+    }
   }
 
   const handleSave = async (e: React.FormEvent) => {
@@ -68,7 +87,8 @@ export default function AdminProfilePage() {
       const res = await updateUserProfile({
         id: profile.id,
         name: formData.name,
-        email: formData.email
+        email: formData.email,
+        phone: formData.phone
       });
       
       if (res.success) {
@@ -84,7 +104,7 @@ export default function AdminProfilePage() {
   }
 
   if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center dark:bg-slate-950 dark:text-white">Loading profile...</div>
+    return <ProfileLoadingSkeleton />
   }
 
   return (
@@ -147,8 +167,8 @@ export default function AdminProfilePage() {
               
               
                 <div className="pb-4 border-b border-slate-100 dark:border-slate-800/60 last:border-0 last:pb-0">
-                  <span className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-2">Municipality/Dept ID</span>
-                  <span className="block text-base text-slate-900 dark:text-white font-medium">{profile?.municipality_id || profile?.department_id || 'Global'}</span>
+                  <span className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-2">Municipality</span>
+                  <span className="block text-base text-slate-900 dark:text-white font-medium">{areaDisplay || profile?.municipality_id || 'Global'}</span>
                 </div>
               
               </div>
@@ -170,7 +190,7 @@ export default function AdminProfilePage() {
                   <span className="material-symbols-outlined input-icon">call</span>
                 </div>
                 <div className="flex gap-3 pt-2">
-                  <Button type="button" variant="outline" className="flex-1 h-11 border-slate-200 dark:border-slate-700 font-bold" onClick={() => setIsEditing(false)}>Cancel</Button>
+                  <Button type="button" className="flex-1 h-11 bg-red-600 hover:bg-red-700 text-white font-bold shadow-sm" onClick={() => setIsEditing(false)}>Cancel</Button>
                   <Button className="flex-1 h-11 bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-sm" type="submit">Save Changes</Button>
                 </div>
               </form>
@@ -180,7 +200,7 @@ export default function AdminProfilePage() {
 
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <button className="w-full flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold h-12 rounded-xl shadow-sm mb-4 transition-colors">
+            <button className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold h-12 rounded-md shadow-sm mb-4 transition-colors">
               <LogOut className="h-4 w-4" />
               <span className="tracking-wide">Logout</span>
             </button>
@@ -193,8 +213,8 @@ export default function AdminProfilePage() {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter className="mt-4 gap-2 sm:gap-0">
-              <AlertDialogCancel className="h-11 rounded-lg font-bold border-slate-200 dark:border-slate-700 mt-2 sm:mt-0">Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleLogout} className="h-11 rounded-lg bg-red-600 text-white hover:bg-red-700 font-bold shadow-sm">Logout</AlertDialogAction>
+              <AlertDialogCancel className="h-11 rounded-lg font-bold bg-[#13b6ec] hover:bg-[#0fa6d8] text-white border-[#13b6ec]">Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleLogout} className="h-11 rounded-md bg-red-600 text-white hover:bg-red-700 font-bold shadow-sm">Logout</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

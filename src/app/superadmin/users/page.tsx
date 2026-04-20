@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Users, Filter, Search, MoreVertical } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -18,19 +18,31 @@ export default function SuperadminUsersPage() {
   const { data: users, isLoading } = useQuery({
     queryKey: ["superadmin-users"],
     queryFn: async () => {
-      const res = await fetch("http://localhost:5000/api/v1/users")
-      if (!res.ok) throw new Error("Failed to fetch users")
-      const json = await res.json()
-      return json.data
+      const { apiClient } = await import('@/lib/api');
+      const json = await apiClient.users.getAll();
+      return json.data;
     }
   })
+
+  // Fetch municipalities for area filter
+  const { data: locationsData } = useQuery({
+    queryKey: ["locations"],
+    queryFn: async () => {
+      const { apiClient } = await import('@/lib/api');
+      const json = await apiClient.locations.getAll();
+      return json.data || [];
+    }
+  })
+
+  const municipalities = locationsData || [];
 
   const userList = Array.isArray(users) ? users : [];
 
   const filteredUsers = userList.filter((user: any) => {
     const nameMatch = user.name?.toLowerCase().includes(searchTerm.toLowerCase()) || user.email?.toLowerCase().includes(searchTerm.toLowerCase())
     const roleMatch = roleFilter === "ALL" || user.role === roleFilter        
-    const areaMatch = areaFilter === "ALL" || user.area === areaFilter        
+    // area_id contains the municipality_id (e.g., "cebu-city") for matching
+    const areaMatch = areaFilter === "ALL" || user.area_id === areaFilter        
     return nameMatch && roleMatch && areaMatch
   })
 
@@ -101,10 +113,11 @@ export default function SuperadminUsersPage() {
                 <SelectContent className="bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 z-[100]">
                   <SelectItem value="ALL">All Areas</SelectItem>
                   <SelectItem value="Global">Global</SelectItem>
-                  <SelectItem value="Cebu City">Cebu City</SelectItem>
-                  <SelectItem value="Mandaue City">Mandaue City</SelectItem>
-                  <SelectItem value="Lapu-Lapu City">Lapu-Lapu City</SelectItem>
-                  <SelectItem value="Talisay City">Talisay City</SelectItem>
+                  {municipalities.map((mun: any) => (
+                    <SelectItem key={mun.id} value={mun.id}>
+                      {mun.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

@@ -17,7 +17,7 @@ export const analyticsController = {
       const reportedIssues = statusCounts.filter(r => r.status === 'In Review').length;
       const completedTasks = statusCounts.filter(r => r.status === 'Completed' || r.status === 'Resolved').length;
 
-      // 2. Aggregate recurring issues by municipality
+      // 3. Aggregate recurring issues by municipality
       const { data: recurringData, error: recErr } = await supabase
         .from('reports')
         .select(`
@@ -28,11 +28,25 @@ export const analyticsController = {
 
       if (recErr) throw recErr;
 
+      const { data: reportsOverTime, error: reportsOverTimeErr } = await supabase
+        .from('reports')
+        .select('created_at')
+        .order('created_at', { ascending: true });
+
+      if (reportsOverTimeErr) throw reportsOverTimeErr;
+
       // Format Chart Data & Recurring Data dynamically from SQL grouping instead of JSON!
       const groupedByMun: Record<string, number> = {};
+      const reportsByDate: Record<string, number> = {};
+      
       recurringData.forEach((row: any) => {
         const area = row.municipalities?.name || 'Unknown';
         groupedByMun[area] = (groupedByMun[area] || 0) + 1;
+      });
+
+      (reportsOverTime || []).forEach((row: any) => {
+        const dateKey = new Date(row.created_at).toISOString().split('T')[0];
+        reportsByDate[dateKey] = (reportsByDate[dateKey] || 0) + 1;
       });
 
       const formattedRecurring = Object.keys(groupedByMun).map((key) => ({
@@ -41,16 +55,22 @@ export const analyticsController = {
          count: groupedByMun[key]
       })).sort((a,b) => b.count - a.count);
 
+      const formattedChartData = Object.keys(reportsByDate)
+        .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
+        .map((date) => ({
+          date,
+          reports: reportsByDate[date],
+        }));
+
       // Return the dynamically aggregated response
       return res.status(200).json({
         totalReports,
         reportedIssues,
         completedTasks,
         pendingReports: totalReports - completedTasks - reportedIssues,
-        chartData: [
-           // Pseudo-Chart Mock payload dynamically built. We can expand this with actual DATE Grouping.
-           { date: 'Current', count: totalReports }
-        ],
+        chartData: formattedChartData.length > 0
+          ? formattedChartData
+          : [{ date: new Date().toISOString().split('T')[0], reports: 0 }],
         recurringData: formattedRecurring
       });
     } catch (err: any) {
@@ -73,6 +93,7 @@ export const analyticsController = {
         .select(`
           status,
           issue_type,
+          created_at,
           barangays(name)
         `)
         .eq('municipality_id', municipality_id);
@@ -81,13 +102,17 @@ export const analyticsController = {
 
       const totalReports = reports.length;
       const reportedIssues = reports.filter(r => r.status === 'In Review').length;
-      const completedTasks = reports.filter(r => r.status === 'Completed').length;
+      const completedTasks = reports.filter(r => r.status === 'Completed' || r.status === 'Resolved').length;
       const delayedTasks = reports.filter(r => r.status === 'Delegated' || r.status === 'Delayed').length;
 
       const groupedByBrgy: Record<string, number> = {};
+      const reportsByDate: Record<string, number> = {};
       reports.forEach((r: any) => {
          const brgy = r.barangays?.name || 'Unknown';
          groupedByBrgy[brgy] = (groupedByBrgy[brgy] || 0) + 1;
+
+         const dateKey = new Date(r.created_at).toISOString().split('T')[0];
+         reportsByDate[dateKey] = (reportsByDate[dateKey] || 0) + 1;
       });
 
       const formattedRecurring = Object.keys(groupedByBrgy).map((key) => ({
@@ -96,13 +121,22 @@ export const analyticsController = {
          count: groupedByBrgy[key]
       })).sort((a, b) => b.count - a.count);
 
+      const chartData = Object.keys(reportsByDate)
+        .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
+        .map((date) => ({
+          date,
+          reports: reportsByDate[date],
+        }));
+
       return res.status(200).json({
         totalReports,
         reportedIssues,
         completedTasks,
         delayedTasks,
         pendingReports: totalReports - completedTasks - reportedIssues,
-        chartData: [{ name: 'Overall', count: totalReports }],
+        chartData: chartData.length > 0
+          ? chartData
+          : [{ date: new Date().toISOString().split('T')[0], reports: 0 }],
         recurringData: formattedRecurring
       });
     } catch (err: any) {

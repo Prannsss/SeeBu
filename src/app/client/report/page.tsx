@@ -10,18 +10,33 @@ import BackButton from '@/components/navigation/back-button';
 
 const useAuth = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [user, setUser] = useState<{ name: string; email: string } | null>(null);
+  const [user, setUser] = useState<{ id: string; name: string; email: string; phone?: string } | null>(null);
 
   useEffect(() => {
-    // Check for auth-token in cookies on the client side
-    if (typeof document !== 'undefined') {
+    const bootstrapAuth = async () => {
+      if (typeof document === 'undefined') return;
       const hasToken = document.cookie.split('; ').find(row => row.startsWith('auth-token='));
-      if (hasToken) {
-        setIsLoggedIn(true);
-        // Mock user details or read from local storage / another cookie ideally
-        setUser({ name: 'John Doe', email: 'john@example.com' });
+      if (!hasToken) return;
+
+      setIsLoggedIn(true);
+
+      try {
+        const { apiClient } = await import('@/lib/api');
+        const profileRes = await apiClient.users.me();
+        if (profileRes?.data?.id) {
+          setUser({
+            id: profileRes.data.id,
+            name: profileRes.data.full_name || '',
+            email: profileRes.data.email || '',
+            phone: profileRes.data.contact_number || '',
+          });
+        }
+      } catch (error) {
+        console.error('Failed to load authenticated client profile:', error);
       }
-    }
+    };
+
+    void bootstrapAuth();
   }, []);
 
   return { isLoggedIn, user };
@@ -66,6 +81,10 @@ interface FormData {
   anonymous: boolean;
 }
 
+const MAX_SOURCE_IMAGE_SIZE_BYTES = 20 * 1024 * 1024;
+const TARGET_IMAGE_SIZE_BYTES = 1.2 * 1024 * 1024;
+const MAX_IMAGE_EDGE = 1600;
+
 export default function ReportPage() {
   const {
     data: locationData,
@@ -73,9 +92,8 @@ export default function ReportPage() {
   } = useQuery({
     queryKey: ['locations'],
     queryFn: async () => {
-      const res = await fetch('http://localhost:5000/api/v1/locations');
-      if (!res.ok) throw new Error('Failed to fetch locations');
-      const json = await res.json();
+      const { apiClient } = await import('@/lib/api');
+      const json = await apiClient.locations.getAll();
       return { municipalities: json.data } as LocationData;
     }
   });
@@ -101,6 +119,29 @@ export default function ReportPage() {
     reporterPhone: '',
     anonymous: false,
   });
+
+  useEffect(() => {
+    if (!trackingNumber || typeof document === 'undefined') {
+      return;
+    }
+
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    const previousBodyZoom = document.body.style.zoom;
+    const previousHtmlZoom = document.documentElement.style.zoom;
+
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.zoom = '100%';
+    document.documentElement.style.zoom = '100%';
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+      document.body.style.zoom = previousBodyZoom;
+      document.documentElement.style.zoom = previousHtmlZoom;
+    };
+  }, [trackingNumber]);
 
   // If user is logged in, skip step 4 (contact info)
   const totalSteps = isLoggedIn ? 3 : 4;
@@ -172,6 +213,76 @@ export default function ReportPage() {
     updateFormData('photos', newPhotos);
   };
 
+  const fileToDataUrl = (file: Blob): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          resolve(reader.result);
+          return;
+        }
+        reject(new Error('Invalid image format'));
+      };
+      reader.onerror = () => reject(new Error('Failed to read selected photo'));
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const loadImageElement = (file: File): Promise<HTMLImageElement> => {
+    return new Promise((resolve, reject) => {
+      const img = new window.Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error(`Could not process image \"${file.name}\".`));
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
+  const canvasToBlob = (canvas: HTMLCanvasElement, mimeType: string, quality?: number): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          reject(new Error('Failed to compress image.'));
+          return;
+        }
+        resolve(blob);
+      }, mimeType, quality);
+    });
+  };
+
+  const compressImageFile = async (file: File): Promise<Blob> => {
+    const img = await loadImageElement(file);
+    const width = img.naturalWidth || img.width;
+    const height = img.naturalHeight || img.height;
+    const scale = Math.min(1, MAX_IMAGE_EDGE / Math.max(width, height));
+
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(width * scale));
+    canvas.height = Math.max(1, Math.round(height * scale));
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      URL.revokeObjectURL(img.src);
+      throw new Error('Image compression context is unavailable.');
+    }
+
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    URL.revokeObjectURL(img.src);
+
+    const mimeType = 'image/jpeg';
+    const qualities = [0.85, 0.75, 0.65, 0.55, 0.45];
+    let bestBlob: Blob | null = null;
+
+    for (const quality of qualities) {
+      const blob = await canvasToBlob(canvas, mimeType, quality);
+      bestBlob = blob;
+      if (blob.size <= TARGET_IMAGE_SIZE_BYTES) {
+        return blob;
+      }
+    }
+
+    return bestBlob || file;
+  };
+
   const handleNext = () => {
     if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1);
@@ -201,15 +312,43 @@ export default function ReportPage() {
     try {
       setIsSubmitting(true);
       const submissionData = { ...formData };
+      let submittingUser = user;
+
+      if (isLoggedIn && !submittingUser) {
+        const { apiClient } = await import('@/lib/api');
+        const profileRes = await apiClient.users.me();
+        if (profileRes?.data?.id) {
+          submittingUser = {
+            id: profileRes.data.id,
+            name: profileRes.data.full_name || '',
+            email: profileRes.data.email || '',
+            phone: profileRes.data.contact_number || '',
+          };
+        }
+      }
+
+      const oversized = formData.photos.find((file) => file.size > MAX_SOURCE_IMAGE_SIZE_BYTES);
+      if (oversized) {
+        throw new Error(`Photo \"${oversized.name}\" is too large. Max allowed source size is 20MB.`);
+      }
+
+      const photoDataUrls = await Promise.all(
+        formData.photos.map(async (file) => {
+          const compressedBlob = await compressImageFile(file);
+          return fileToDataUrl(compressedBlob);
+        })
+      );
 
       // If user is logged in, use their info automatically
-      if (isLoggedIn && user) {
-        submissionData.reporterName = user.name;
-        submissionData.reporterEmail = user.email;
+      if (isLoggedIn && submittingUser) {
+        submissionData.reporterName = submittingUser.name;
+        submissionData.reporterEmail = submittingUser.email;
+        submissionData.reporterPhone = submittingUser.phone || submissionData.reporterPhone;
       }
 
       // Convert formData to backend format
       const payload = {
+        reporter_id: isLoggedIn ? submittingUser?.id || null : null,
         issue_type: formData.issueType,
         other_type_specification: formData.otherSpecify,
         title: formData.title,
@@ -223,20 +362,11 @@ export default function ReportPage() {
         reporter_name: submissionData.reporterName,
         reporter_email: submissionData.reporterEmail,
         reporter_phone: submissionData.reporterPhone,
-        photos: [] // Placeholder until file upload service implemented
+        photos: photoDataUrls
       };
 
-      const res = await fetch('http://localhost:5000/api/v1/reports', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (!res.ok) {
-        throw new Error('Failed to create report on the server');
-      }
-
-      const { data } = await res.json();
+      const { apiClient } = await import('@/lib/api');
+      const { data } = await apiClient.reports.create(payload);
       console.log('Form submitted successfully:', data);
 
       // Show tracking number modal
@@ -246,8 +376,9 @@ export default function ReportPage() {
         description: `Your tracking ID is ${data.id}`
       });
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "We could not submit your report. Please review the details and try again.";
       gooeyToast.error("Submission Failed", {
-        description: "We could not submit your report. Please review the details and try again.",
+        description: errorMessage,
       });
       console.error('Report submission error:', error);
     } finally {

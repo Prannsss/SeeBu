@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useMutation } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { UserPlus, HardHat, ShieldCheck, MapPin } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -8,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { PasswordChecklist } from "@/components/ui/password-checklist"
 import { VerificationCodeUI } from "@/components/ui/verification-code"
 import { gooeyToast } from "goey-toast"
+import { apiClient } from "@/lib/api"
 
 export default function AdminAddPage() {
   const [activeTab, setActiveTab] = useState("admin")
@@ -15,20 +17,83 @@ export default function AdminAddPage() {
   const [wfPassword, setWfPassword] = useState("")
   const [isVerifying, setIsVerifying] = useState(false)
   const [verifyingEmail, setVerifyingEmail] = useState("")
+  const [municipalityId, setMunicipalityId] = useState<string | null>(null)
+  const [currentAdminArea, setCurrentAdminArea] = useState("Loading...")
 
-  // Mocking the inviter's area
-  const currentAdminArea = "Cebu City"
+  // Fetch current admin's profile to get their municipality
+  useEffect(() => {
+    async function loadProfile() {
+      try {
+        const profileRes = await apiClient.users.me();
+        const munId = profileRes.data?.municipality_id;
+        const munName = profileRes.data?.municipality_name || munId || "Unknown";
+        setMunicipalityId(munId);
+        setCurrentAdminArea(munName);
+      } catch (err) {
+        console.error("Failed to load profile:", err);
+        setCurrentAdminArea("Unknown");
+      }
+    }
+    loadProfile();
+  }, []);
+
+  const provisionMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const result = await apiClient.auth.provision(data);
+      return result;
+    },
+    onSuccess: () => {
+      setIsVerifying(true);
+      gooeyToast.success("Verification code sent!");
+    },
+    onError: (error: any) => {
+      gooeyToast.error(error.message || "Failed to add user");
+    }
+  });
 
   const handleAddSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsVerifying(true)
-    gooeyToast.success("Verification code sent!")
+    e.preventDefault();
+    
+    if (!municipalityId) {
+      gooeyToast.error("Could not determine your municipality. Please try again.");
+      return;
+    }
+
+    const form = e.currentTarget as HTMLFormElement;
+    const prefix = activeTab === "admin" ? "admin" : "wf";
+    const nameInput = form.querySelector(`#${prefix}-name`) as HTMLInputElement;
+    const contactInput = form.querySelector(`#${prefix}-contact`) as HTMLInputElement;
+    const emailInput = form.querySelector(`#${prefix}-email`) as HTMLInputElement;
+    const departmentInput = activeTab === "workforce"
+      ? (form.querySelector('#dept-name') as HTMLInputElement | null)
+      : null;
+    
+    const password = activeTab === "admin" ? adminPassword : wfPassword;
+    
+    if (!password || password.length < 8) {
+      gooeyToast.error("Password must be at least 8 characters");
+      return;
+    }
+
+    setVerifyingEmail(emailInput?.value || "");
+
+    provisionMutation.mutate({
+      user_role: activeTab === "admin" ? "admin" : "workforce-admin",
+      full_name: nameInput?.value,
+      contact_number: contactInput?.value,
+      email: emailInput?.value,
+      password: password,
+      municipality_id: municipalityId,
+      department_name: departmentInput?.value || undefined,
+    });
   }
 
   const handleVerifySuccess = () => {
     setIsVerifying(false)
     setAdminPassword("")
     setWfPassword("")
+    setVerifyingEmail("")
+    gooeyToast.success(`${activeTab === "admin" ? "Admin" : "Workforce Admin"} added successfully!`);
   }
 
   const handleVerifyCancel = () => {

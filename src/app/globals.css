@@ -322,6 +322,22 @@
   max-width: 100%;
 }
 
+/* Ensure toast text stays visible regardless of inherited page styles */
+.gooey-title,
+.gooey-description,
+.gooey-header {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.gooey-wrapper .gooey-description {
+  color: #334155 !important;
+}
+
+.gooey-wrapper[data-theme="dark"] .gooey-description {
+  color: #e2e8f0 !important;
+}
+
 /* Mobile: center toaster and tighten sizing */
 @media (max-width: 640px) {
   [data-sonner-toaster][data-x-position="center"] {

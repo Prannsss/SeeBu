@@ -1,16 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ChangeEvent } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Clock, MapPin, AlertTriangle, Link2, Camera, FileText } from "lucide-react";
+import { Clock, MapPin, AlertTriangle, Link2, Camera } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { gooeyToast } from "goey-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { ReportMediaGallery } from "@/components/reports/report-media-gallery";
+
+type LinkedReport = {
+  id: string;
+  title?: string;
+  description?: string;
+  urgency?: string;
+  municipality?: string;
+  barangay?: string;
+  streetAddress?: string;
+  landmark?: string;
+  reporterPhotos: string[];
+  completionPhotos: string[];
+};
 
 export default function WorkforceTasks() {
   const queryClient = useQueryClient();
@@ -19,48 +31,46 @@ export default function WorkforceTasks() {
   // Modal states
   const [completionModalOpen, setCompletionModalOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-  const [completionRemarks, setCompletionRemarks] = useState("");
-  const [completionPhotoUrl, setCompletionPhotoUrl] = useState("");
+  const [completionPhotoUrls, setCompletionPhotoUrls] = useState<string[]>([]);
+  const [proofFileNames, setProofFileNames] = useState<string[]>([]);
+  const [selectedReport, setSelectedReport] = useState<LinkedReport | null>(null);
 
   const { data: tasksData, isLoading } = useQuery({
     queryKey: ['workforce-tasks'],
     queryFn: async () => {
-      // NOTE: Uses dummy workforce ID for demo
-      const res = await fetch('http://localhost:5000/api/v1/tasks?assigned_to=123e4567-e89b-12d3-a456-426614174004');
-      if (!res.ok) throw new Error('Failed to fetch tasks');
-      const json = await res.json();
+      const { apiClient } = await import('@/lib/api');
+      // Get current user's ID from profile
+      const profileRes = await apiClient.users.me();
+      const userId = profileRes.data?.id;
+      if (!userId) throw new Error('Not authenticated');
+      
+      const json = await apiClient.tasks.getAll({ assigned_to: userId });
       return json.data;
     }
   });
 
   const updateTaskMutation = useMutation({
     mutationFn: async (payload: { id: string, status: string }) => {
-      const res = await fetch(`http://localhost:5000/api/v1/tasks/${payload.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer simulated-jwt-token' },
-        body: JSON.stringify({ status: payload.status })
-      });
-      if (!res.ok) throw new Error('Failed to update task');
-      return res.json();
+      const { apiClient } = await import('@/lib/api');
+      const res = await apiClient.tasks.update(payload.id, { status: payload.status });
+      return res;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['workforce-tasks'] })
   });
 
   const completeTaskMutation = useMutation({
-    mutationFn: async (payload: { id: string, remarks?: string, photo_url?: string }) => {
-      const res = await fetch(`http://localhost:5000/api/v1/tasks/${payload.id}/complete`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer simulated-jwt-token' },
-        body: JSON.stringify(payload)
+    mutationFn: async (payload: { id: string, photo_urls?: string[] }) => {
+      const { apiClient } = await import('@/lib/api');
+      const res = await apiClient.tasks.complete(payload.id, { 
+        photo_urls: payload.photo_urls 
       });
-      if (!res.ok) throw new Error('Failed to complete task');
-      return res.json();
+      return res;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workforce-tasks'] });
       setCompletionModalOpen(false);
-      setCompletionRemarks("");
-      setCompletionPhotoUrl("");
+      setCompletionPhotoUrls([]);
+      setProofFileNames([]);
     }
   });
 
@@ -72,7 +82,19 @@ export default function WorkforceTasks() {
     status: t.status,
     time: `Created ${new Date(t.created_at).toLocaleDateString()}`,
     related_report_id: t.related_report_id,
-    completed_at: t.completed_at ? new Date(t.completed_at).toLocaleString() : null
+    completed_at: t.completed_at ? new Date(t.completed_at).toLocaleString() : null,
+    related_report: t.related_report ? {
+      id: t.related_report.id,
+      title: t.related_report.title,
+      description: t.related_report.description,
+      urgency: t.related_report.urgency,
+      municipality: t.related_report.municipalities?.name || "Unknown",
+      barangay: t.related_report.barangays?.name || "Unknown",
+      streetAddress: t.related_report.location || "N/A",
+      landmark: t.related_report.landmark || "N/A",
+      reporterPhotos: (t.related_report.report_photos || []).filter((p: any) => !p.is_completion_photo).map((p: any) => p.photo_url),
+      completionPhotos: (t.related_report.report_photos || []).filter((p: any) => p.is_completion_photo).map((p: any) => p.photo_url),
+    } : null,
   })) : [];
 
   const filteredTasks = tasksList.filter((task: any) => task.status === activeTab);
@@ -80,31 +102,87 @@ export default function WorkforceTasks() {
   const handleAcceptTask = (taskId: string) => {
     updateTaskMutation.mutate({ id: taskId, status: 'Accepted' }, {
       onSuccess: () => gooeyToast.success("Task Accepted!", { description: "The task is now in progress. Good luck!" }),
-      onError: (err) => gooeyToast.error(err.message)
+      onError: (err) => gooeyToast.error(err?.message?.trim() || "Failed to accept task.")
     });
   };
 
   const handleOpenCompleteModal = (taskId: string) => {
     setSelectedTaskId(taskId);
+    setCompletionPhotoUrls([]);
+    setProofFileNames([]);
     setCompletionModalOpen(true);
+  };
+
+  const handleProofFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0) return;
+
+    if (files.length > 5) {
+      gooeyToast.error("You can upload up to 5 proof images only.");
+      event.target.value = "";
+      return;
+    }
+
+    const hasNonImage = files.some((file) => !file.type.startsWith("image/"));
+    if (hasNonImage) {
+      gooeyToast.error("Please upload image files only.");
+      event.target.value = "";
+      return;
+    }
+
+    try {
+      const readAsDataUrl = (file: File) =>
+        new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            if (typeof reader.result === "string") {
+              resolve(reader.result);
+              return;
+            }
+            reject(new Error("Invalid image format"));
+          };
+          reader.onerror = () => reject(new Error("Failed to read image"));
+          reader.readAsDataURL(file);
+        });
+
+      const photoUrls = await Promise.all(files.map(readAsDataUrl));
+      setCompletionPhotoUrls(photoUrls);
+      setProofFileNames(files.map((file) => file.name));
+    } catch {
+      gooeyToast.error("Failed to read selected images. Please try again.");
+      setCompletionPhotoUrls([]);
+      setProofFileNames([]);
+    }
+  };
+
+  const handleViewLinkedReport = (task: any) => {
+    if (!task.related_report) {
+      gooeyToast.error("No linked report details available yet.");
+      return;
+    }
+    setSelectedReport(task.related_report);
   };
 
   const handleConfirmComplete = () => {
     if (!selectedTaskId) return;
+    if (completionPhotoUrls.length === 0) {
+      gooeyToast.error("Please upload at least one proof image before submitting.");
+      return;
+    }
+
     completeTaskMutation.mutate({ 
       id: selectedTaskId, 
-      remarks: completionRemarks, 
-      photo_url: completionPhotoUrl 
+      photo_urls: completionPhotoUrls 
     }, {
       onSuccess: () => gooeyToast.success("Task Completed!", { description: "Great work! Proof submitted successfully." }),
-      onError: (err) => gooeyToast.error(err.message)
+      onError: (err) => gooeyToast.error(err?.message?.trim() || "Failed to submit completion proof.")
     });
   };
 
   const getButtonText = (status: string) => {
     switch(status) {
       case "Assigned": return "Accept Task";
-      case "Accepted": return "Mark as Complete";
+      case "Accepted": return "Upload and Mark as Complete";
       case "Completed": return "View Details";
       default: return "";
     }
@@ -173,9 +251,16 @@ export default function WorkforceTasks() {
                         )}
                       </div>
                       <div className="bg-muted/50 px-6 py-4 flex items-center justify-center border-t md:border-t-0 md:border-l border-border md:w-48">
-                        <button onClick={() => handleButtonClick(task)} className={`w-full rounded-md px-4 py-2 text-sm font-medium text-white shadow transition-colors ${task.status === 'Completed' ? 'bg-emerald-500 hover:bg-emerald-600' : task.status === 'Accepted' ? 'bg-amber-500 hover:bg-amber-600' : 'bg-primary hover:bg-primary/90'}`}>
-                          {getButtonText(task.status)}
-                        </button>
+                        <div className="w-full space-y-2">
+                          <button onClick={() => handleButtonClick(task)} className={`w-full rounded-md px-4 py-2 text-sm font-medium text-white shadow transition-colors ${task.status === 'Completed' ? 'bg-emerald-500 hover:bg-emerald-600' : task.status === 'Accepted' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-primary hover:bg-primary/90'}`}>
+                            {getButtonText(task.status)}
+                          </button>
+                          {task.related_report_id ? (
+                            <Button variant="outline" className="w-full" onClick={() => handleViewLinkedReport(task)}>
+                              View Linked Report
+                            </Button>
+                          ) : null}
+                        </div>
                       </div>
                     </div>
                   </Card>
@@ -196,21 +281,128 @@ export default function WorkforceTasks() {
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium flex items-center gap-2"><FileText className="w-4 h-4 text-slate-500" /> Completion Remarks / Notes</label>
-                <Textarea placeholder="Describe what was done..." value={completionRemarks} onChange={(e) => setCompletionRemarks(e.target.value)} className="min-h-[80px]" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium flex items-center gap-2"><Camera className="w-4 h-4 text-slate-500" /> Proof Photo URL</label>
-                <Input placeholder="https://example.com/photo.jpg" value={completionPhotoUrl} onChange={(e) => setCompletionPhotoUrl(e.target.value)} />
-                <p className="text-xs text-muted-foreground">For simulation purposes, paste a direct image link.</p>
+                <label htmlFor="proof-photo-upload" className="text-sm font-medium flex items-center gap-2"><Camera className="w-4 h-4 text-slate-500" /> Upload Proof Photos (up to 5)</label>
+                <input
+                  id="proof-photo-upload"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleProofFileChange}
+                  title="Upload proof photos"
+                  className="block w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-blue-600 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-blue-700"
+                />
+                {proofFileNames.length > 0 ? (
+                  <p className="text-xs text-muted-foreground">Selected: {proofFileNames.length} image(s)</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Choose up to 5 images to submit as completion proof.</p>
+                )}
+                {completionPhotoUrls.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {completionPhotoUrls.map((url, index) => (
+                      <div key={`${url}-${index}`} className="overflow-hidden rounded-lg border border-slate-200">
+                        <img
+                          src={url}
+                          alt={`Completion proof preview ${index + 1}`}
+                          className="h-24 w-full object-cover bg-slate-50"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             </div>
             <DialogFooter className="flex-col sm:flex-row gap-2 mt-2">
-              <Button variant="outline" onClick={() => setCompletionModalOpen(false)}>Cancel</Button>
-              <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleConfirmComplete} disabled={completeTaskMutation.isPending}>
-                {completeTaskMutation.isPending ? "Submitting..." : "Confirm & Complete"}
+              <Button className="bg-[#13b6ec] hover:bg-[#0fa6d8] text-white" onClick={() => setCompletionModalOpen(false)}>Cancel</Button>
+              <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleConfirmComplete} disabled={completeTaskMutation.isPending || completionPhotoUrls.length === 0}>
+                {completeTaskMutation.isPending ? "Submitting..." : "Submit"}
               </Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={Boolean(selectedReport)} onOpenChange={(open) => !open && setSelectedReport(null)}>
+          <DialogContent className="w-[calc(100%-2rem)] sm:max-w-5xl rounded-xl max-h-[88vh] overflow-y-auto p-5 sm:p-7">
+            <DialogHeader>
+              <DialogTitle>{selectedReport?.title || "Linked Report"}</DialogTitle>
+              <DialogDescription>
+                Report ID: {selectedReport?.id || "N/A"}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-5">
+              <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
+                <div className="rounded-lg border bg-slate-50 p-4 dark:bg-slate-900 h-fit">
+                  <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2">Report Details</h4>
+                  <div className="text-sm text-muted-foreground grid gap-2">
+                    <div className="flex justify-between border-b pb-2 gap-4">
+                      <span className="text-slate-500">Urgency Level:</span>
+                      <span className={`font-medium text-right ${
+                        selectedReport?.urgency === "High"
+                          ? "text-red-600 dark:text-red-400"
+                          : selectedReport?.urgency === "Medium"
+                            ? "text-yellow-600 dark:text-yellow-400"
+                            : "text-green-600 dark:text-green-400"
+                      }`}>{selectedReport?.urgency || "Low"}</span>
+                    </div>
+                    <div className="flex justify-between border-b pb-2 gap-4">
+                      <span className="text-slate-500">Title:</span>
+                      <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{selectedReport?.title || "N/A"}</span>
+                    </div>
+                    <div className="grid border-b pb-2 gap-1">
+                      <span className="text-slate-500">Description:</span>
+                      <span className="font-medium text-slate-700 dark:text-slate-300 leading-relaxed">{selectedReport?.description || "No report description available."}</span>
+                    </div>
+                    <div className="flex justify-between border-b pb-2 gap-4">
+                      <span className="text-slate-500">Municipality/City:</span>
+                      <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{selectedReport?.municipality || "Unknown"}</span>
+                    </div>
+                    <div className="flex justify-between border-b pb-2 gap-4">
+                      <span className="text-slate-500">Barangay:</span>
+                      <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{selectedReport?.barangay || "Unknown"}</span>
+                    </div>
+                    <div className="grid border-b pb-2 gap-1">
+                      <span className="text-slate-500">Street Address:</span>
+                      <span className="font-medium text-slate-700 dark:text-slate-300">{selectedReport?.streetAddress || "N/A"}</span>
+                    </div>
+                    <div className="grid gap-1">
+                      <span className="text-slate-500">Landmark:</span>
+                      <span className="font-medium text-slate-700 dark:text-slate-300">{selectedReport?.landmark || "N/A"}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <Tabs defaultValue="reporter" className="w-full">
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="reporter">Reporter Uploaded</TabsTrigger>
+                      <TabsTrigger value="completion">Completion Proof</TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="reporter" className="mt-3">
+                      <ReportMediaGallery
+                        title="Reporter Uploaded Images"
+                        images={(selectedReport?.reporterPhotos || []).map((url, index) => ({
+                          url,
+                          alt: `Reporter image ${index + 1}`,
+                        }))}
+                        emptyText="No reporter images were uploaded for this report."
+                      />
+                    </TabsContent>
+
+                    <TabsContent value="completion" className="mt-3">
+                      <ReportMediaGallery
+                        title="Completion Proof Images"
+                        images={(selectedReport?.completionPhotos || []).map((url, index) => ({
+                          url,
+                          alt: `Completion proof ${index + 1}`,
+                        }))}
+                        emptyText="No completion proof has been submitted yet."
+                      />
+                    </TabsContent>
+                  </Tabs>
+                </div>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
 

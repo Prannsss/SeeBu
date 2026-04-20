@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { reportController } from '../controllers/reportController';
 import { withAuth } from '../middlewares/withAuth';
+import { requireRole } from '../middlewares/requireRole';
 
 const router = Router();
 
@@ -14,6 +15,6 @@ router.get('/:id', reportController.getReportById);
 router.post('/', reportController.createReport);
 
 // Update a specific report (Status change)
-router.put('/:id', withAuth, reportController.updateReportStatus);
+router.put('/:id', withAuth, requireRole(['admin', 'superadmin']), reportController.updateReportStatus);
 
 export default router;

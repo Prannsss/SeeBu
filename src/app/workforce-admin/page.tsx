@@ -15,43 +15,49 @@ async function getWorkforceAdminStats() {
     const profileData = await profileRes.json();
     const deptId = profileData?.data?.department_id;
 
-    if (!deptId) return { activeTasks: 0, headcount: 0, completedToday: 0 };
+    if (!deptId) return { activeTasks: 0, headcount: 0, completedToday: 0, departmentName: 'Global' };
 
-    // Fetch users to count headcount
-    const usersRes = await fetch(`${apiUrl}/api/v1/users`, {
+    const departmentsRes = await fetch(`${apiUrl}/api/v1/departments`, {
       headers: { "Authorization": `Bearer ${token}` },
       cache: 'no-store'
     });
-    const usersData = await usersRes.json();
-    const headcount = (usersData?.data || []).filter((u: any) => u.area === deptId && u.role === 'WORKFORCE_OFFICER').length;
+    const departmentsData = await departmentsRes.json();
+    const departmentName = (departmentsData?.data || []).find((d: any) => String(d.id) === String(deptId))?.name || `Department ${deptId}`;
 
-    // Fetch tasks to calculate active and completed
-    // As an admin, we might want to query all tasks but filter by assigned_to (department)
-    const taskRes = await fetch(`${apiUrl}/api/v1/tasks?assigned_to=${deptId}`, {
+    // Fetch department personnel and keep only active workforce officers.
+    const personnelRes = await fetch(`${apiUrl}/api/v1/departments/${deptId}/personnel`, {
+      headers: { "Authorization": `Bearer ${token}` },
+      cache: 'no-store'
+    });
+    const personnelData = await personnelRes.json();
+    const headcount = (personnelData?.data || []).filter((u: any) => u.role === 'workforce' && String(u.status || '').toLowerCase() === 'active').length;
+
+    // Fetch tasks delegated to this department by admin/superadmin.
+    const taskRes = await fetch(`${apiUrl}/api/v1/tasks?delegated_to=${deptId}`, {
       headers: { "Authorization": `Bearer ${token}` },
       cache: 'no-store'
     });
     const tasksData = await taskRes.json();
     const tasks = tasksData?.data || [];
 
-    const activeTasks = tasks.filter((t: any) => t.status === "Assigned" || t.status === "Accepted").length;
+    const activeTasks = tasks.filter((t: any) => ["Pending", "Assigned", "Accepted", "In Progress"].includes(t.status)).length;
     
     const today = new Date().toDateString();
     const completedToday = tasks.filter((t: any) => {
-      if (t.status !== "Resolved") return false;
-      const completedDate = new Date(t.updated_at || t.created_at).toDateString();
+      if (t.status !== "Completed") return false;
+      const completedDate = new Date(t.completed_at || t.updated_at || t.created_at).toDateString();
       return completedDate === today;
     }).length;
 
-    return { activeTasks, headcount, completedToday, user: profileData.data };
+    return { activeTasks, headcount, completedToday, user: profileData.data, departmentName };
   } catch (error) {
     console.error("Error fetching stats:", error);
-    return { activeTasks: 0, headcount: 0, completedToday: 0, user: null };
+    return { activeTasks: 0, headcount: 0, completedToday: 0, user: null, departmentName: 'Global' };
   }
 }
 
 export default async function WorkforceAdminPage() {
-  const { activeTasks, headcount, completedToday, user } = await getWorkforceAdminStats();
+  const { activeTasks, headcount, completedToday, user, departmentName } = await getWorkforceAdminStats();
 
   return (
     <div className="min-h-screen bg-slate-50 pb-32 dark:bg-slate-950 dark:text-slate-100">
@@ -62,7 +68,7 @@ export default async function WorkforceAdminPage() {
           </div>
           <div>
             <h1 className="text-3xl font-bold">Workforce Admin</h1>
-            <p className="text-muted-foreground">Department: {user?.department_id || 'Global'}</p>
+            <p className="text-muted-foreground">Department: {departmentName || user?.department_id || 'Global'}</p>
           </div>
         </div>
 

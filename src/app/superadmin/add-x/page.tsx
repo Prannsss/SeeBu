@@ -1,38 +1,88 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
-import { UserPlus, ShieldAlert, ShieldCheck, Loader2 } from "lucide-react"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { UserPlus, ShieldAlert, ShieldCheck, Loader2, Eye, EyeOff } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PasswordChecklist } from "@/components/ui/password-checklist"
 import { VerificationCodeUI } from "@/components/ui/verification-code"
 import { gooeyToast } from "goey-toast"
-import { useMutation } from "@tanstack/react-query"
+import { useMutation, useQuery } from "@tanstack/react-query"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
 
 export default function SuperadminAddPage() {
   const [activeTab, setActiveTab] = useState("admin")
   const [adminPassword, setAdminPassword] = useState("")
+  const [showAdminPassword, setShowAdminPassword] = useState(false)
   const [superadminPassword, setSuperadminPassword] = useState("")
+  const [showSuperadminPassword, setShowSuperadminPassword] = useState(false)
   const [isVerifying, setIsVerifying] = useState(false)
   const [verifyingEmail, setVerifyingEmail] = useState("")
   const [municipalityId, setMunicipalityId] = useState("")
+  const [municipalityInput, setMunicipalityInput] = useState("")
+  const [showMunicipalityDropdown, setShowMunicipalityDropdown] = useState(false)
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
+  const municipalityInputRef = useRef<HTMLInputElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Fetch municipalities from API
+  const { data: locationsData } = useQuery({
+    queryKey: ["locations"],
+    queryFn: async () => {
+      const { apiClient } = await import('@/lib/api');
+      const json = await apiClient.locations.getAll();
+      return json.data || [];
+    }
+  })
+
+  const municipalities = locationsData || [];
+
+  // Filter municipalities based on input
+  const filteredMunicipalities = municipalities.filter((mun: any) =>
+    mun.name.toLowerCase().includes(municipalityInput.toLowerCase())
+  )
+
+  // Handle blur on input to show confirmation if needed
+  const handleMunicipalityBlur = () => {
+    // Check if input matches an existing municipality
+    const matchedMun = municipalities.find(
+      (mun: any) => mun.name.toLowerCase() === municipalityInput.toLowerCase()
+    )
+    if (municipalityInput && !matchedMun && municipalityInput.trim() !== "") {
+      // Show confirmation dialog for new municipality
+      setTimeout(() => setConfirmDialogOpen(true), 200)
+    }
+    setShowMunicipalityDropdown(false)
+  }
+
+  const handleMunicipalityFocus = () => {
+    setShowMunicipalityDropdown(true)
+  }
+
+  const selectMunicipality = (mun: any) => {
+    setMunicipalityInput(mun.name)
+    setMunicipalityId(mun.id)
+    setShowMunicipalityDropdown(false)
+  }
+
+  const handleConfirmCreate = () => {
+    // Generate ID from name: "Cebu City" -> "cebu-city"
+    const generatedId = municipalityInput
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, '')
+      .replace(/\s+/g, '-')
+    setMunicipalityId(generatedId)
+    setConfirmDialogOpen(false)
+    gooeyToast.success(`Municipality "${municipalityInput}" will be created`)
+  }
 
   const provisionMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await fetch("http://localhost:5000/api/v1/auth/provision", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      })
+      const { apiClient } = await import('@/lib/api');
+      const result = await apiClient.auth.provision(data);
       
-      const result = await response.json()
-      
-      if (!response.ok) {
-        throw new Error(result.error || "Failed to provision user")
-      }
-      
-      return result
+      return result;
     },
     onSuccess: () => {
       gooeyToast.success("Verification code sent!")
@@ -166,25 +216,48 @@ export default function SuperadminAddPage() {
 
                 <div className="space-y-1 mt-2">
                   <label className="text-sm font-medium text-slate-700 dark:text-slate-300 ml-1">Assigned Area (Municipality/City)</label>
-                  <Select required onValueChange={setMunicipalityId} value={municipalityId}>
-                    <SelectTrigger className="w-full h-[52px] sm:h-[56px] rounded-[1rem] border-2 border-[#e5e7eb] dark:border-[#374151] bg-white dark:bg-[#1f2937] text-base px-4 focus:ring-0 focus:border-[#00B2E2] focus:shadow-[0_0_0_3px_rgba(0,178,226,0.1)] transition-all">
-                      <SelectValue placeholder="Select a municipality" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 z-[100] shadow-xl">
-                      <SelectItem value="cebu_city" className="py-2">Cebu City</SelectItem>
-                      <SelectItem value="mandaue_city" className="py-2">Mandaue City</SelectItem>
-                      <SelectItem value="lapu_lapu_city" className="py-2">Lapu-Lapu City</SelectItem>
-                      <SelectItem value="talisay_city" className="py-2">Talisay City</SelectItem>
-                      <SelectItem value="consolacion" className="py-2">Consolacion</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="relative" ref={dropdownRef}>
+                    <div className="floating-input !mt-0">
+                      <input 
+                        ref={municipalityInputRef}
+                        type="text" 
+                        placeholder="Type to search or add municipality"
+                        value={municipalityInput}
+                        onChange={(e) => {
+                          setMunicipalityInput(e.target.value)
+                          setMunicipalityId("")
+                          setShowMunicipalityDropdown(true)
+                        }}
+                        onFocus={handleMunicipalityFocus}
+                        onBlur={handleMunicipalityBlur}
+                        className="pr-10"
+                        required
+                      />
+                      <label htmlFor="municipality-search">Select or Add Municipality</label>
+                      <span className="material-symbols-outlined input-icon">map</span>
+                    </div>
+                    {showMunicipalityDropdown && filteredMunicipalities.length > 0 && (
+                      <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg max-h-60 overflow-auto">
+                        {filteredMunicipalities.map((mun: any) => (
+                          <div 
+                            key={mun.id}
+                            onMouseDown={() => selectMunicipality(mun)}
+                            className="px-4 py-3 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm"
+                          >
+                            {mun.name}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500 ml-1">Type to search or enter a new municipality name.</p>
                 </div>
 
                 <div className="flex flex-col gap-1 mt-2">
                   <div className="floating-input !mt-0">
                     <input 
                       id="admin-password" 
-                      type="password" 
+                      type={showAdminPassword ? "text" : "password"}
                       placeholder=" " 
                       required 
                       minLength={8}
@@ -193,6 +266,13 @@ export default function SuperadminAddPage() {
                     />
                     <label htmlFor="admin-password">Temporary Password</label>
                     <span className="material-symbols-outlined input-icon">lock</span>
+                    <button 
+                      type="button"
+                      onClick={() => setShowAdminPassword(!showAdminPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      {showAdminPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    </button>
                   </div>
                   <div className="pt-2 pl-1">
                     <PasswordChecklist password={adminPassword} />
@@ -247,10 +327,10 @@ export default function SuperadminAddPage() {
                 </div>
 
                 <div className="flex flex-col gap-1 mt-2">
-                  <div className="floating-input !mt-0">
+                  <div className="floating-input !mt-0 relative">
                     <input 
                       id="sa-password" 
-                      type="password" 
+                      type={showSuperadminPassword ? "text" : "password"}
                       placeholder=" " 
                       required 
                       minLength={8}
@@ -259,6 +339,13 @@ export default function SuperadminAddPage() {
                     />
                     <label htmlFor="sa-password">Temporary Password</label>
                     <span className="material-symbols-outlined input-icon">lock</span>
+                    <button 
+                      type="button"
+                      onClick={() => setShowSuperadminPassword(!showSuperadminPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      {showSuperadminPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    </button>
                   </div>
                   <div className="pt-2 pl-1">
                     <PasswordChecklist password={superadminPassword} />
@@ -275,6 +362,39 @@ export default function SuperadminAddPage() {
         </Tabs>
         )}
       </div>
+
+      {/* Confirmation Dialog for New Municipality */}
+      <Dialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
+        <DialogContent className="w-[calc(100%-2rem)] max-w-sm rounded-xl p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold">Municipality Not Found</DialogTitle>
+          </DialogHeader>
+          <div className="py-2">
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              "{municipalityInput}" does not exist. Would you like to add it as a new municipality?
+            </p>
+          </div>
+          <DialogFooter className="flex-row gap-3 mt-4">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setConfirmDialogOpen(false)
+                setMunicipalityInput("")
+                municipalityInputRef.current?.focus()
+              }}
+              className="flex-1 bg-red-600 hover:bg-red-700 text-white border-red-600"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleConfirmCreate}
+              className="flex-1 bg-[#00B2E2] hover:bg-[#0096C7] text-white"
+            >
+              Yes, Add New
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -7,6 +7,7 @@ const router = Router();
 // /api/v1/users/me (Get current logged in user)
 router.get('/me', withAuth, userController.getCurrentUser);
 router.patch('/me', withAuth, userController.updateCurrentUser);
+router.delete('/me', withAuth, userController.deleteCurrentUser);
 
 // /api/v1/users (Global view for super admins)
 router.get('/', withAuth, userController.getAllUsers);

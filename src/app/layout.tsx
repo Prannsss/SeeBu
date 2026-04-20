@@ -1,11 +1,13 @@
 
 import type {Metadata} from 'next';
+import { Suspense } from 'react';
 import './globals.css';
 import 'goey-toast/styles.css';
 import GooeyToasterProvider from '@/components/providers/gooey-toaster-provider';
 import { NavigationHistoryProvider } from '@/components/providers/navigation-history-provider';
 import { QueryProvider } from '@/components/providers/query-provider';
 import GoogleAuthProvider from '@/components/providers/google-auth-provider';
+import GlobalPageSkeleton from '../components/ui/global-page-skeleton';
 
 export const metadata: Metadata = {
   title: 'SeeBu | Build a Smarter Cebu City',
@@ -18,7 +20,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="scroll-smooth">
+    <html lang="en" className="scroll-smooth" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -28,11 +30,13 @@ export default function RootLayout({
         />
         <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
       </head>
-      <body className="font-body antialiased bg-background text-foreground selection:bg-primary/30">
+      <body className="font-body antialiased bg-background text-foreground selection:bg-primary/30" suppressHydrationWarning>
         <GoogleAuthProvider>
         <QueryProvider>
           <NavigationHistoryProvider>
-            {children}
+            <Suspense fallback={<GlobalPageSkeleton />}>
+              {children}
+            </Suspense>
             <GooeyToasterProvider />
           </NavigationHistoryProvider>
         </QueryProvider>

@@ -11,20 +11,22 @@ export default function AdminAnalyticsPage() {
 
   // For demonstration, fetch for cebu-city. In production, pass context admin's municipality_id
   const { data: analyticsData, isLoading } = useQuery({
-    queryKey: ['admin-analytics', 'cebu-city'],
+    queryKey: ['admin-analytics', 'dynamic'],
     queryFn: async () => {
-      const res = await fetch('http://localhost:5000/api/v1/analytics/admin/cebu-city', {
-        headers: {
-          'Authorization': 'Bearer simulated-jwt-token'
-        }
-      });
-      if (!res.ok) throw new Error('Failed to fetch analytics');
-      return await res.json();
+      const { apiClient } = await import('@/lib/api');
+      // Get admin's municipality_id from profile
+      const profileRes = await apiClient.users.me();
+      const municipalityId = profileRes.data?.municipality_id;
+      if (!municipalityId) throw new Error('No municipality assigned');
+      
+      const json = await apiClient.analytics.admin(municipalityId);
+      return json;
     }
   });
 
   const chartData = analyticsData?.chartData || [];
   const recurringData = analyticsData?.recurringData || [];
+  const emptyChartData = [{ date: new Date().toISOString().split('T')[0], reports: 0 }];
 
   const sortedData = [...recurringData].sort((a, b) => {
     return sortOrder === "asc"
@@ -51,11 +53,8 @@ export default function AdminAnalyticsPage() {
             className="lg:col-span-2 lg:h-[600px]"
             title="Reports Overview"
             description="Visualizing total reports received over time." 
-            chartData={chartData.length > 0 ? chartData : [{ name: 'Loading', count: 0 }]} 
+            chartData={chartData.length > 0 ? chartData : emptyChartData}
             chartConfig={{
-              views: {
-                label: "Reports",
-              },
               reports: {
                 label: "Reports",
                 color: "#2563eb",

@@ -19,6 +19,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { gooeyToast } from "goey-toast"
+import ProfileLoadingSkeleton from "@/components/ui/profile-loading-skeleton"
 
 export default function SuperAdminProfilePage() {
   const router = useRouter()
@@ -55,9 +56,19 @@ export default function SuperAdminProfilePage() {
     router.push("/auth/login")
   }
 
-  const handleDeleteAccount = () => {
-    gooeyToast.success("Account deleted successfully")
-    router.push("/auth/login")
+  const handleDeleteAccount = async () => {
+    try {
+      const { deleteAccount } = await import("@/app/actions/user.actions");
+      const res = await deleteAccount();
+      if (res.success) {
+        gooeyToast.success("Account deleted successfully");
+        router.push("/auth/login");
+      } else {
+        gooeyToast.error(res.error || "Failed to delete account");
+      }
+    } catch (err) {
+      gooeyToast.error("Failed to delete account");
+    }
   }
 
   const handleSave = async (e: React.FormEvent) => {
@@ -68,7 +79,8 @@ export default function SuperAdminProfilePage() {
       const res = await updateUserProfile({
         id: profile.id,
         name: formData.name,
-        email: formData.email
+        email: formData.email,
+        phone: formData.phone
       });
       
       if (res.success) {
@@ -84,7 +96,7 @@ export default function SuperAdminProfilePage() {
   }
 
   if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center dark:bg-slate-950 dark:text-white">Loading profile...</div>
+    return <ProfileLoadingSkeleton />
   }
 
   return (
@@ -165,7 +177,7 @@ export default function SuperAdminProfilePage() {
                   <span className="material-symbols-outlined input-icon">call</span>
                 </div>
                 <div className="flex gap-3 pt-2">
-                  <Button type="button" variant="outline" className="flex-1 h-11 border-slate-200 dark:border-slate-700 font-bold" onClick={() => setIsEditing(false)}>Cancel</Button>
+                  <Button type="button" className="flex-1 h-11 bg-red-600 hover:bg-red-700 text-white font-bold shadow-sm" onClick={() => setIsEditing(false)}>Cancel</Button>
                   <Button className="flex-1 h-11 bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-sm" type="submit">Save Changes</Button>
                 </div>
               </form>
@@ -175,7 +187,7 @@ export default function SuperAdminProfilePage() {
 
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <button className="w-full flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold h-12 rounded-xl shadow-sm mb-4 transition-colors">
+            <button className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold h-12 rounded-md shadow-sm mb-4 transition-colors">
               <LogOut className="h-4 w-4" />
               <span className="tracking-wide">Logout</span>
             </button>
@@ -188,8 +200,8 @@ export default function SuperAdminProfilePage() {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter className="mt-4 gap-2 sm:gap-0">
-              <AlertDialogCancel className="h-11 rounded-lg font-bold border-slate-200 dark:border-slate-700 mt-2 sm:mt-0">Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleLogout} className="h-11 rounded-lg bg-red-600 text-white hover:bg-red-700 font-bold shadow-sm">Logout</AlertDialogAction>
+              <AlertDialogCancel className="h-11 rounded-lg font-bold bg-[#13b6ec] hover:bg-[#0fa6d8] text-white border-[#13b6ec]">Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleLogout} className="h-11 rounded-md bg-red-600 text-white hover:bg-red-700 font-bold shadow-sm">Logout</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

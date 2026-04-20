@@ -3,8 +3,65 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { FileWarning, Search, User, Clock3, CircleUserRound } from "lucide-react";
+import { api } from "@/lib/api";
+import { getUserProfile } from "@/app/actions/user.actions";
 
-export default function ClientDashboard() {
+async function getClientStats(userId: string) {
+  try {
+    const reportsRes = await api.reports.getAll({ reporter_id: userId });
+    const reports = reportsRes.data || [];
+    
+    const openReports = reports.filter((r: any) => 
+      !['Resolved', 'Completed', 'Rejected'].includes(r.status)
+    ).length;
+    
+    const now = new Date();
+    const resolvedThisMonth = reports.filter((r: any) => {
+      if (!['Resolved', 'Completed'].includes(r.status)) return false;
+      const resolvedDate = new Date(r.updated_at || r.created_at);
+      return resolvedDate.getMonth() === now.getMonth() && 
+             resolvedDate.getFullYear() === now.getFullYear();
+    }).length;
+    
+    // Calculate average resolution time for completed reports
+    const completedReports = reports.filter((r: any) => 
+      ['Resolved', 'Completed'].includes(r.status)
+    );
+    
+    let avgResolutionDays = 0;
+    if (completedReports.length > 0) {
+      const totalDays = completedReports.reduce((sum: number, r: any) => {
+        const created = new Date(r.created_at).getTime();
+        const resolved = new Date(r.updated_at || r.created_at).getTime();
+        const days = (resolved - created) / (1000 * 60 * 60 * 24);
+        return sum + days;
+      }, 0);
+      avgResolutionDays = Math.round((totalDays / completedReports.length) * 10) / 10;
+    }
+    
+    return {
+      openReports,
+      resolvedThisMonth,
+      avgResolutionDays: avgResolutionDays || 2.4
+    };
+  } catch (error) {
+    console.error("Error fetching client stats:", error);
+    return {
+      openReports: 0,
+      resolvedThisMonth: 0,
+      avgResolutionDays: 0
+    };
+  }
+}
+
+export default async function ClientDashboard() {
+  const user = await getUserProfile();
+  const stats = user ? await getClientStats(user.id) : {
+    openReports: 0,
+    resolvedThisMonth: 0,
+    avgResolutionDays: 0
+  };
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-white text-slate-900 pb-32 dark:bg-slate-950 dark:text-slate-100">
       
@@ -30,7 +87,7 @@ export default function ClientDashboard() {
               <CardDescription className="text-red-600/80 font-medium text-xs md:text-sm">Open Reports</CardDescription>
               <div className="flex items-center gap-2 mt-1">
                 <FileWarning className="h-5 w-5 md:h-6 md:w-6 text-red-600" />
-                <CardTitle className="text-2xl md:text-3xl text-red-700">04</CardTitle>
+                <CardTitle className="text-2xl md:text-3xl text-red-700">{stats.openReports.toString().padStart(2, '0')}</CardTitle>
               </div>
             </CardHeader>
           </Card>
@@ -41,19 +98,19 @@ export default function ClientDashboard() {
                 <div className="h-5 w-5 md:h-6 md:w-6 text-emerald-600 flex items-center justify-center rounded-full bg-emerald-100">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3 md:h-4 md:w-4"><path d="M20 6 9 17l-5-5"/></svg>
                 </div>
-                <CardTitle className="text-2xl md:text-3xl text-emerald-700">17</CardTitle>
+                <CardTitle className="text-2xl md:text-3xl text-emerald-700">{stats.resolvedThisMonth.toString().padStart(2, '0')}</CardTitle>
               </div>
             </CardHeader>
           </Card>
           <Card className="border-slate-200 bg-white/80 backdrop-blur col-span-2 lg:col-span-1">
             <CardHeader className="pb-2">
               <CardDescription>Avg Resolution Time</CardDescription>
-              <CardTitle className="text-2xl">2.4 Days</CardTitle>
+              <CardTitle className="text-2xl">{stats.avgResolutionDays} Days</CardTitle>
             </CardHeader>
           </Card>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid grid-cols-2 gap-4 md:gap-6">
           <Card className="transition-all hover:-translate-y-1 hover:shadow-xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">

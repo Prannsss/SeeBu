@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { useMutation } from "@tanstack/react-query"
+import { useEffect, useState } from "react"
+import { useMutation, useQuery } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { PasswordChecklist } from "@/components/ui/password-checklist"
 import { VerificationCodeUI } from "@/components/ui/verification-code"
@@ -13,44 +13,73 @@ export default function AddOfficerPage() {
   const [email, setEmail] = useState("")
   const [phone, setPhone] = useState("")
   const [department, setDepartment] = useState("")
+    const { data: profileData } = useQuery({
+      queryKey: ['workforce-admin-me'],
+      queryFn: async () => {
+        const { apiClient } = await import('@/lib/api');
+        const result = await apiClient.users.me();
+        return result.data;
+      }
+    })
+
+    const { data: departmentsData } = useQuery({
+      queryKey: ['workforce-admin-departments'],
+      queryFn: async () => {
+        const { apiClient } = await import('@/lib/api');
+        const result = await apiClient.departments.getAll();
+        return result.data || [];
+      }
+    })
+
+    useEffect(() => {
+      const scopedDepartment = Array.isArray(departmentsData)
+        ? departmentsData.find((d: any) => String(d.id) === String(profileData?.department_id)) || departmentsData[0]
+        : null;
+
+      if (scopedDepartment?.id) {
+        setDepartment(String(scopedDepartment.id));
+      }
+    }, [departmentsData, profileData?.department_id]);
+
+    const selectedDepartmentName = Array.isArray(departmentsData)
+      ? (departmentsData.find((d: any) => String(d.id) === String(department))?.name || "")
+      : "";
+
   const [officerPassword, setOfficerPassword] = useState("")
   const [isVerifying, setIsVerifying] = useState(false)
 
   const mutation = useMutation({
     mutationFn: async (payload: any) => {
-      const response = await fetch("http://localhost:5000/api/v1/auth/provision", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
+      const { apiClient } = await import('@/lib/api');
+      const result = await apiClient.auth.provision({
+        ...payload,
+        user_role: "workforce"
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to provision officer");
-      }
-
-      return response.json();
+      return result;
     },
     onSuccess: () => {
       gooeyToast.success("Officer generated successfully! Proceed to verify email.");
       setIsVerifying(true);
     },
     onError: (error) => {
-      gooeyToast.error(error.message);
+      gooeyToast.error(error?.message?.trim() || "Failed to generate officer account.");
     }
   })
 
   const handleAddOfficer = (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!department) {
+      gooeyToast.error("Unable to resolve your department. Please reload and try again.");
+      return;
+    }
     
     mutation.mutate({
       first_name: firstName,
       last_name: lastName,
       email,
       phone,
-      department,
+      department_id: department,
       password: officerPassword,
       user_role: "workforce"
     })
@@ -152,10 +181,10 @@ export default function AddOfficerPage() {
                 type="text" 
                 placeholder=" " 
                 required 
-                value={department}
-                onChange={(e) => setDepartment(e.target.value)}
+                value={selectedDepartmentName || "Loading department..."}
+                disabled
               />        
-              <label htmlFor="officer-department">Department</label>
+              <label htmlFor="officer-department">Assigned Department</label>
               <span className="material-symbols-outlined input-icon">domain</span>        
             </div>
 

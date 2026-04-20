@@ -82,6 +82,37 @@ export async function logoutUser() {
   reqCookies.delete("auth-token");
   reqCookies.delete("user-role");
 }
+
+export async function deleteAccount() {
+  try {
+    const session = await verifyAuthAndGetSession();
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+
+    const response = await fetch(`${apiUrl}/api/v1/users/me`, {
+      method: "DELETE",
+      headers: {
+        "Authorization": `Bearer ${session.token}`,
+        "Content-Type": "application/json"
+      }
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error("Unauthorized");
+      }
+      throw new Error(`Failed to delete profile: ${response.statusText}`);
+    }
+
+    const reqCookies = await cookies();
+    reqCookies.delete("auth-token");
+    reqCookies.delete("user-role");
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("[deleteAccount_ERROR]", error.message);
+    return { success: false, error: error.message };
+  }
+}
 /**
  * Updates a user's profile securely.
  * Applies Backend Skill rules: Zod Validation, Auth checking, Error Catching.

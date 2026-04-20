@@ -10,40 +10,79 @@ import { gooeyToast } from "goey-toast"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { ReportMediaGallery } from "@/components/reports/report-media-gallery"
+
+type LinkedReport = {
+  id: string;
+  title?: string;
+  description?: string;
+  urgency?: string;
+  municipality?: string;
+  barangay?: string;
+  streetAddress?: string;
+  landmark?: string;
+  reporterPhotos: string[];
+  completionPhotos: string[];
+};
 
 export default function WorkforceAdminTasksPage() {
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState("Pending")
   const [delegateTo, setDelegateTo] = useState("")
   const [dialogOpen, setDialogOpen] = useState<string | null>(null)
+  const [selectedReport, setSelectedReport] = useState<LinkedReport | null>(null)
+
+  const { data: profileData } = useQuery({
+    queryKey: ['workforce-admin-profile'],
+    queryFn: async () => {
+      const { apiClient } = await import('@/lib/api');
+      const res = await apiClient.users.me();
+      return res.data;
+    }
+  })
+
+  const departmentId = profileData?.department_id ? String(profileData.department_id) : "";
+
+  const { data: officersData } = useQuery({
+    queryKey: ['workforce-admin-officers', departmentId],
+    queryFn: async () => {
+      const { apiClient } = await import('@/lib/api');
+      const res = await apiClient.departments.getPersonnel(departmentId);
+      return res.data || [];
+    },
+    enabled: !!departmentId,
+  })
+
+  const officers = (Array.isArray(officersData) ? officersData : [])
+    .filter((person: any) => person.role === 'workforce' && String(person.status || '').toLowerCase() === 'active')
+    .map((person: any) => ({
+      id: person.id,
+      name: person.officer_role ? `${person.full_name} (${person.officer_role})` : person.full_name,
+    }));
+
+  const officerNameById = new Map(officers.map((o: any) => [o.id, o.name]));
 
   const { data: tasksData, isLoading } = useQuery({
     queryKey: ['workforce-admin-tasks'],
     queryFn: async () => {
-      // Assumes we map to delegated_to id for current workforce admin or their department
-      // Using simulated department dummy ID
-      const res = await fetch('http://localhost:5000/api/v1/tasks?delegated_to=dept-sanitation');
-      if (!res.ok) throw new Error('Failed to fetch tasks')
-      const json = await res.json()
-      return json.data
-    }
+      const { apiClient } = await import('@/lib/api');
+      const deptId = departmentId;
+      if (!deptId) throw new Error('No department assigned');
+      
+      const json = await apiClient.tasks.getAll({ delegated_to: deptId });
+      return json.data;
+    },
+    enabled: !!departmentId,
   })
-
-  // Simulated workforce officers in department
-  const officers = [
-    { id: "123e4567-e89b-12d3-a456-426614174004", name: "John Doe (Sanitation)" },
-    { id: "223e4567-e89b-12d3-a456-426614174005", name: "Jane Smith (Sanitation)" }
-  ]
 
   const updateTaskMutation = useMutation({
     mutationFn: async (payload: { id: string, status?: string, assigned_to?: string }) => {
-      const res = await fetch(`http://localhost:5000/api/v1/tasks/${payload.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer simulated-jwt-token' },
-        body: JSON.stringify(payload)
-      })
-      if (!res.ok) throw new Error('Failed to update task')
-      return res.json()
+      const { apiClient } = await import('@/lib/api');
+      const res = await apiClient.tasks.update(payload.id, { 
+        status: payload.status, 
+        assigned_to: payload.assigned_to 
+      });
+      return res;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['workforce-admin-tasks'] })
   })
@@ -52,14 +91,28 @@ export default function WorkforceAdminTasksPage() {
     id: t.id,
     title: t.title,
     description: t.location, // Mapping location to description field used in UI
-    status: t.status === "Assigned" || t.status === "Pending" ? "Pending" : t.status,
+    status: t.status,
     date: new Date(t.created_at).toLocaleDateString(),
-    officer: t.assigned_to ? officers.find(o => o.id === t.assigned_to)?.name || `ID: ${t.assigned_to.substring(0,6)}...` : undefined,
+    assignedToId: t.assigned_to || null,
+    officer: t.assigned_to ? officerNameById.get(t.assigned_to) || "Assigned officer" : undefined,
     related_report_id: t.related_report_id,
+    related_report: t.related_report ? {
+      id: t.related_report.id,
+      title: t.related_report.title,
+      description: t.related_report.description,
+      urgency: t.related_report.urgency,
+      municipality: t.related_report.municipalities?.name || "Unknown",
+      barangay: t.related_report.barangays?.name || "Unknown",
+      streetAddress: t.related_report.location || "N/A",
+      landmark: t.related_report.landmark || "N/A",
+      reporterPhotos: (t.related_report.report_photos || []).filter((p: any) => !p.is_completion_photo).map((p: any) => p.photo_url),
+      completionPhotos: (t.related_report.report_photos || []).filter((p: any) => p.is_completion_photo).map((p: any) => p.photo_url),
+    } : null,
     created_by: t.created_by || "System"
   })) : []
 
-  const pendingTasks = tasksList.filter(t => t.status !== "Completed")
+  const pendingTasks = tasksList.filter(t => t.status === "Pending" || t.status === "Accepted")
+  const assignedTasks = tasksList.filter(t => t.status === "Assigned")
   const completedTasks = tasksList.filter(t => t.status === "Completed")
 
   const handleAccept = (taskId: string) => {
@@ -80,6 +133,14 @@ export default function WorkforceAdminTasksPage() {
         setDelegateTo("")
       }
     })
+  }
+
+  const handleViewLinkedReport = (task: any) => {
+    if (!task.related_report) {
+      gooeyToast.error("No linked report details available for this task yet.")
+      return
+    }
+    setSelectedReport(task.related_report)
   }
 
   const getStatusColor = (status: string) => {
@@ -104,6 +165,7 @@ export default function WorkforceAdminTasksPage() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="mb-6 flex h-auto w-full bg-white dark:bg-slate-900 border rounded-lg p-1">
             <TabsTrigger value="Pending" className="flex-1 rounded-md py-2.5 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 dark:data-[state=active]:bg-blue-900/30 dark:data-[state=active]:text-blue-400">Pending Actions</TabsTrigger>
+            <TabsTrigger value="Assigned" className="flex-1 rounded-md py-2.5 data-[state=active]:bg-amber-50 data-[state=active]:text-amber-700 dark:data-[state=active]:bg-amber-900/30 dark:data-[state=active]:text-amber-400">Assigned Actions</TabsTrigger>
             <TabsTrigger value="Completed" className="flex-1 rounded-md py-2.5 data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-700 dark:data-[state=active]:bg-emerald-900/30 dark:data-[state=active]:text-emerald-400">Completed Actions</TabsTrigger>
           </TabsList>
 
@@ -135,12 +197,17 @@ export default function WorkforceAdminTasksPage() {
                       <div className="bg-slate-50 dark:bg-slate-950 p-6 border-t md:border-t-0 md:border-l flex flex-col justify-center gap-3 min-w-[240px]">
                         {task.status === "Pending" ? (
                           <Button onClick={() => handleAccept(task.id)} className="w-full bg-blue-600 hover:bg-blue-700 text-white">Accept Department Task</Button>
-                        ) : (
+                        ) : !task.assignedToId ? (
                           <Dialog open={dialogOpen === task.id} onOpenChange={(open) => setDialogOpen(open ? task.id : null)}>
                             <DialogTrigger asChild>
-                              <Button className="w-full bg-amber-600 hover:bg-amber-700 text-white shadow-sm">Assign to Officer</Button>
+                              <Button
+                                className="w-full bg-amber-600 hover:bg-amber-700 text-white shadow-sm"
+                                onClick={() => setDelegateTo("")}
+                              >
+                                Assign to Officer
+                              </Button>
                             </DialogTrigger>
-                            <DialogContent className="sm:max-w-[425px]">
+                            <DialogContent className="sm:max-w-[425px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
                               <DialogHeader>
                                 <DialogTitle>Delegate Task to Officer</DialogTitle>
                                 <DialogDescription>Assign the field operation for {task.id} to an available workforce member.</DialogDescription>
@@ -148,21 +215,76 @@ export default function WorkforceAdminTasksPage() {
                               <div className="grid gap-4 py-4">
                                 <Select value={delegateTo} onValueChange={setDelegateTo}>
                                   <SelectTrigger><SelectValue placeholder="Select workforce officer..." /></SelectTrigger>
-                                  <SelectContent>
+                                  <SelectContent className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 z-[300]">
                                     {officers.map(o => (
                                       <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
                                     ))}
                                   </SelectContent>
                                 </Select>
+                                {officers.length === 0 ? (
+                                  <p className="text-xs text-slate-500">No active officers available in your department.</p>
+                                ) : null}
                               </div>
                               <DialogFooter>
-                                <Button onClick={() => handleDelegate(task.id)} className="w-full bg-blue-600 hover:bg-blue-700 text-white">Confirm Assignment</Button>
+                                <Button
+                                  onClick={() => handleDelegate(task.id)}
+                                  disabled={!delegateTo || officers.length === 0}
+                                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                                >
+                                  Confirm Assignment
+                                </Button>
                               </DialogFooter>
                             </DialogContent>
                           </Dialog>
-                        )}
-                        <Button variant="outline" className="w-full">View Linked 
-Report</Button>
+                        ) : null}
+                        <Button
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => handleViewLinkedReport(task)}
+                        >
+                          View Linked Report
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="Assigned">
+            {assignedTasks.length === 0 ? (
+              <div className="text-center py-12 text-slate-500 bg-white dark:bg-slate-900 rounded-xl border border-dashed">No assigned tasks yet.</div>
+            ) : (
+              <div className="grid gap-4">
+                {assignedTasks.map((task) => (
+                  <Card key={task.id} className="overflow-hidden hover:shadow-md transition-shadow dark:bg-slate-900">
+                    <div className="flex flex-col md:flex-row">
+                      <div className="flex-1 p-6">
+                        <div className="flex items-center justify-between mb-3">
+                          <Badge variant="outline" className="font-mono text-xs">{task.id}</Badge>
+                          <Badge variant="secondary" className={getStatusColor(task.status)}>{task.status}</Badge>
+                        </div>
+                        <h3 className="text-xl font-semibold">{task.title}</h3>
+                        <p className="text-slate-600 dark:text-slate-400 mt-2 text-sm">{task.description}</p>
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6 border-t pt-4 text-sm">
+                          <div className="flex items-center text-slate-500"><Clock className="w-4 h-4 mr-2" /> Logged: {task.date}</div>
+                          {task.related_report_id && (
+                            <div className="flex items-center text-slate-500"><Link2 className="w-4 h-4 mr-2" /> Report: <span className="font-medium text-blue-600 ml-1">{task.related_report_id}</span></div>
+                          )}
+                          <div className="flex items-center text-slate-500"><Users className="w-4 h-4 mr-2" /> Assignee: <span className="font-medium text-slate-900 dark:text-slate-200 ml-1">{task.officer || "Unassigned"}</span></div>
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-50 dark:bg-slate-950 p-6 border-t md:border-t-0 md:border-l flex flex-col justify-center gap-3 min-w-[240px]">
+                        <Button
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => handleViewLinkedReport(task)}
+                        >
+                          View Linked Report
+                        </Button>
                       </div>
                     </div>
                   </Card>
@@ -199,6 +321,92 @@ Report</Button>
           </TabsContent>
         </Tabs>
       </div>
+
+      <Dialog open={Boolean(selectedReport)} onOpenChange={(open) => !open && setSelectedReport(null)}>
+        <DialogContent className="w-[calc(100%-2rem)] sm:max-w-5xl rounded-xl max-h-[88vh] overflow-y-auto p-5 sm:p-7">
+          <DialogHeader>
+            <DialogTitle>{selectedReport?.title || "Linked Report"}</DialogTitle>
+            <DialogDescription>
+              Report ID: {selectedReport?.id || "N/A"}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5">
+            <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
+              <div className="rounded-lg border bg-slate-50 p-4 dark:bg-slate-900 h-fit">
+                <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2">Report Details</h4>
+                <div className="text-sm text-muted-foreground grid gap-2">
+                  <div className="flex justify-between border-b pb-2 gap-4">
+                    <span className="text-slate-500">Urgency Level:</span>
+                    <span className={`font-medium text-right ${
+                      selectedReport?.urgency === "High"
+                        ? "text-red-600 dark:text-red-400"
+                        : selectedReport?.urgency === "Medium"
+                          ? "text-yellow-600 dark:text-yellow-400"
+                          : "text-green-600 dark:text-green-400"
+                    }`}>{selectedReport?.urgency || "Low"}</span>
+                  </div>
+                  <div className="flex justify-between border-b pb-2 gap-4">
+                    <span className="text-slate-500">Title:</span>
+                    <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{selectedReport?.title || "N/A"}</span>
+                  </div>
+                  <div className="grid border-b pb-2 gap-1">
+                    <span className="text-slate-500">Description:</span>
+                    <span className="font-medium text-slate-700 dark:text-slate-300 leading-relaxed">{selectedReport?.description || "No report description available."}</span>
+                  </div>
+                  <div className="flex justify-between border-b pb-2 gap-4">
+                    <span className="text-slate-500">Municipality/City:</span>
+                    <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{selectedReport?.municipality || "Unknown"}</span>
+                  </div>
+                  <div className="flex justify-between border-b pb-2 gap-4">
+                    <span className="text-slate-500">Barangay:</span>
+                    <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{selectedReport?.barangay || "Unknown"}</span>
+                  </div>
+                  <div className="grid border-b pb-2 gap-1">
+                    <span className="text-slate-500">Street Address:</span>
+                    <span className="font-medium text-slate-700 dark:text-slate-300">{selectedReport?.streetAddress || "N/A"}</span>
+                  </div>
+                  <div className="grid gap-1">
+                    <span className="text-slate-500">Landmark:</span>
+                    <span className="font-medium text-slate-700 dark:text-slate-300">{selectedReport?.landmark || "N/A"}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <Tabs defaultValue="reporter" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="reporter">Reporter Uploaded</TabsTrigger>
+                    <TabsTrigger value="completion">Completion Proof</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="reporter" className="mt-3">
+                    <ReportMediaGallery
+                      title="Reporter Uploaded Images"
+                      images={(selectedReport?.reporterPhotos || []).map((url, index) => ({
+                        url,
+                        alt: `Reporter image ${index + 1}`,
+                      }))}
+                      emptyText="No reporter images were uploaded for this report."
+                    />
+                  </TabsContent>
+
+                  <TabsContent value="completion" className="mt-3">
+                    <ReportMediaGallery
+                      title="Completion Proof Images"
+                      images={(selectedReport?.completionPhotos || []).map((url, index) => ({
+                        url,
+                        alt: `Completion proof ${index + 1}`,
+                      }))}
+                      emptyText="No completion proof has been submitted yet."
+                    />
+                  </TabsContent>
+                </Tabs>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

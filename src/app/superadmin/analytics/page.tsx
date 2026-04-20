@@ -12,9 +12,9 @@ export default function SuperadminAnalyticsPage() {
   const { data: analyticsData, isLoading } = useQuery({
     queryKey: ['superadmin-analytics'],
     queryFn: async () => {
-      const res = await fetch('http://localhost:5000/api/v1/analytics/superadmin')
-      if (!res.ok) throw new Error('Failed to fetch analytics')
-      return res.json()
+      const { apiClient } = await import('@/lib/api');
+      const json = await apiClient.analytics.superadmin();
+      return json;
     }
   })
 
@@ -27,7 +27,7 @@ export default function SuperadminAnalyticsPage() {
   }
 
   const recurringData = analyticsData?.recurringData || []
-  const chartData = analyticsData?.chartData || [{ name: 'Loading', reports: 0 }]
+  const chartData = analyticsData?.chartData || [{ date: new Date().toISOString().split('T')[0], reports: 0 }]
 
   const sortedData = [...recurringData].sort((a: any, b: any) => {
     return sortOrder === "asc"
@@ -56,21 +56,10 @@ export default function SuperadminAnalyticsPage() {
             description="Visualizing reports received across all active locations." 
             chartData={chartData} 
             chartConfig={{
-              views: {
-                label: "Reports"
+              reports: {
+                label: "Reports",
+                color: "#2563eb",
               },
-              cebu_city: {
-                label: "Cebu City",
-                color: "#2563eb"
-              },
-              mandaue: {
-                label: "Mandaue",
-                color: "#10b981"
-              },
-              lapu_lapu: {
-                label: "Lapu-Lapu",
-                color: "#f59e0b"
-              }
             }} 
           />
 

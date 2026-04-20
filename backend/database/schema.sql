@@ -287,7 +287,7 @@ ON CONFLICT (id) DO NOTHING;
 
 -- Workforce Admin
 INSERT INTO workforce_admins (email, password_hash, full_name, department_id, municipality_id, status) 
-VALUES ('wfadmin@ssebu.com', '$2a$10$3XwO2dIXp5bwcWr0Br9oyOVmF5yg7BeHFttp0vA.IKJEOYlnfVB6C', 'Default Workforce Admin', 1, 'cebu-city', 'Active'); --defpass--Testing@123
+VALUES ('wfadmin@seebu.com', '$2a$10$3XwO2dIXp5bwcWr0Br9oyOVmF5yg7BeHFttp0vA.IKJEOYlnfVB6C', 'Default Workforce Admin', 1, 'cebu-city', 'Active'); --defpass--Testing@123
 
 -- Workforce Officer
 INSERT INTO workforce_officers (employee_id, email, password_hash, full_name, department_id, municipality_id, status) 

@@ -199,8 +199,16 @@ export const authController = {
         last_name,
         full_name, // legacy compat
         phone,
-        department
+        department,
+        department_id,
+        department_name
       } = req.body;
+
+      if (!req.user?.id || !req.user?.role) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      const creatorRole = req.user.role;
 
       const nameToUse = full_name || `${first_name || ''} ${last_name || ''}`.trim(); 
 
@@ -208,13 +216,108 @@ export const authController = {
         return res.status(400).json({ error: 'Missing required fields' });
       }
 
-      if (user_role === 'admin' && !municipality_id) {
-        return res.status(400).json({ error: 'Admin requires a municipality_id' });     
-      }
-
-      const validRoles = ['admin', 'superadmin', 'workforce'];
+      const validRoles = ['admin', 'superadmin', 'workforce-admin', 'workforce'];
       if (!validRoles.includes(user_role)) {
         return res.status(400).json({ error: 'Invalid user_role' });
+      }
+
+      if (creatorRole === 'workforce-admin' && user_role !== 'workforce') {
+        return res.status(403).json({ error: 'Workforce-admin can only provision workforce officers' });
+      }
+
+      let resolvedMunicipalityId: string | null = municipality_id || null;
+      if (creatorRole === 'admin') {
+        const { data: creatorAdmin, error: creatorAdminError } = await supabase
+          .from('admins')
+          .select('municipality_id')
+          .eq('id', req.user.id)
+          .maybeSingle();
+
+        if (creatorAdminError) throw creatorAdminError;
+        resolvedMunicipalityId = creatorAdmin?.municipality_id || null;
+      }
+
+      if (creatorRole === 'workforce-admin') {
+        const { data: creatorWfAdmin, error: creatorWfAdminError } = await supabase
+          .from('workforce_admins')
+          .select('municipality_id, department_id')
+          .eq('id', req.user.id)
+          .maybeSingle();
+
+        if (creatorWfAdminError) throw creatorWfAdminError;
+        resolvedMunicipalityId = creatorWfAdmin?.municipality_id || null;
+      }
+
+      if ((user_role === 'admin' || user_role === 'workforce-admin') && !resolvedMunicipalityId) {
+        return res.status(400).json({ error: `${user_role} requires a municipality_id` });
+      }
+
+      const departmentCandidate = department_id ?? department;
+      const normalizedDepartmentName = department_name || (typeof departmentCandidate === 'string' && !/^\d+$/.test(departmentCandidate) ? departmentCandidate : null);
+      let resolvedDepartmentId: number | null = null;
+
+      if (typeof departmentCandidate === 'number' || (typeof departmentCandidate === 'string' && /^\d+$/.test(departmentCandidate))) {
+        resolvedDepartmentId = Number(departmentCandidate);
+      }
+
+      if ((user_role === 'workforce-admin' || user_role === 'workforce') && creatorRole === 'workforce-admin') {
+        const { data: creatorWfAdmin, error: creatorWfAdminError } = await supabase
+          .from('workforce_admins')
+          .select('department_id, municipality_id')
+          .eq('id', req.user.id)
+          .maybeSingle();
+
+        if (creatorWfAdminError) throw creatorWfAdminError;
+        resolvedDepartmentId = creatorWfAdmin?.department_id ? Number(creatorWfAdmin.department_id) : null;
+        resolvedMunicipalityId = creatorWfAdmin?.municipality_id || resolvedMunicipalityId;
+      }
+
+      if ((user_role === 'workforce-admin' || user_role === 'workforce') && !resolvedDepartmentId && normalizedDepartmentName) {
+        if (!resolvedMunicipalityId) {
+          return res.status(400).json({ error: 'Municipality is required to resolve department' });
+        }
+
+        const { data: existingDepartment, error: existingDepartmentError } = await supabase
+          .from('departments')
+          .select('id')
+          .eq('municipality_id', resolvedMunicipalityId)
+          .ilike('name', normalizedDepartmentName.trim())
+          .maybeSingle();
+
+        if (existingDepartmentError) throw existingDepartmentError;
+
+        if (existingDepartment?.id) {
+          resolvedDepartmentId = Number(existingDepartment.id);
+        } else {
+          const { data: createdDepartment, error: createdDepartmentError } = await supabase
+            .from('departments')
+            .insert([{ municipality_id: resolvedMunicipalityId, name: normalizedDepartmentName.trim() }])
+            .select('id')
+            .single();
+
+          if (createdDepartmentError) throw createdDepartmentError;
+          resolvedDepartmentId = Number(createdDepartment.id);
+        }
+      }
+
+      if ((user_role === 'workforce-admin' || user_role === 'workforce') && !resolvedDepartmentId) {
+        return res.status(400).json({ error: `${user_role} requires a valid department` });
+      }
+
+      if (resolvedDepartmentId && resolvedMunicipalityId) {
+        const { data: departmentRecord, error: departmentRecordError } = await supabase
+          .from('departments')
+          .select('id, municipality_id')
+          .eq('id', resolvedDepartmentId)
+          .maybeSingle();
+
+        if (departmentRecordError) throw departmentRecordError;
+        if (!departmentRecord) {
+          return res.status(400).json({ error: 'Department not found' });
+        }
+        if (departmentRecord.municipality_id !== resolvedMunicipalityId) {
+          return res.status(400).json({ error: 'Department does not belong to the selected municipality' });
+        }
       }
 
       // 1. Create User in Supabase Auth via Admin API
@@ -243,7 +346,7 @@ export const authController = {
           role: user_role,
           full_name: nameToUse,
           contact_number: phone,
-          department_id: department || null,
+          department_id: resolvedDepartmentId,
         }]);
 
       if (usersError) {
@@ -266,13 +369,18 @@ export const authController = {
 
       if (user_role === 'admin') {
         table = 'admins';
-        insertData.municipality_id = municipality_id;
+        insertData.municipality_id = resolvedMunicipalityId;
       } else if (user_role === 'superadmin') {
         table = 'superadmins';
+      } else if (user_role === 'workforce-admin') {
+        table = 'workforce_admins';
+        insertData.department_id = resolvedDepartmentId;
+        insertData.municipality_id = resolvedMunicipalityId;
       } else if (user_role === 'workforce') {
         table = 'workforce_officers';
         insertData.employee_id = `EMP-${Math.floor(Math.random() * 10000)}`;
-        insertData.department_id = department;
+        insertData.department_id = resolvedDepartmentId;
+        insertData.municipality_id = resolvedMunicipalityId;
         insertData.role = 'officer';
       }
 
