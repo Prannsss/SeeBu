@@ -22,7 +22,26 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Routes
+// Health check endpoint for Render/Root URL
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'OK', 
+    service: 'SeeBu API',
+    timestamp: new Date().toISOString() 
+  });
+});
+
+// Root route - Render shows this when accessing the base URL
+app.get('/', (req, res) => {
+  res.status(200).json({ 
+    status: 'OK', 
+    service: 'SeeBu API',
+    version: '1.0.0',
+    timestamp: new Date().toISOString() 
+  });
+});
+
+// API Routes
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/locations', locationRoutes);
 app.use('/api/v1/reports', reportRoutes);
@@ -31,9 +50,12 @@ app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/tasks', taskRoutes);
 app.use('/api/v1/departments', departmentRoutes);
 
-// Health check
-app.get(['/', '/health', '/api/v1/health'], (req, res) => {
-  res.status(200).json({ status: 'OK', message: 'Backend is running', timestamp: new Date().toISOString() });
+// API health check
+app.get('/api/v1/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString() 
+  });
 });
 
 app.listen(PORT, () => {
