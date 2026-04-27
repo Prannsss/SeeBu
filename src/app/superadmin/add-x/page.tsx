@@ -394,6 +394,7 @@ export default function SuperadminAddPage() {
             </div>
           </TabsContent>
         </Tabs>
+          </div>
         )}
       </div>
 
