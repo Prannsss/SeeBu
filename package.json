@@ -7,7 +7,7 @@
     "backend": "tsx backend/src/app.ts",
     "backend:watch": "tsx watch backend/src/app.ts",
     "build:backend": "cd backend && tsc -p tsconfig.json",
-    "start:backend": "node dist-backend/app.js",
+    "start:backend": "cd backend && node dist-backend/app.js",
     "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
     "build": "NODE_ENV=production next build",
