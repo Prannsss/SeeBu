@@ -80,18 +80,18 @@ export default function SuperadminUsersPage() {
 
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
           <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-col md:flex-row gap-4 items-center bg-slate-50/50 dark:bg-slate-900/50">
-            <div className="relative w-full md:max-w-sm">
+            <div className="relative w-full flex-grow">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input 
                 placeholder="Search name or email..." 
-                className="pl-9 bg-white dark:bg-slate-950" 
+                className="pl-9 w-full bg-white dark:bg-slate-950" 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
             <div className="flex w-full md:w-auto gap-4">
               <Select value={roleFilter} onValueChange={setRoleFilter}>
-                <SelectTrigger className="w-full md:w-[180px] bg-white dark:bg-slate-950">
+                <SelectTrigger className="w-full md:w-[200px] bg-white dark:bg-slate-950">
                   <Filter className="w-4 h-4 mr-2 text-muted-foreground" />
                   <SelectValue placeholder="Filter by Role" />
                 </SelectTrigger>
@@ -106,7 +106,7 @@ export default function SuperadminUsersPage() {
               </Select>
 
               <Select value={areaFilter} onValueChange={setAreaFilter}>
-                <SelectTrigger className="w-full md:w-[180px] bg-white dark:bg-slate-950">
+                <SelectTrigger className="w-full md:w-[200px] bg-white dark:bg-slate-950">
                   <Filter className="w-4 h-4 mr-2 text-muted-foreground" />
                   <SelectValue placeholder="Filter by Area" />
                 </SelectTrigger>
@@ -155,7 +155,11 @@ export default function SuperadminUsersPage() {
                           {user.role}
                         </Badge>
                       </TableCell>
-                      <TableCell className="hidden md:table-cell">{user.area}</TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        {user.municipality_id
+                          ? municipalities.find((m: any) => m.id === user.municipality_id)?.name || user.municipality_id
+                          : user.area}
+                      </TableCell>
                       <TableCell className="hidden md:table-cell">
                         <Badge variant="secondary" className={getStatusBadgeClass(user.status)}>
                           {user.status}
@@ -191,7 +195,11 @@ export default function SuperadminUsersPage() {
                               </div>
                               <div>
                                 <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Assigned Area</p>
-                                <p className="font-medium text-slate-900 dark:text-white">{user.area}</p>
+                                <p className="font-medium text-slate-900 dark:text-white">
+                                  {user.municipality_id
+                                    ? municipalities.find((m: any) => m.id === user.municipality_id)?.name || user.municipality_id
+                                    : user.area}
+                                </p>
                               </div>
                               <div>
                                 <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Status</p>

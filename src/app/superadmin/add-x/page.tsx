@@ -162,8 +162,8 @@ export default function SuperadminAddPage() {
   }
 
   return (
-    <div className="min-h-screen overflow-y-scroll bg-slate-50 pb-32 dark:bg-slate-950 dark:text-slate-100">
-      <div className="container mx-auto max-w-3xl px-5 pt-10 pb-6">
+    <div className="min-h-screen bg-slate-50 pb-32 dark:bg-slate-950 dark:text-slate-100 flex flex-col">
+      <div className="container mx-auto max-w-3xl px-5 pt-10 pb-6 flex flex-col flex-1">
         <div className="mb-8 flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#e5f7fd] dark:bg-[#00B2E2]/20">
             <UserPlus className="h-6 w-6 text-[#00B2E2] dark:text-[#00B2E2]" />
@@ -175,7 +175,7 @@ export default function SuperadminAddPage() {
         </div>
 
         {isVerifying ? (
-          <div className="max-w-md mx-auto mt-12">
+          <div className="max-w-md mx-auto mt-12 w-full">
             <VerificationCodeUI 
               onVerify={handleVerifySuccess} 
               onCancel={handleVerifyCancel} 
@@ -183,23 +183,24 @@ export default function SuperadminAddPage() {
             />
           </div>
         ) : (
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-8 bg-transparent p-0 gap-2">
-            <TabsTrigger 
-              value="admin" 
-              className="flex items-center justify-center gap-2 py-3 rounded-lg text-slate-600 dark:text-slate-400 data-[state=active]:bg-[#EAF6FD] dark:data-[state=active]:bg-[#00B2E2]/10 data-[state=active]:text-[#001731] dark:data-[state=active]:text-white data-[state=active]:shadow-none transition-all font-medium"
-            >
-              <ShieldCheck className="w-4 h-4" /> Add Admin
-            </TabsTrigger>
-            <TabsTrigger 
-              value="superadmin" 
-              className="flex items-center justify-center gap-2 py-3 rounded-lg text-slate-600 dark:text-slate-400 data-[state=active]:bg-[#EAF6FD] dark:data-[state=active]:bg-[#00B2E2]/10 data-[state=active]:text-[#001731] dark:data-[state=active]:text-white data-[state=active]:shadow-none transition-all font-medium"
-            >
-              <ShieldAlert className="w-4 h-4" /> Add Superadmin
-            </TabsTrigger>
-          </TabsList>
+          <div className="flex-1 overflow-visible">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full h-full flex flex-col">
+              <TabsList className="grid w-full grid-cols-2 mb-8 bg-transparent p-0 gap-2 shrink-0">
+                <TabsTrigger 
+                  value="admin" 
+                  className="flex items-center justify-center gap-2 py-3 rounded-lg text-slate-600 dark:text-slate-400 data-[state=active]:bg-[#EAF6FD] dark:data-[state=active]:bg-[#00B2E2]/10 data-[state=active]:text-[#001731] dark:data-[state=active]:text-white data-[state=active]:shadow-none transition-all font-medium"
+                >
+                  <ShieldCheck className="w-4 h-4" /> Add Admin
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="superadmin" 
+                  className="flex items-center justify-center gap-2 py-3 rounded-lg text-slate-600 dark:text-slate-400 data-[state=active]:bg-[#EAF6FD] dark:data-[state=active]:bg-[#00B2E2]/10 data-[state=active]:text-[#001731] dark:data-[state=active]:text-white data-[state=active]:shadow-none transition-all font-medium"
+                >
+                  <ShieldAlert className="w-4 h-4" /> Add Superadmin
+                </TabsTrigger>
+              </TabsList>
           
-          <TabsContent value="admin" className="!mt-0 outline-none border-0 w-full">
+          <TabsContent value="admin" className="mt-0 outline-none border-0 w-full flex-1">
             <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 sm:p-8 shadow-sm border border-slate-200 dark:border-slate-800">
               <div className="mb-6">
                 <h2 className="text-xl font-semibold mb-1">Create Municipal Admin</h2>
@@ -320,7 +321,7 @@ export default function SuperadminAddPage() {
             </div>
           </TabsContent>
 
-          <TabsContent value="superadmin" className="!mt-0 outline-none border-0 w-full">
+          <TabsContent value="superadmin" className="mt-0 outline-none border-0 w-full flex-1">
             <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 sm:p-8 shadow-sm border border-slate-200 dark:border-slate-800">
               <div className="mb-6">
                 <h2 className="text-xl font-semibold mb-1">Create Superadmin</h2>
