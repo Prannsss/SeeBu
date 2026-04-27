@@ -11,7 +11,7 @@ node_modules/
 jspm_packages/
 
 # Build and Output
-dist/
+dist-backend/
 build/
 out/
 
