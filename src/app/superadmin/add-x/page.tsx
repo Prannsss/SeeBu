@@ -162,7 +162,7 @@ export default function SuperadminAddPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-32 dark:bg-slate-950 dark:text-slate-100 flex flex-col">
+    <div className="min-h-screen overflow-y-scroll bg-slate-50 pb-32 dark:bg-slate-950 dark:text-slate-100 flex flex-col">
       <div className="container mx-auto max-w-3xl px-5 pt-10 pb-6 flex flex-col flex-1">
         <div className="mb-8 flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#e5f7fd] dark:bg-[#00B2E2]/20">
@@ -201,7 +201,7 @@ export default function SuperadminAddPage() {
               </TabsList>
           
           <TabsContent value="admin" className="mt-0 outline-none border-0 w-full flex-1">
-            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 sm:p-8 shadow-sm border border-slate-200 dark:border-slate-800">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 sm:p-8 shadow-sm border border-slate-200 dark:border-slate-800 h-full flex flex-col">
               <div className="mb-6">
                 <h2 className="text-xl font-semibold mb-1">Create Municipal Admin</h2>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -209,7 +209,7 @@ export default function SuperadminAddPage() {
                 </p>
               </div>
 
-              <form className="flex flex-col gap-4" onSubmit={handleAddSubmit}>
+              <form className="flex flex-col gap-4 flex-1" onSubmit={handleAddSubmit}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="floating-input !mt-0">
                     <input id="admin-name" type="text" placeholder=" " required />
@@ -313,7 +313,7 @@ export default function SuperadminAddPage() {
                   </div>
                 </div>
 
-                <Button disabled={provisionMutation.isPending} className="w-full h-12 mt-4 text-base bg-[#00B2E2] hover:bg-[#0096C7] text-white font-medium shadow-sm transition-all rounded-lg" type="submit">
+                <Button disabled={provisionMutation.isPending} className="w-full h-12 mt-auto text-base bg-[#00B2E2] hover:bg-[#0096C7] text-white font-medium shadow-sm transition-all rounded-lg" type="submit">
                   {provisionMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                   Send Admin Invitation
                 </Button>
@@ -322,7 +322,7 @@ export default function SuperadminAddPage() {
           </TabsContent>
 
           <TabsContent value="superadmin" className="mt-0 outline-none border-0 w-full flex-1">
-            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 sm:p-8 shadow-sm border border-slate-200 dark:border-slate-800">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 sm:p-8 shadow-sm border border-slate-200 dark:border-slate-800 h-full flex flex-col">
               <div className="mb-6">
                 <h2 className="text-xl font-semibold mb-1">Create Superadmin</h2>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -330,7 +330,7 @@ export default function SuperadminAddPage() {
                 </p>
               </div>
 
-              <form className="flex flex-col gap-4" onSubmit={handleAddSubmit}>
+              <form className="flex flex-col gap-4 flex-1" onSubmit={handleAddSubmit}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="floating-input !mt-0">
                     <input id="sa-name" type="text" placeholder=" " required />
@@ -386,7 +386,7 @@ export default function SuperadminAddPage() {
                   </div>
                 </div>
 
-                <Button disabled={provisionMutation.isPending} className="w-full h-12 mt-4 text-base bg-[#00B2E2] hover:bg-[#0096C7] text-white font-medium shadow-sm transition-all rounded-lg" type="submit">
+                <Button disabled={provisionMutation.isPending} className="w-full h-12 mt-auto text-base bg-[#00B2E2] hover:bg-[#0096C7] text-white font-medium shadow-sm transition-all rounded-lg" type="submit">
                   {provisionMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                   Create Global Superadmin
                 </Button>

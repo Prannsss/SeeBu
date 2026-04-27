@@ -90,8 +90,7 @@ export const userController = {
             selectQuery += ', full_name';
         }
         if (table === 'admins' || table === 'workforce_admins' || table === 'workforce_officers') {
-            const hasMun = table === 'admins';
-            if (hasMun) selectQuery += ', municipality_id';
+            selectQuery += ', municipality_id';
             const hasDept = table === 'workforce_admins' || table === 'workforce_officers';
             if (hasDept) selectQuery += ', department_id';
         }
