@@ -16,7 +16,7 @@ function resolveApiBaseUrl(): string {
 
   // Development fallback — use localhost
   if (process.env.NODE_ENV === 'development') {
-    return 'http://localhost:5000';
+    return 'https://seebu.onrender.com';
   }
 
   // Production fallback — point to the Render backend

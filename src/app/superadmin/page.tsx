@@ -8,7 +8,7 @@ import { cookies } from "next/headers"
 async function getSuperadminData() {
   const reqCookies = await cookies();
   const token = reqCookies.get("auth-token")?.value;
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || (process.env.NEXT_PUBLIC_API_URL || "https://seebu.onrender.com");
 
   try {
     // Analytics fetch
