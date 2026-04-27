@@ -12,8 +12,8 @@ import taskRoutes from './routes/taskRoutes';
 import departmentRoutes from './routes/departmentRoutes';
 
 // Load variables
-dotenv.config({ path: path.resolve(__dirname, '../../.env.local') });
-dotenv.config({ path: path.resolve(__dirname, '../.env') });
+dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
+dotenv.config({ path: path.resolve(process.cwd(), 'backend/.env') });
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -32,8 +32,8 @@ app.use('/api/v1/tasks', taskRoutes);
 app.use('/api/v1/departments', departmentRoutes);
 
 // Health check
-app.get('/api/v1/health', (req, res) => {
-  res.status(200).json({ status: 'OK', message: 'Backend is running' });
+app.get(['/', '/health', '/api/v1/health'], (req, res) => {
+  res.status(200).json({ status: 'OK', message: 'Backend is running', timestamp: new Date().toISOString() });
 });
 
 app.listen(PORT, () => {

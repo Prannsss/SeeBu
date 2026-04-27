@@ -6,6 +6,8 @@
     "dev": "next dev --turbopack",
     "backend": "tsx backend/src/app.ts",
     "backend:watch": "tsx watch backend/src/app.ts",
+    "build:backend": "tsc -p tsconfig.backend.json",
+    "start:backend": "node dist-backend/app.js",
     "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
     "build": "NODE_ENV=production next build",
