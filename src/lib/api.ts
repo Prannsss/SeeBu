@@ -11,15 +11,16 @@
 function resolveApiBaseUrl(): string {
   const envBaseUrl = process.env.NEXT_PUBLIC_API_URL;
   if (envBaseUrl && envBaseUrl.trim()) {
-    return envBaseUrl.replace(/\/$/, "");
+    return envBaseUrl.replace(/\/$/, '');
   }
 
-  if (typeof window !== "undefined") {
-    // Use the current hostname to avoid forcing localhost in browser environments.
-    return `${window.location.protocol}//${window.location.hostname}:5000`;
+  // Development fallback — use localhost
+  if (process.env.NODE_ENV === 'development') {
+    return 'http://localhost:5000';
   }
 
-  return "http://localhost:5000";
+  // Production fallback — point to the Render backend
+  return 'https://seebu.onrender.com';
 }
 
 /**
