@@ -16,19 +16,44 @@ export default function ForgotPasswordPage() {
   const newPasswordRef = useRef<HTMLInputElement>(null);
   const confirmPasswordRef = useRef<HTMLInputElement>(null);
 
+  const emailRef = useRef<HTMLInputElement>(null);
+
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const email = emailRef.current?.value ?? '';
     setIsLoading(true);
+    
     try {
-      // TODO: replace with real API call
-      await new Promise(res => setTimeout(res, 700));
-      gooeyToast.success("Code Sent!", {
-        description: "A 6-digit verification code has been sent to your email.",
+      const res = await fetch("http://localhost:5000/api/v1/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
       });
-      setStep('code');
+
+      const data = await res.json();
+
+      if (res.ok) {
+        if (data.found === false) {
+          // Valid response per requirement, but indicates the user doesn't exist
+          gooeyToast.warning(data.message || "We couldn't find an account associated with that email address. Please check your spelling or sign up.", {
+            description: "No active account found for that email address.",
+          });
+        } else {
+          // Success case
+          gooeyToast.success("Code Sent!", {
+            description: data.message || "A 6-digit verification code has been sent to your email.",
+          });
+          setStep('code');
+        }
+      } else {
+        // HTTP 400 or 500 errors
+        gooeyToast.error("Failed to Send", {
+          description: data.error || "Could not send the code. Please check your email and try again.",
+        });
+      }
     } catch {
-      gooeyToast.error("Failed to Send", {
-        description: "Could not send the code. Please check your email and try again.",
+      gooeyToast.error("Network Error", {
+        description: "An error occurred while connecting to the server. Please try again.",
       });
     } finally {
       setIsLoading(false);
@@ -163,6 +188,7 @@ export default function ForgotPasswordPage() {
                   <input 
                     id="email" 
                     type="email"
+                    ref={emailRef}
                     placeholder=" "
                     required 
                     maxLength={100}

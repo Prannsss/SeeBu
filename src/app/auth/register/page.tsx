@@ -107,10 +107,16 @@ export default function RegisterPage() {
     try {
       // TODO: replace with real API call
       await new Promise(res => setTimeout(res, 800));
-      gooeyToast.success("Account Created!", {
-        description: "Check your email to verify your account.",
-      });
+
+      // Navigate immediately — React will suspend and show the destination's loading.tsx
       router.push('/auth/verify');
+
+      // Show toast after navigation starts
+      setTimeout(() => {
+        gooeyToast.success("Account Created!", {
+          description: "Check your email to verify your account.",
+        });
+      }, 50);
     } catch {
       gooeyToast.error("Sign Up Failed", {
         description: "Something went wrong. Please try again.",

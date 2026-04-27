@@ -1,13 +1,15 @@
 "use client"
 
 import { useState } from "react"
-import { BarChart3, ArrowUp, ArrowDown, Activity } from "lucide-react"
+import { BarChart3, Activity } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { ChartBarInteractive } from "@/components/ui/chart-bar-interactive"
 import { ChartAreaInteractive } from "@/components/ui/chart-area-interactive"
 import { useQuery } from "@tanstack/react-query"
 
 export default function SuperadminAnalyticsPage() {
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
+  const [sortOrder] = useState<"asc" | "desc">("desc")
+  const [municipalityFilter, setMunicipalityFilter] = useState("all")
 
   const { data: analyticsData, isLoading } = useQuery({
     queryKey: ['superadmin-analytics'],
@@ -28,6 +30,7 @@ export default function SuperadminAnalyticsPage() {
 
   const recurringData = analyticsData?.recurringData || []
   const chartData = analyticsData?.chartData || [{ date: new Date().toISOString().split('T')[0], reports: 0 }]
+  const issueTypeData = analyticsData?.issueTypeData || []
 
   const sortedData = [...recurringData].sort((a: any, b: any) => {
     return sortOrder === "asc"
@@ -49,7 +52,7 @@ export default function SuperadminAnalyticsPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Chart Section */}
+          {/* Chart Section */}
           <ChartAreaInteractive
             className="lg:col-span-2 lg:h-[600px]"
             title="Global Reports Overview" 
@@ -63,34 +66,38 @@ export default function SuperadminAnalyticsPage() {
             }} 
           />
 
-          {/* List Section */}
+          {/* Issue Type Bar Chart with Municipality Filter */}
           <Card className="border-slate-200 dark:border-slate-800 shadow-sm flex flex-col h-[500px] lg:h-[600px]">
-            <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0 sticky top-0 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 z-10 rounded-t-xl">
+            <CardHeader className="pb-3 flex flex-col gap-3 space-y-0 sticky top-0 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 z-10 rounded-t-xl">
+              <CardTitle className="text-lg">Reports by Issue Type</CardTitle>
+              {/* Municipality Filter */}
               <div>
-                <CardTitle className="text-lg">Recurring Reports</CardTitle>
+                <select
+                  title="Filter by municipality"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
+                  value={municipalityFilter}
+                  onChange={(e) => setMunicipalityFilter(e.target.value)}
+                >
+                  <option value="all">All Municipalities</option>
+                  {(analyticsData?.municipalities || []).map((mun: any) => (
+                    <option key={mun.id} value={mun.id}>{mun.name}</option>
+                  ))}
+                </select>
               </div>
-              <button 
-                onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
-                className="p-1.5 px-2 bg-slate-100 dark:bg-slate-800 rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors flex items-center gap-1 text-xs font-semibold"
-              >
-                {sortOrder === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
-                {sortOrder === "asc" ? "Lowest" : "Highest"}
-              </button>
             </CardHeader>
-            <CardContent className="overflow-y-auto flex-1 px-6 pb-8 pt-4">
-              <div className="space-y-4">
-                                {sortedData.map((d: any, i: number) => (
-                  <div key={i} className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 last:border-0">
-                    <div>
-                      <div className="font-semibold text-sm">{d.issue}</div>
-                      <div className="text-xs text-muted-foreground">{d.area}</div>
-                    </div>
-                    <div className="font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full text-sm">
-                      {d.count}
-                    </div>
-                  </div>
-                ))}
-              </div>
+            <CardContent className="px-2 pt-4 sm:px-4 sm:pt-4 flex-1 flex items-stretch">
+              <ChartBarInteractive
+                className="w-full h-full"
+                chartData={municipalityFilter !== 'all' 
+                  ? issueTypeData.filter((d: any) => d.municipalityId === municipalityFilter)
+                  : issueTypeData}
+                chartConfig={{
+                  count: {
+                    label: "Reports",
+                    color: "#2563eb",
+                  }
+                }}
+              />
             </CardContent>
           </Card>
         </div>

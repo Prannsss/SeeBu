@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { BarChart3, ArrowUp, ArrowDown } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ChartBarInteractive } from "@/components/ui/chart-bar-interactive"
 import { ChartAreaInteractive } from "@/components/ui/chart-area-interactive"
 import { useQuery } from '@tanstack/react-query'
 
@@ -26,6 +27,7 @@ export default function AdminAnalyticsPage() {
 
   const chartData = analyticsData?.chartData || [];
   const recurringData = analyticsData?.recurringData || [];
+  const issueTypeData = analyticsData?.issueTypeData || [];
   const emptyChartData = [{ date: new Date().toISOString().split('T')[0], reports: 0 }];
 
   const sortedData = [...recurringData].sort((a, b) => {
@@ -62,36 +64,24 @@ export default function AdminAnalyticsPage() {
             }} 
           />
 
-          {/* List Section */}
+          {/* Issue Type Bar Chart - replaces Recurring Reports list */}
           <Card className="border-slate-200 dark:border-slate-800 shadow-sm flex flex-col h-[500px] lg:h-[600px]">
             <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0 sticky top-0 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 z-10 rounded-t-xl">
               <div>
-                <CardTitle className="text-lg">Recurring Reports</CardTitle>
+                <CardTitle className="text-lg">Reports by Issue Type</CardTitle>
               </div>
-              <button 
-                onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
-                className="p-1.5 px-2 bg-slate-100 dark:bg-slate-800 rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors flex items-center gap-1 text-xs font-semibold"
-              >
-                {sortOrder === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
-                {sortOrder === "asc" ? "Lowest" : "Highest"}
-              </button>
             </CardHeader>
-            <CardContent className="overflow-y-auto flex-1 px-6 pb-8 pt-4">
-              <div className="space-y-4">
-                {isLoading ? (
-                   <div className="text-center py-10 text-muted-foreground text-sm">Loading reports...</div>
-                ) : sortedData.map((d: any, i: number) => (
-                  <div key={i} className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 last:border-0">
-                    <div>
-                      <div className="font-semibold text-sm">{d.issueType || d.issue || 'General'}</div>
-                      <div className="text-xs text-muted-foreground">{d.barangay || d.area}</div>
-                    </div>
-                    <div className="font-bold text-blue-600 bg-blue-50 dark:bg-blue-900/20 px-3 py-1 rounded-full text-sm">
-                      {d.count}
-                    </div>
-                  </div>
-                ))}
-              </div>
+            <CardContent className="px-2 pt-4 sm:px-4 sm:pt-4 flex-1 flex items-stretch">
+              <ChartBarInteractive
+                className="w-full h-full"
+                chartData={issueTypeData}
+                chartConfig={{
+                  count: {
+                    label: "Reports",
+                    color: "#2563eb",
+                  }
+                }}
+              />
             </CardContent>
           </Card>
         </div>

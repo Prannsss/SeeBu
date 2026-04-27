@@ -43,16 +43,8 @@ export default function SuperadminAddPage() {
     mun.name.toLowerCase().includes(municipalityInput.toLowerCase())
   )
 
-  // Handle blur on input to show confirmation if needed
+  // Handle blur on input - only close dropdown, don't trigger dialog
   const handleMunicipalityBlur = () => {
-    // Check if input matches an existing municipality
-    const matchedMun = municipalities.find(
-      (mun: any) => mun.name.toLowerCase() === municipalityInput.toLowerCase()
-    )
-    if (municipalityInput && !matchedMun && municipalityInput.trim() !== "") {
-      // Show confirmation dialog for new municipality
-      setTimeout(() => setConfirmDialogOpen(true), 200)
-    }
     setShowMunicipalityDropdown(false)
   }
 
@@ -60,10 +52,42 @@ export default function SuperadminAddPage() {
     setShowMunicipalityDropdown(true)
   }
 
-  const selectMunicipality = (mun: any) => {
-    setMunicipalityInput(mun.name)
-    setMunicipalityId(mun.id)
+  // Check if all required admin fields are filled
+  const isAdminFormValid = () => {
+    const nameEl = document.querySelector('#admin-name') as HTMLInputElement;
+    const contactEl = document.querySelector('#admin-contact') as HTMLInputElement;
+    return nameEl?.value?.trim() && contactEl?.value?.trim() && verifyingEmail?.trim() && adminPassword.length >= 8;
+  };
+
+  // Check if all required superadmin fields are filled
+  const isSuperadminFormValid = () => {
+    const nameEl = document.querySelector('#sa-name') as HTMLInputElement;
+    const contactEl = document.querySelector('#sa-contact') as HTMLInputElement;
+    return nameEl?.value?.trim() && contactEl?.value?.trim() && verifyingEmail?.trim() && superadminPassword.length >= 8;
+  };
+
+  const handleSelectOrAddMunicipality = (mun?: any) => {
+    if (mun) {
+      setMunicipalityInput(mun.name)
+      setMunicipalityId(mun.id)
+    } else {
+      // User clicked "Add new municipality" - validate form first
+      if (activeTab === 'admin' && !isAdminFormValid()) {
+        gooeyToast.error("Please fill in all required fields before adding a municipality");
+        return;
+      }
+      if (activeTab === 'superadmin' && !isSuperadminFormValid()) {
+        gooeyToast.error("Please fill in all required fields before adding a municipality");
+        return;
+      }
+      // Show confirmation dialog for new municipality
+      setTimeout(() => setConfirmDialogOpen(true), 100);
+    }
     setShowMunicipalityDropdown(false)
+  }
+
+  const selectMunicipality = (mun: any) => {
+    handleSelectOrAddMunicipality(mun)
   }
 
   const handleConfirmCreate = () => {
@@ -221,7 +245,8 @@ export default function SuperadminAddPage() {
                       <input 
                         ref={municipalityInputRef}
                         type="text" 
-                        placeholder="Type to search or add municipality"
+                        placeholder=" "
+                        title="Select or add municipality"
                         value={municipalityInput}
                         onChange={(e) => {
                           setMunicipalityInput(e.target.value)
@@ -247,6 +272,14 @@ export default function SuperadminAddPage() {
                             {mun.name}
                           </div>
                         ))}
+                        {municipalityInput && !filteredMunicipalities.some((m: any) => m.name.toLowerCase() === municipalityInput.toLowerCase()) && (
+                          <div 
+                            onMouseDown={handleMunicipalityBlur}
+                            className="px-4 py-3 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 text-[#00B2E2] dark:text-[#00B2E2] text-sm font-medium border-t border-slate-100 dark:border-slate-700"
+                          >
+                            + Add "{municipalityInput}"
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

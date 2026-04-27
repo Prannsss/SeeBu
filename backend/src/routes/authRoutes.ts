@@ -7,6 +7,7 @@ const router = Router();
 
 router.post('/login', authController.login);
 router.post('/register', authController.registerClient);
+router.post('/forgot-password', authController.forgotPassword);
 router.post('/provision', withAuth, requireRole(['superadmin', 'admin', 'workforce-admin']), authController.provision);
 
 router.post('/google', authController.googleOAuthCallback);

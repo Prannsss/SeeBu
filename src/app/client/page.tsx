@@ -20,7 +20,7 @@ async function getClientStats(userId: string) {
       if (!['Resolved', 'Completed'].includes(r.status)) return false;
       const resolvedDate = new Date(r.updated_at || r.created_at);
       return resolvedDate.getMonth() === now.getMonth() && 
-             resolvedDate.getFullYear() === now.getFullYear();
+            resolvedDate.getFullYear() === now.getFullYear();
     }).length;
     
     // Calculate average resolution time for completed reports

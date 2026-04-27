@@ -111,15 +111,23 @@ export default function LoginPage() {
         document.cookie = `user-role=${data.user.role}; path=/; max-age=86400; SameSite=Lax`;
       }
 
-      gooeyToast.success("Welcome back!", {
-        description: "You've been logged in successfully.",
-      });
-      
-      if (data.user?.role === 'admin') router.push('/admin');
-      else if (data.user?.role === 'superadmin') router.push('/superadmin');
-      else if (data.user?.role === 'workforce') router.push('/workforce');
-      else if (data.user?.role === 'workforce-admin') router.push('/workforce-admin');
-      else router.push('/client');
+      // Determine redirect path based on role
+      let redirectPath = '/client';
+      if (data.user?.role === 'admin') redirectPath = '/admin';
+      else if (data.user?.role === 'superadmin') redirectPath = '/superadmin';
+      else if (data.user?.role === 'workforce') redirectPath = '/workforce';
+      else if (data.user?.role === 'workforce-admin') redirectPath = '/workforce-admin';
+
+      // Start navigation immediately — React will suspend and show the destination's loading.tsx
+      router.push(redirectPath);
+
+      // Show toast after navigation starts (toast renders in a portal, won't block React)
+      // Use a small delay to ensure React has started the transition
+      setTimeout(() => {
+        gooeyToast.success("Welcome back!", {
+          description: "You've been logged in successfully.",
+        });
+      }, 50);
     } catch (err: any) {
       gooeyToast.error("Login Failed", {
         description: err.message || "Invalid email or password. Please try again.",

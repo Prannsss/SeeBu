@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { supabase } from '../config/db';
-import { sendWelcomeEmail } from '../utils/emailService';
+import { sendWelcomeEmail, sendVerificationEmail } from '../utils/emailService';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
@@ -402,6 +402,86 @@ export const authController = {
       });        
     } catch (err: any) {
       console.error('Provisioning error:', err);
+      return res.status(500).json({ error: err.message });
+    }
+  },
+
+  async forgotPassword(req: Request, res: Response) {
+    try {
+      const { email } = req.body;
+
+      if (!email) {
+        return res.status(400).json({ error: 'Missing email' });
+      }
+
+      const tables = [
+        'clients',
+        'admins',
+        'superadmins',
+        'workforce_admins',
+        'workforce_officers'
+      ];
+
+      let user = null;
+
+      for (const table of tables) {
+        const { data } = await supabase
+          .from(table)
+          .select('id, email, full_name')
+          .eq('email', email)
+          .single();
+
+        if (data) {
+          user = data;
+          break;
+        }
+      }
+
+      if (!user) {
+        // Returning 200 to prevent timing/enumeration trivially,
+        // but with a distinctive payload as per user requirements
+        return res.status(200).json({
+          found: false,
+          message: "Account not found."
+        });
+      }
+
+      // Generate 6-digit OTP
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+
+      // Upsert to verification_tokens
+      // (Supabase allows upsert by specifying the UNIQUE constraint: email, type)
+      const { error: tokenError } = await supabase
+        .from('verification_tokens')
+        .upsert(
+          {
+            email: user.email,
+            code: otp,
+            type: 'password_reset',
+            expires_at: expiresAt
+          },
+          { onConflict: 'email,type' }
+        );
+
+      if (tokenError) {
+        console.error('Token generation error:', tokenError);
+        return res.status(500).json({ error: 'Failed to generate reset token' });
+      }
+
+      // Fire and forget the email service to ensure fast response timing!
+      sendVerificationEmail(user.email, user.full_name || 'SeeBu User', otp).catch(err => 
+        console.error('Failed to send forgot password email with Brevo:', err)
+      );
+
+      return res.status(200).json({
+        found: true,
+        message: 'A 6-digit verification code has been sent to your email.'
+      });
+
+    } catch (err: any) {
+      console.error('Forgot password error:', err);
+      // Return 500 cleanly
       return res.status(500).json({ error: err.message });
     }
   }

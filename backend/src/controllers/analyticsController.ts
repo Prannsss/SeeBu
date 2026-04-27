@@ -17,11 +17,27 @@ export const analyticsController = {
       const reportedIssues = statusCounts.filter(r => r.status === 'In Review').length;
       const completedTasks = statusCounts.filter(r => r.status === 'Completed' || r.status === 'Resolved').length;
 
-      // 3. Aggregate recurring issues by municipality
+      // 3. Fetch reports with issue_type for issue type breakdown (include municipality_id for filtering)
+      const { data: reportsWithIssueType, error: issueTypeErr } = await supabase
+        .from('reports')
+        .select('issue_type, other_type_specification, municipality_id');
+
+      if (issueTypeErr) throw issueTypeErr;
+
+      // 4. Fetch all municipalities for the filter dropdown
+      const { data: allMunicipalities, error: munErr } = await supabase
+        .from('municipalities')
+        .select('id, name')
+        .order('name', { ascending: true });
+
+      if (munErr) throw munErr;
+
+      // 4. Aggregate recurring issues by municipality
       const { data: recurringData, error: recErr } = await supabase
         .from('reports')
         .select(`
           issue_type,
+          other_type_specification,
           count:id,
           municipalities(name)
         `);
@@ -37,6 +53,7 @@ export const analyticsController = {
 
       // Format Chart Data & Recurring Data dynamically from SQL grouping instead of JSON!
       const groupedByMun: Record<string, number> = {};
+      const groupedByIssueType: Record<string, { count: number; municipalityId: string }> = {};
       const reportsByDate: Record<string, number> = {};
       
       recurringData.forEach((row: any) => {
@@ -44,10 +61,35 @@ export const analyticsController = {
         groupedByMun[area] = (groupedByMun[area] || 0) + 1;
       });
 
+      // Group by issue_type for bar chart - use other_type_specification when issue_type is 'other'
+      // Include municipalityId so frontend can filter
+      (reportsWithIssueType || []).forEach((row: any) => {
+        const issueLabel = row.issue_type === 'other' && row.other_type_specification
+          ? row.other_type_specification
+          : (row.issue_type || 'Unknown');
+        const key = `${issueLabel}__${row.municipality_id}`;
+        if (!groupedByIssueType[key]) {
+          groupedByIssueType[key] = { count: 0, municipalityId: row.municipality_id };
+        }
+        groupedByIssueType[key].count++;
+      });
+
       (reportsOverTime || []).forEach((row: any) => {
         const dateKey = new Date(row.created_at).toISOString().split('T')[0];
         reportsByDate[dateKey] = (reportsByDate[dateKey] || 0) + 1;
       });
+
+      // Issue type data for bar chart - sorted by count descending, includes municipalityId for filtering
+      const issueTypeData = Object.keys(groupedByIssueType)
+        .map((key) => {
+          const [issueType] = key.split('__');
+          return {
+            issueType,
+            count: groupedByIssueType[key].count,
+            municipalityId: groupedByIssueType[key].municipalityId
+          };
+        })
+        .sort((a, b) => b.count - a.count);
 
       const formattedRecurring = Object.keys(groupedByMun).map((key) => ({
          area: key,
@@ -71,7 +113,9 @@ export const analyticsController = {
         chartData: formattedChartData.length > 0
           ? formattedChartData
           : [{ date: new Date().toISOString().split('T')[0], reports: 0 }],
-        recurringData: formattedRecurring
+        recurringData: formattedRecurring,
+        issueTypeData,
+        municipalities: allMunicipalities
       });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
@@ -93,6 +137,7 @@ export const analyticsController = {
         .select(`
           status,
           issue_type,
+          other_type_specification,
           created_at,
           barangays(name)
         `)
@@ -106,6 +151,7 @@ export const analyticsController = {
       const delayedTasks = reports.filter(r => r.status === 'Delegated' || r.status === 'Delayed').length;
 
       const groupedByBrgy: Record<string, number> = {};
+      const groupedByIssueType: Record<string, number> = {};
       const reportsByDate: Record<string, number> = {};
       reports.forEach((r: any) => {
          const brgy = r.barangays?.name || 'Unknown';
@@ -113,7 +159,21 @@ export const analyticsController = {
 
          const dateKey = new Date(r.created_at).toISOString().split('T')[0];
          reportsByDate[dateKey] = (reportsByDate[dateKey] || 0) + 1;
+
+         // Group by issue_type for bar chart - use other_type_specification when issue_type is 'other'
+         const issueLabel = r.issue_type === 'other' && r.other_type_specification
+           ? r.other_type_specification
+           : (r.issue_type || 'Unknown');
+         groupedByIssueType[issueLabel] = (groupedByIssueType[issueLabel] || 0) + 1;
       });
+
+      // Issue type data for bar chart - sorted by count descending
+      const issueTypeData = Object.keys(groupedByIssueType)
+        .map((issueType) => ({
+          issueType,
+          count: groupedByIssueType[issueType]
+        }))
+        .sort((a, b) => b.count - a.count);
 
       const formattedRecurring = Object.keys(groupedByBrgy).map((key) => ({
          area: key,
@@ -137,7 +197,8 @@ export const analyticsController = {
         chartData: chartData.length > 0
           ? chartData
           : [{ date: new Date().toISOString().split('T')[0], reports: 0 }],
-        recurringData: formattedRecurring
+        recurringData: formattedRecurring,
+        issueTypeData
       });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
