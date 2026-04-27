@@ -8,7 +8,8 @@
     "strict": true,
     "skipLibCheck": true,
     "outDir": "./dist-backend",
-    "rootDir": "./backend/src"
+    "rootDir": "./backend/src",
+    "types": ["node"]
   },
   "include": ["backend/src/**/*"],
   "exclude": ["node_modules", "**/*.test.ts"]
