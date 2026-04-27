@@ -34,7 +34,7 @@ export default function BackButton({
     <button
       type="button"
       onClick={handleClick}
-      className={className}
+      className={`flex items-center gap-2 ${className || ''}`}
       {...props}
     >
       <ArrowLeft size={20} />

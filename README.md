@@ -73,30 +73,38 @@ The system aims to improve transparency, efficiency, and citizen engagement by d
 
 * **Framework:** Next.js (App Router), React, TypeScript
 * **Styling & UI:** Tailwind CSS, shadcn/ui
-* **Backend API:** Next.js Server Actions
+* **Backend API:** Express.js, Supabase, Next.js Server Actions
+* **Authentication:** Next.js Edge Middleware (JWT, Roles), OAuth
 * **AI Integration:** Firebase Genkit, RAG (Retrieval-Augmented Generation)
-* **Hosting/Config:** Firebase App Hosting
+* **Hosting/Config:** Firebase App Hosting, Render (Backend)
 * **Tools:** VS Code, Git, GitHub
 
 ---
 
 ## Project Structure
 
-```
+```text
 SEEBU/
-├── backend/            # Additional backend services & documents
-├── public/             # Static assets (images, gifs)
-├── src/
-│   ├── ai/             # AI integration logic (Genkit, RAG)
+├── backend/            # Express backend API & Genkit AI logic
+│   └── src/
+│       ├── ai/         # AI integration logic (Genkit, RAG)
+│       ├── controllers/# API route controllers
+│       ├── middlewares/# Express middlewares (Auth, Roles)
+│       └── routes/     # API route definitions
+├── public/             # Static assets (images, gifs, icons)
+├── src/                # Next.js Frontend
+│   ├── middleware.ts   # Next.js Edge Middleware for Role-Based Access
 │   ├── app/            # Next.js App Router endpoints & layouts
+│   │   ├── actions/    # Server Actions for API communication
 │   │   ├── admin/      # Admin dashboard functionalities
+│   │   ├── auth/       # Login, Registration, Verification & OAuth
+│   │   ├── client/     # Resident reporting portal
 │   │   ├── superadmin/ # Super admin dashboard & controls 
 │   │   ├── workforce/  # Workforce task management
-│   │   ├── workforce-admin/ # Workforce management panel
-│   │   └── client/     # Resident reporting portal
+│   │   └── workforce-admin/ # Workforce management panel
 │   ├── components/     # UI components (shadcn/ui), navigation docks
 │   ├── hooks/          # React hooks for animations/counters
-│   ├── lib/            # Utility functions
+│   ├── lib/            # Utility functions & API clients
 │   └── types/          # Global TypeScript typings
 ├── apphosting.yaml     # App Hosting configuration
 ├── next.config.ts      # Next.js configuration

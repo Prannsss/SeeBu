@@ -30,7 +30,13 @@ async function verifyAuthAndGetSession() {
 
   // 1. Check CSRF / Origin headers if applicable
   const origin = reqHeaders.get("origin");
-  if (origin && !origin.includes(process.env.NEXT_PUBLIC_APP_URL || "localhost")) {
+  const allowedOrigins = [
+    process.env.NEXT_PUBLIC_APP_URL,
+    "localhost",
+    "seebucommunity.vercel.app"
+  ].filter(Boolean) as string[];
+  
+  if (origin && !allowedOrigins.some(allowed => origin.includes(allowed))) {
     throw new Error("Unauthorized Origin");
   }
 

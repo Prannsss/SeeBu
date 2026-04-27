@@ -37,6 +37,26 @@ export default function AdminProfilePage() {
 
   useEffect(() => {
     async function loadProfile() {
+      // Opt to show preloaded profile immediately
+      const cached = localStorage.getItem('user-profile');
+      if (cached) {
+        try {
+          const data = JSON.parse(cached);
+          let areaDisplay = data.municipality_name || data.municipality_id || null;
+          if (areaDisplay && areaDisplay.includes('-')) {
+            areaDisplay = areaDisplay.replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+          }
+          setProfile(data);
+          setFormData({
+            name: data.full_name || "",
+            email: data.email || "",
+            phone: data.contact_number || ""
+          });
+          setAreaDisplay(areaDisplay);
+          setIsLoading(false);
+        } catch (e) {}
+      }
+
       const data = await getUserProfile();
       if (data) {
         // Format municipality name: convert 'cebu-city' to 'Cebu City'
@@ -52,6 +72,7 @@ export default function AdminProfilePage() {
           phone: data.contact_number || ""
         });
         setAreaDisplay(areaDisplay);
+        localStorage.setItem('user-profile', JSON.stringify(data));
       }
       setIsLoading(false);
     }
@@ -60,6 +81,7 @@ export default function AdminProfilePage() {
 
   const handleLogout = async () => {
     await logoutUser()
+    localStorage.removeItem('user-profile')
     gooeyToast.success("Logged out successfully")
     router.push("/auth/login")
   }
@@ -69,6 +91,7 @@ export default function AdminProfilePage() {
       const { deleteAccount } = await import("@/app/actions/user.actions");
       const res = await deleteAccount();
       if (res.success) {
+        localStorage.removeItem('user-profile')
         gooeyToast.success("Account deleted successfully");
         router.push("/auth/login");
       } else {
@@ -153,21 +176,21 @@ export default function AdminProfilePage() {
             {!isEditing ? (
               <div className="space-y-4 pt-1">
                 <div className="pb-4 border-b border-slate-100 dark:border-slate-800/60 last:border-0 last:pb-0">
-                  <span className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-2">Full Name</span>
+                  <span className="flex text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 items-center gap-2">Full Name</span>
                   <span className="block text-base text-slate-900 dark:text-white font-medium">{profile?.full_name || 'N/A'}</span>
                 </div>
                 <div className="pb-4 border-b border-slate-100 dark:border-slate-800/60 last:border-0 last:pb-0">
-                  <span className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-2">Email</span>
+                  <span className="flex text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 items-center gap-2">Email</span>
                   <span className="block text-base text-slate-900 dark:text-white font-medium">{profile?.email || 'N/A'}</span>
                 </div>
                 <div className="pb-4 border-b border-slate-100 dark:border-slate-800/60 last:border-0 last:pb-0">
-                  <span className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-2">Phone</span>
+                  <span className="flex text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 items-center gap-2">Phone</span>
                   <span className="block text-base text-slate-900 dark:text-white font-medium">{profile?.contact_number || 'N/A'}</span>
                 </div>
               
               
                 <div className="pb-4 border-b border-slate-100 dark:border-slate-800/60 last:border-0 last:pb-0">
-                  <span className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-2">Municipality</span>
+                  <span className="flex text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 items-center gap-2">Municipality</span>
                   <span className="block text-base text-slate-900 dark:text-white font-medium">{areaDisplay || profile?.municipality_id || 'Global'}</span>
                 </div>
               

@@ -30,6 +30,7 @@ export default function LoginPage() {
     document.cookie = `auth-token=${data.token}; path=/; max-age=86400; SameSite=Lax`;
     if (data.user && data.user.role) {
       document.cookie = `user-role=${data.user.role}; path=/; max-age=86400; SameSite=Lax`;
+      localStorage.setItem('user-profile', JSON.stringify(data.user));
     }
 
     gooeyToast.success("Welcome back!", { description: `Logged in via ${provider}` });
@@ -109,6 +110,7 @@ export default function LoginPage() {
       document.cookie = `auth-token=${data.token}; path=/; max-age=86400; SameSite=Lax`;
       if (data.user && data.user.role) {
         document.cookie = `user-role=${data.user.role}; path=/; max-age=86400; SameSite=Lax`;
+        localStorage.setItem('user-profile', JSON.stringify(data.user));
       }
 
       // Determine redirect path based on role
