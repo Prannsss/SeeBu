@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "start": "node dist-backend/app.js"
+    "start": "node dist/app.js"
   },
   "dependencies": {
     "@genkit-ai/google-genai": "^1.28.0",
