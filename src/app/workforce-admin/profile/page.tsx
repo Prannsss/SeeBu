@@ -221,8 +221,8 @@ export default function WorkforceAdminProfilePage() {
                 Are you sure you want to end your current session?
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter className="mt-4 gap-2 sm:gap-0">
-              <AlertDialogCancel className="h-11 rounded-lg font-bold bg-[#13b6ec] hover:bg-[#0fa6d8] text-white border-[#13b6ec]">Cancel</AlertDialogCancel>
+            <AlertDialogFooter className="mt-6 gap-3 sm:gap-3">
+              <AlertDialogCancel className="h-11 rounded-md font-bold bg-[#13b6ec] hover:bg-[#0fa6d8] text-white border-[#13b6ec] m-0">Cancel</AlertDialogCancel>
               <AlertDialogAction onClick={handleLogout} className="h-11 rounded-md bg-red-600 text-white hover:bg-red-700 font-bold shadow-sm">Logout</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
