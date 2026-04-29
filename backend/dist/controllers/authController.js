@@ -399,7 +399,7 @@ exports.authController = {
                 return res.status(500).json({ error: 'Failed to generate reset token' });
             }
             // Fire and forget the email service to ensure fast response timing!
-            (0, emailService_1.sendVerificationEmail)(user.email, user.full_name || 'SeeBu User', otp).catch(err => console.error('Failed to send forgot password email with Brevo:', err));
+            (0, emailService_1.sendVerificationEmail)(user.email, user.full_name || 'SeeBu User', otp).catch(err => console.error('Failed to send forgot password email with Resend:', err));
             return res.status(200).json({
                 found: true,
                 message: 'A 6-digit verification code has been sent to your email.'

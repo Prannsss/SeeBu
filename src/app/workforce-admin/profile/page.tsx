@@ -69,7 +69,9 @@ export default function WorkforceAdminProfilePage() {
   const handleLogout = async () => {
     await logoutUser()
     localStorage.removeItem('user-profile')
-    gooeyToast.success("Logged out successfully")
+    gooeyToast.success("Logged out", {
+      description: "You have been signed out of your account."
+    })
     router.push("/auth/login")
   }
 
@@ -79,7 +81,9 @@ export default function WorkforceAdminProfilePage() {
       const res = await deleteAccount();
       if (res.success) {
         localStorage.removeItem('user-profile')
-        gooeyToast.success("Account deleted successfully");
+        gooeyToast.success("Account deleted", {
+          description: "Your account has been permanently removed."
+        });
         router.push("/auth/login");
       } else {
         gooeyToast.error(res.error || "Failed to delete account");
@@ -102,7 +106,9 @@ export default function WorkforceAdminProfilePage() {
       });
       
       if (res.success) {
-        gooeyToast.success("Profile updated successfully");
+        gooeyToast.success("Profile updated", {
+          description: "Your changes have been saved."
+        });
         setProfile((prev: any) => ({ ...prev, full_name: formData.name, email: formData.email, contact_number: formData.phone }));
         setIsEditing(false);
       } else {

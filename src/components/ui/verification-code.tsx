@@ -38,16 +38,22 @@ export function VerificationCodeUI({ onVerify, onCancel, email = "the user" }: V
     e.preventDefault()
     const finalCode = code.join("")
     if (finalCode.length < 6) {
-      gooeyToast.error("Please enter a 6-digit code")
-      return
+      gooeyToast.error("Incomplete code", {
+        description: "Please fill in all 6 digits before submitting."
+      });
+      return;
     }
-    
+
     // Simulate verification
     if (finalCode === "123456" || finalCode.length === 6) {
-      gooeyToast.success("Verification successful! User has been added.")
-      onVerify()
+      gooeyToast.success("Email verified", {
+        description: "Account has been created and verified successfully."
+      });
+      onVerify();
     } else {
-      gooeyToast.error("Invalid verification code")
+      gooeyToast.error("Invalid code", {
+        description: "The code you entered does not match. Please try again."
+      });
     }
   }
 

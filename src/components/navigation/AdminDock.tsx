@@ -17,7 +17,7 @@ export default function AdminDock() {
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 w-full z-[100] pointer-events-none flex justify-center pb-4">
+    <div className="fixed bottom-0 left-0 w-full z-[49] pointer-events-none flex justify-center pb-4">
       <div className="pointer-events-auto relative h-20 w-full max-w-xl">
         <Dock items={items} />
       </div>

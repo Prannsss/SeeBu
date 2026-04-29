@@ -372,12 +372,12 @@ export default function ReportPage() {
       // Show tracking number modal
       setTrackingNumber(data.id);
       setCurrentStep(5);
-      gooeyToast.success("Tracking ID sent", {
-        description: "We sent you your tracking id through your email"
+      gooeyToast.success("Tracking ID sent to your email", {
+        description: "You can use this ID to check your report status anytime."
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "We could not submit your report. Please review the details and try again.";
-      gooeyToast.error("Submission Failed", {
+      gooeyToast.error("Report submission failed", {
         description: errorMessage,
       });
       console.error('Report submission error:', error);

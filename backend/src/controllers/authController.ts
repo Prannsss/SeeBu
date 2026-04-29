@@ -471,7 +471,7 @@ export const authController = {
 
       // Fire and forget the email service to ensure fast response timing!
       sendVerificationEmail(user.email, user.full_name || 'SeeBu User', otp).catch(err => 
-        console.error('Failed to send forgot password email with Brevo:', err)
+        console.error('Failed to send forgot password email with Resend:', err)
       );
 
       return res.status(200).json({

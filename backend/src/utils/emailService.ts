@@ -1,45 +1,43 @@
 /**
  * emailService.ts
- * Utilities for sending emails via Brevo REST API.
+ * Utilities for sending emails via Resend REST API.
  */
 
-const BREVO_API_KEY = process.env.BREVO_API_KEY || '';
-const SENDER_EMAIL = process.env.SENDER_EMAIL || process.env.EMAIL_FROM || 'noreply@seebu.com';
-const SENDER_NAME = process.env.SENDER_NAME || process.env.EMAIL_FROM_NAME || 'SeeBu Team';
+import { Resend } from 'resend';
 
-const sendBrevoEmail = async (payload: any) => {
-  try {
-    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'api-key': BREVO_API_KEY,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        sender: { email: SENDER_EMAIL, name: SENDER_NAME },
-        ...payload
-      })
-    });
+const resend = new Resend(process.env.RESEND_API_KEY);
+const FROM_EMAIL = 'onboarding@resend.dev';
+const FROM_NAME = 'SeeBu Team';
 
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Brevo API Error:', errorText);
-        throw new Error(`Brevo API Error: ${response.status} ${response.statusText}`);
-    }
+const sendResendEmail = async (payload: {
+  to: string;
+  subject: string;
+  html: string;
+  text?: string;
+}) => {
+  const { to, subject, html, text } = payload;
 
-    return await response.json();
-  } catch (error) {
-    console.error('Email sending failed:', error);
-    throw error;
+  const { data, error } = await resend.emails.send({
+    from: `${FROM_NAME} <${FROM_EMAIL}>`,
+    to: [to],
+    subject,
+    html,
+    ...(text ? { text } : {}),
+  });
+
+  if (error) {
+    console.error('Resend API Error:', error);
+    throw new Error(`Resend API Error: ${error.message}`);
   }
+
+  return data;
 };
 
 export const sendWelcomeEmail = async (toEmail: string, toName: string) => {
-  const payload = {
-    to: [{ email: toEmail, name: toName }],
+  return sendResendEmail({
+    to: toEmail,
     subject: `Welcome to SeeBu, ${toName}!`,
-    htmlContent: `
+    html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
         <h2>Welcome to SeeBu!</h2>
         <p>Hi ${toName},</p>
@@ -48,35 +46,34 @@ export const sendWelcomeEmail = async (toEmail: string, toName: string) => {
         <br/>
         <p>Best regards,<br/>The SeeBu Team</p>
       </div>
-    `
-  };
-  return sendBrevoEmail(payload);
+    `,
+  });
 };
 
 export const sendVerificationEmail = async (toEmail: string, toName: string, code: string) => {
-  const payload = {
-    to: [{ email: toEmail, name: toName }],
+  return sendResendEmail({
+    to: toEmail,
     subject: `Your SeeBu Verification Code`,
-    htmlContent: `
+    html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
         <h2>Verify Your Email</h2>
         <p>Hi ${toName},</p>
         <p>Your verification code is: <strong>${code}</strong></p>
         <p>Enter this code on the SeeBu platform to verify your account.</p>
+        <p><em>Note: This code expires in <strong>15 minutes</strong>. If you did not request this, please ignore this email.</em></p>
         <br/>
         <p>Best regards,<br/>The SeeBu Team</p>
       </div>
-    `
-  };
-  return sendBrevoEmail(payload);
+    `,
+  });
 };
 
 export const sendClientUpdateEmail = async (toEmail: string, toName: string, title: string, message: string) => {
-  const payload = {
-    to: [{ email: toEmail, name: toName }],
+  return sendResendEmail({
+    to: toEmail,
     subject: `SeeBu Update: ${title}`,
-    textContent: `Hello ${toName},\n\n${message}\n\nBest,\nSeeBu Team`,
-    htmlContent: `
+    text: `Hello ${toName},\n\n${message}\n\nBest,\nSeeBu Team`,
+    html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
         <h2>${title}</h2>
         <p>Hello ${toName},</p>
@@ -84,9 +81,8 @@ export const sendClientUpdateEmail = async (toEmail: string, toName: string, tit
         <br/>
         <p>Best regards,<br/>The SeeBu Team</p>
       </div>
-    `
-  };
-  return sendBrevoEmail(payload);
+    `,
+  });
 };
 
 export const sendReportTrackingEmail = async (
@@ -95,10 +91,12 @@ export const sendReportTrackingEmail = async (
   trackingId: string,
   reportTitle: string
 ) => {
-  const payload = {
-    to: [{ email: toEmail, name: toName || 'Anonymous User' }],
+  const frontendUrl = process.env.FRONTEND_URL || 'https://seebucommunity.vercel.app';
+
+  return sendResendEmail({
+    to: toEmail,
     subject: `Your SeeBu Report Tracking ID: ${trackingId}`,
-    htmlContent: `
+    html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
         <h2>Report Submitted Successfully!</h2>
         <p>Hi ${toName || 'Anonymous User'},</p>
@@ -108,11 +106,10 @@ export const sendReportTrackingEmail = async (
           ${trackingId}
         </div>
         <p>You can track the status of your report anytime using this ID at:</p>
-        <p><a href="${process.env.FRONTEND_URL || 'https://seebucommunity.vercel.app'}/track" style="color:#00B2E2;">${process.env.FRONTEND_URL || 'https://seebucommunity.vercel.app'}/track</a></p>
+        <p><a href="${frontendUrl}/track" style="color:#00B2E2;">${frontendUrl}/track</a></p>
         <br/>
         <p>Best regards,<br/>The SeeBu Team</p>
       </div>
-    `
-  };
-  return sendBrevoEmail(payload);
+    `,
+  });
 };

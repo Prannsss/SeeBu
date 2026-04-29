@@ -82,7 +82,7 @@ export default function AdminProfilePage() {
   const handleLogout = async () => {
     await logoutUser()
     localStorage.removeItem('user-profile')
-    gooeyToast.success("Logged out successfully")
+    gooeyToast.success("Logged out", { description: "You have been signed out of your account." })
     router.push("/auth/login")
   }
 

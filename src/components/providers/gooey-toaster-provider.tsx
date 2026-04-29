@@ -27,12 +27,15 @@ export default function GooeyToasterProvider() {
         const normalizedDescription =
           typeof rawDescription === "string" ? rawDescription.trim() : rawDescription;
 
-        if (typeof normalizedDescription === "string") {
-          normalizedOptions.description = normalizedDescription;
-        }
+        let finalDescription = typeof normalizedDescription === "string" && normalizedDescription.length > 0
+          ? normalizedDescription
+          : (normalizedDescription || fallbackDescription);
 
-        if (!normalizedOptions.description || (typeof normalizedOptions.description === "string" && normalizedOptions.description.length === 0)) {
-          normalizedOptions.description = fallbackDescription;
+        if (typeof finalDescription === "string") {
+          const timeString = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          normalizedOptions.description = `${finalDescription} • ${timeString}`;
+        } else {
+          normalizedOptions.description = finalDescription;
         }
 
         return originalMethod.call(
@@ -56,6 +59,7 @@ export default function GooeyToasterProvider() {
     <GooeyToaster
       position="top-center"
       theme="light"
+      showTimestamp
       classNames={{
         wrapper: "gooey-wrapper",
         content: "gooey-content",

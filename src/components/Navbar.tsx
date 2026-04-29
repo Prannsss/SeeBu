@@ -53,7 +53,7 @@ export function Navbar({ items = [] }: NavbarProps) {
 
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 z-50 px-4 pt-4">
+      <header className="fixed top-0 left-0 right-0 z-40 px-4 pt-4">
         <nav className="max-w-4xl mx-auto bg-white/90 dark:bg-gray-900/90 backdrop-blur-md rounded-full px-6 py-3 shadow-lg border border-gray-100 dark:border-gray-800">
           <div className="flex items-center justify-between">
             {/* Logo */}
@@ -117,7 +117,7 @@ export function Navbar({ items = [] }: NavbarProps) {
 
       {/* Mobile Menu Overlay */}
       {isOpen && (
-        <div className="fixed inset-0 z-40 md:hidden">
+        <div className="fixed inset-0 z-30 md:hidden">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsOpen(false)} />
           <div className="absolute top-24 left-4 right-4 bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-800 p-6">
             {/* Navigation Items */}

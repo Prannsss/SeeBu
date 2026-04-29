@@ -109,7 +109,7 @@ export default function AdminReportsPage() {
       notes: `Report approved and delegated to ${selectedDepartment?.name || `department ${delegateDepartmentId}`}.`
     }, {
       onSuccess: () => {
-        gooeyToast.success(`Report ${id} approved and delegated.`);
+        gooeyToast.success(`Report approved and delegated.`);
         setReviewOpen(null);
         setDelegateDepartmentId("");
         setDelegateAssignee("");
@@ -127,7 +127,7 @@ export default function AdminReportsPage() {
     }
     updateStatusMutation.mutate({ id, status: 'Rejected', notes: 'Report rejected.', rejection_reason: rejectReason }, {
       onSuccess: () => {
-        gooeyToast.success(`Report ${id} rejected. Reason: ${rejectReason}`);       
+        gooeyToast.success(`Report rejected.`);       
         setRejectMode(false);
         setRejectReason("");
         setReviewOpen(null);
@@ -156,7 +156,7 @@ export default function AdminReportsPage() {
       assigned_role: assignee.role,
     }, {
       onSuccess: () => {
-        gooeyToast.success(`Report ${id} delegated successfully!`);
+        gooeyToast.success(`Report delegated successfully.`);
         setDelegationOpen(null);
         setDelegateDepartmentId("");
         setDelegateAssignee("");
