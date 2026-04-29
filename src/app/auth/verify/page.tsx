@@ -156,10 +156,12 @@ export default function VerifyPage() {
               <span className="hidden lg:inline">Check your email</span>
             </h2>
             {email && (
-              <p className="text-sm sm:text-base text-text-muted dark:text-gray-400 mb-6 flex items-center gap-2">
-                <Mail className="h-4 w-4" />
-                We've sent a 6-digit verification code to <strong>{email}</strong>. Please enter it below to verify your account.
-              </p>
+              <div className="text-sm sm:text-base text-text-muted dark:text-gray-400 mb-6 flex items-start gap-2">
+                <Mail className="h-5 w-5 shrink-0 mt-0.5" />
+                <span>
+                  We've sent a 6-digit verification code to <strong className="break-all">{email}</strong>. Please enter it below to verify your account.
+                </span>
+              </div>
             )}
           </div>
 

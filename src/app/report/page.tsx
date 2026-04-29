@@ -102,6 +102,7 @@ export default function ReportPage() {
   const { isLoggedIn, user } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [trackingNumber, setTrackingNumber] = useState<string | null>(null);
+  const [submittedEmail, setSubmittedEmail] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     issueType: '',
@@ -369,11 +370,19 @@ export default function ReportPage() {
       const { data } = await apiClient.reports.create(payload);
       console.log('Form submitted successfully:', data);
 
+      // Track which email was used so the modal can display it
+      const emailUsed = isLoggedIn
+        ? (submittingUser?.email || null)
+        : formData.reporterEmail?.trim() || null;
+      setSubmittedEmail(emailUsed);
+
       // Show tracking number modal
       setTrackingNumber(data.id);
       setCurrentStep(5);
-      gooeyToast.success("Tracking ID sent to your email", {
-        description: "You can use this ID to check your report status anytime."
+      gooeyToast.success("Report submitted!", {
+        description: emailUsed
+          ? `Your tracking ID has been sent to ${emailUsed}.`
+          : "Use your tracking ID to check your report status anytime."
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "We could not submit your report. Please review the details and try again.";
@@ -766,17 +775,23 @@ export default function ReportPage() {
                         <span className="material-symbols-outlined input-icon">person</span>
                       </div>
 
-                      <div className="floating-input">
-                        <input
-                          id="reporterEmail"
-                          type="email"
-                          value={formData.reporterEmail}
-                          onChange={(e) => updateFormData('reporterEmail', e.target.value)}
-                          placeholder=" "
-                          required
-                        />
-                        <label htmlFor="reporterEmail">Email Address *</label>
-                        <span className="material-symbols-outlined input-icon">mail</span>
+                      <div>
+                        <div className="floating-input">
+                          <input
+                            id="reporterEmail"
+                            type="email"
+                            value={formData.reporterEmail}
+                            onChange={(e) => updateFormData('reporterEmail', e.target.value)}
+                            placeholder=" "
+                            required
+                          />
+                          <label htmlFor="reporterEmail">Email Address *</label>
+                          <span className="material-symbols-outlined input-icon">mail</span>
+                        </div>
+                        <p className="text-xs text-primary dark:text-blue-400 flex items-center gap-1 mt-1.5 ml-1">
+                          <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>info</span>
+                          We will send you the tracking ID using your email.
+                        </p>
                       </div>
 
                       <div className="floating-input">
@@ -797,20 +812,26 @@ export default function ReportPage() {
                     </div>
                   )}
 
-                  {/* Anonymous: phone + email (required to send tracking) */}
+                  {/* Anonymous: email (required to send tracking) + optional phone */}
                   {formData.anonymous && (
                     <div className="space-y-4 animate-fade-in">
-                      <div className="floating-input">
-                        <input
-                          id="reporterEmail"
-                          type="email"
-                          value={formData.reporterEmail}
-                          onChange={(e) => updateFormData('reporterEmail', e.target.value)}
-                          placeholder=" "
-                          required
-                        />
-                        <label htmlFor="reporterEmail">Email Address *</label>
-                        <span className="material-symbols-outlined input-icon">mail</span>
+                      <div>
+                        <div className="floating-input">
+                          <input
+                            id="reporterEmail"
+                            type="email"
+                            value={formData.reporterEmail}
+                            onChange={(e) => updateFormData('reporterEmail', e.target.value)}
+                            placeholder=" "
+                            required
+                          />
+                          <label htmlFor="reporterEmail">Email Address *</label>
+                          <span className="material-symbols-outlined input-icon">mail</span>
+                        </div>
+                        <p className="text-xs text-primary dark:text-blue-400 flex items-center gap-1 mt-1.5 ml-1">
+                          <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>info</span>
+                          We will send you the tracking ID using your email.
+                        </p>
                       </div>
 
                       <div className="floating-input">
@@ -912,6 +933,12 @@ export default function ReportPage() {
             <p className="text-sm text-gray-500 dark:text-gray-400">
               Your report has been received. Use the tracking number below to monitor its status.
             </p>
+            {submittedEmail && (
+              <p className="text-xs text-primary dark:text-blue-400 flex items-center justify-center gap-1 pt-1">
+                <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>mail</span>
+                Tracking ID sent to <strong className="break-all ml-0.5">{submittedEmail}</strong>
+              </p>
+            )}
           </div>
 
           {/* Tracking Number Display */}
