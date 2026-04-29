@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { gooeyToast } from "goey-toast"
-import { ShieldCheck, ArrowLeft } from "lucide-react"
+import { ShieldCheck, ArrowLeft, Loader2 } from "lucide-react"
 
 interface VerificationCodeUIProps {
   onVerify: () => void
@@ -11,8 +11,9 @@ interface VerificationCodeUIProps {
   email?: string
 }
 
-export function VerificationCodeUI({ onVerify, onCancel, email = "the user" }: VerificationCodeUIProps) {
+export function VerificationCodeUI({ onVerify, onCancel, email = "" }: VerificationCodeUIProps) {
   const [code, setCode] = useState(["", "", "", "", "", ""])
+  const [isLoading, setIsLoading] = useState(false)
   const inputs = useRef<(HTMLInputElement | null)[]>([])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
@@ -34,26 +35,63 @@ export function VerificationCodeUI({ onVerify, onCancel, email = "the user" }: V
     }
   }
 
-  const onSubmit = (e: React.FormEvent) => {
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault()
+    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6)
+    if (!pasted) return
+    const newCode = ["", "", "", "", "", ""]
+    pasted.split("").forEach((char, i) => { newCode[i] = char })
+    setCode(newCode)
+    // Focus last filled or first empty slot
+    const focusIndex = Math.min(pasted.length, 5)
+    inputs.current[focusIndex]?.focus()
+  }
+
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const finalCode = code.join("")
+
     if (finalCode.length < 6) {
       gooeyToast.error("Incomplete code", {
-        description: "Please fill in all 6 digits before submitting."
-      });
-      return;
+        description: "Please fill in all 6 digits before submitting.",
+      })
+      return
     }
 
-    // Simulate verification
-    if (finalCode === "123456" || finalCode.length === 6) {
-      gooeyToast.success("Email verified", {
-        description: "Account has been created and verified successfully."
-      });
-      onVerify();
-    } else {
+    if (!email) {
+      gooeyToast.error("Missing email", {
+        description: "Cannot verify — no email address was provided.",
+      })
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || "https://seebu.onrender.com"}/api/v1/auth/verify-email`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, code: finalCode }),
+        }
+      )
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || "Verification failed")
+      }
+
+      gooeyToast.success("Email verified!", {
+        description: "Account has been created and verified successfully.",
+      })
+      onVerify()
+    } catch (err: any) {
       gooeyToast.error("Invalid code", {
-        description: "The code you entered does not match. Please try again."
-      });
+        description: err.message || "The code you entered does not match. Please try again.",
+      })
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -62,20 +100,21 @@ export function VerificationCodeUI({ onVerify, onCancel, email = "the user" }: V
       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#EAF6FD] dark:bg-[#00B2E2]/10 text-[#00B2E2] mb-6">
         <ShieldCheck className="w-8 h-8" />
       </div>
-      
+
       <h2 className="text-2xl font-bold mb-2">Verification Required</h2>
-      <p className="text-slate-500 dark:text-slate-400 mb-8 max-w-sm">
-        Please enter the 6-digit verification code sent to {email}.
+      <p className="text-slate-500 dark:text-slate-400 mb-2 max-w-sm">
+        Please enter the 6-digit verification code sent to:
       </p>
+      {email && (
+        <p className="text-sm font-semibold text-[#00B2E2] mb-8 break-all">{email}</p>
+      )}
 
       <form onSubmit={onSubmit} className="w-full max-w-sm">
         <div className="flex justify-between gap-2 mb-8">
           {code.map((digit, index) => (
             <input
               key={index}
-              ref={(el) => {
-                inputs.current[index] = el
-              }}
+              ref={(el) => { inputs.current[index] = el }}
               type="text"
               inputMode="numeric"
               maxLength={1}
@@ -84,16 +123,34 @@ export function VerificationCodeUI({ onVerify, onCancel, email = "the user" }: V
               aria-label={`Digit ${index + 1}`}
               onChange={(e) => handleChange(e, index)}
               onKeyDown={(e) => handleKeyDown(e, index)}
-              className="w-12 h-14 text-center text-2xl font-bold bg-slate-50 border border-slate-200 rounded-[8px] focus:border-[#00B2E2] focus:ring-2 focus:ring-[#00B2E2]/20 outline-none transition-all dark:bg-slate-800 dark:border-slate-700"
+              onPaste={handlePaste}
+              disabled={isLoading}
+              className="w-12 h-14 text-center text-2xl font-bold bg-slate-50 border border-slate-200 rounded-[8px] focus:border-[#00B2E2] focus:ring-2 focus:ring-[#00B2E2]/20 outline-none transition-all dark:bg-slate-800 dark:border-slate-700 disabled:opacity-50"
             />
           ))}
         </div>
 
         <div className="flex flex-col gap-3">
-          <Button type="submit" className="w-full h-12 text-base font-bold shadow-sm bg-[#00B2E2] hover:bg-[#0096C7] text-white rounded-[8px]">
-            Verify & Add User
+          <Button
+            type="submit"
+            disabled={isLoading}
+            className="w-full h-12 text-base font-bold shadow-sm bg-[#00B2E2] hover:bg-[#0096C7] text-white rounded-[8px]"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Verifying…
+              </>
+            ) : (
+              "Verify & Add User"
+            )}
           </Button>
-          <Button type="button" onClick={onCancel} className="w-full h-12 text-base font-bold shadow-sm bg-red-500 hover:bg-red-600 dark:bg-red-900/80 dark:hover:bg-red-900 text-white rounded-[8px] gap-2">
+          <Button
+            type="button"
+            onClick={onCancel}
+            disabled={isLoading}
+            className="w-full h-12 text-base font-bold shadow-sm bg-red-500 hover:bg-red-600 dark:bg-red-900/80 dark:hover:bg-red-900 text-white rounded-[8px] gap-2"
+          >
             <ArrowLeft className="w-4 h-4" /> Cancel
           </Button>
         </div>

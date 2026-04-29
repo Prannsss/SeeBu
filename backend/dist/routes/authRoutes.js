@@ -8,6 +8,8 @@ const router = (0, express_1.Router)();
 router.post('/login', authController_1.authController.login);
 router.post('/register', authController_1.authController.registerClient);
 router.post('/forgot-password', authController_1.authController.forgotPassword);
+router.post('/verify-email', authController_1.authController.verifyEmail);
+router.post('/resend-verification', authController_1.authController.resendVerification);
 router.post('/provision', withAuth_1.withAuth, (0, requireRole_1.requireRole)(['superadmin', 'admin', 'workforce-admin']), authController_1.authController.provision);
 router.post('/google', authController_1.authController.googleOAuthCallback);
 router.post('/facebook', authController_1.authController.facebookOAuthCallback);

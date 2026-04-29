@@ -104,22 +104,50 @@ export default function RegisterPage() {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    try {
-      // TODO: replace with real API call
-      await new Promise(res => setTimeout(res, 800));
+    
+    // Get form values
+    const firstNameEl = document.getElementById('first-name') as HTMLInputElement;
+    const lastNameEl = document.getElementById('last-name') as HTMLInputElement;
+    const emailEl = document.getElementById('email') as HTMLInputElement;
+    const passwordEl = document.getElementById('password') as HTMLInputElement;
+    
+    const firstName = firstNameEl?.value?.trim();
+    const lastName = lastNameEl?.value?.trim();
+    const email = emailEl?.value?.trim();
+    const password = passwordEl?.value?.trim();
+    const full_name = `${firstName || ''} ${lastName || ''}`.trim();
 
-      // Navigate immediately — React will suspend and show the destination's loading.tsx
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://seebu.onrender.com"}/api/v1/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          email, 
+          password, 
+          full_name,
+          contact_number: contactNumber 
+        })
+      });
+
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.error || 'Registration failed');
+      }
+
+      // Success - store user info for verification
+      sessionStorage.setItem('verification_email', email);
+      sessionStorage.setItem('verification_code', data.data?.id || ''); // Using id as placeholder, actual code sent via email
+      gooeyToast.success("Account Created!", {
+        description: "Check your email to verify your account.",
+      });
+
+      // Navigate to verification page
       router.push('/auth/verify');
 
-      // Show toast after navigation starts
-      setTimeout(() => {
-        gooeyToast.success("Account Created!", {
-          description: "Check your email to verify your account.",
-        });
-      }, 50);
-    } catch {
+    } catch (err: any) {
       gooeyToast.error("Sign Up Failed", {
-        description: "Something went wrong. Please try again.",
+        description: err.message || "Something went wrong. Please try again.",
       });
     } finally {
       setIsLoading(false);

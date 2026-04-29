@@ -6,13 +6,23 @@ import BackButton from "@/components/navigation/back-button";
 import { Mail } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { gooeyToast } from "goey-toast";
 
 export default function VerifyPage() {
   const [code, setCode] = useState("");
+  const [email, setEmail] = useState("");
+  const [isResending, setIsResending] = useState(false);
 
-  const handleVerify = (e: React.FormEvent) => {
+  useEffect(() => {
+    // Get email from session storage
+    const storedEmail = sessionStorage.getItem('verification_email');
+    if (storedEmail) {
+      setEmail(storedEmail);
+    }
+  }, []);
+
+  const handleVerify = async (e: React.FormEvent) => {
     try {
       e.preventDefault();
       if (code.length !== 6) {
@@ -22,33 +32,74 @@ export default function VerifyPage() {
         return;
       }
 
-      // Simulate verification
+      // Call API to verify email
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://seebu.onrender.com"}/api/v1/auth/verify-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          email, 
+          code 
+        })
+      });
+
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.error || 'Verification failed');
+      }
+
       gooeyToast.success("Verification Successful!", {
         description: "Your account has been verified. Redirecting to login...",
       });
+
+      // Clear session storage
+      sessionStorage.removeItem('verification_email');
+      sessionStorage.removeItem('verification_code');
 
       // Redirect after delay
       setTimeout(() => {
         window.location.href = "/auth/login";
       }, 2000);
-    } catch (error) {
+    } catch (error: any) {
       gooeyToast.error("Verification Failed", {
-        description: "Something went wrong while verifying your account. Please try again.",
+        description: error.message || "Something went wrong while verifying your account. Please try again.",
       });
       console.error("Verify flow error:", error);
     }
   };
 
-  const handleResend = () => {
+  const handleResend = async () => {
     try {
+      if (!email) {
+        gooeyToast.error("Error", {
+          description: "No email found. Please register first.",
+        });
+        return;
+      }
+
+      setIsResending(true);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://seebu.onrender.com"}/api/v1/auth/resend-verification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to resend code');
+      }
+
       gooeyToast.success("Code Sent!", {
         description: "A new verification code has been sent to your email.",
       });
-    } catch (error) {
+    } catch (error: any) {
       gooeyToast.error("Resend Failed", {
-        description: "Unable to resend verification code right now. Please try again.",
+        description: error.message || "Unable to resend verification code right now. Please try again.",
       });
       console.error("Resend flow error:", error);
+    } finally {
+      setIsResending(false);
     }
   };
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -104,9 +155,12 @@ export default function VerifyPage() {
               <span className="lg:hidden">Enter Verification Code</span>
               <span className="hidden lg:inline">Check your email</span>
             </h2>
-            <p className="text-sm sm:text-base text-text-muted dark:text-gray-400 mb-6">
-              We've sent a 6-digit verification code to your email. Please enter it below to verify your account.
-            </p>
+            {email && (
+              <p className="text-sm sm:text-base text-text-muted dark:text-gray-400 mb-6 flex items-center gap-2">
+                <Mail className="h-4 w-4" />
+                We've sent a 6-digit verification code to <strong>{email}</strong>. Please enter it below to verify your account.
+              </p>
+            )}
           </div>
 
           <div>
@@ -134,16 +188,17 @@ export default function VerifyPage() {
             </form>
 
             <div className="mt-4">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="w-full h-12 border-2 hover:border-primary hover:text-primary transition-colors"
                 onClick={handleResend}
                 type="button"
+                disabled={isResending}
               >
-                Resend verification code
+                {isResending ? "Sending..." : "Resend verification code"}
               </Button>
             </div>
-            
+
             <div className="mt-6 pt-6 border-t border-gray-300 dark:border-gray-700 text-center">
               <p className="text-xs text-text-muted dark:text-gray-400">
                 <span className="font-medium">SeeBu Platform</span> - Making Cebu Smarter

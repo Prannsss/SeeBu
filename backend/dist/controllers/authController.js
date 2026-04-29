@@ -20,19 +20,43 @@ exports.authController = {
             // Hash password using bcrypt
             const salt = await bcryptjs_1.default.genSalt(10);
             const hashedPassword = await bcryptjs_1.default.hash(password, salt);
+            // Generate 6-digit verification code
+            const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+            const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
             const { data, error } = await db_1.supabase
                 .from('clients')
                 .insert([
-                { email, password_hash: hashedPassword, full_name, contact_number, status: 'Active' }
+                { email, password_hash: hashedPassword, full_name, contact_number, status: 'Active', email_verified: false }
             ])
                 .select('*')
                 .single();
             if (error) {
                 return res.status(500).json({ error: error.message });
             }
-            // Send Welcome message
+            // Store verification token in verification_tokens table
+            const { error: tokenError } = await db_1.supabase
+                .from('verification_tokens')
+                .upsert({
+                email: email,
+                code: verificationCode,
+                type: 'email_verify',
+                expires_at: expiresAt
+            }, { onConflict: 'email,type' });
+            if (tokenError) {
+                console.error('Verification token generation error:', tokenError);
+                // Continue anyway - token may already exist from a previous registration attempt
+            }
+            // Send Welcome and Verification emails
             await (0, emailService_1.sendWelcomeEmail)(email, full_name);
-            return res.status(201).json({ message: 'Registration successful', data });
+            await (0, emailService_1.sendVerificationEmail)(email, full_name, verificationCode);
+            return res.status(201).json({
+                message: 'Registration successful. Please verify your email.',
+                data: {
+                    id: data.id,
+                    email: data.email,
+                    email_verified: false
+                }
+            });
         }
         catch (err) {
             return res.status(500).json({ error: err.message });
@@ -62,6 +86,9 @@ exports.authController = {
             const salt = await bcryptjs_1.default.genSalt(10);
             const randomPassword = Math.random().toString(36).slice(-10);
             const hashedPassword = await bcryptjs_1.default.hash(randomPassword, salt);
+            // Generate 6-digit verification code
+            const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+            const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
             const { data: newClient, error } = await db_1.supabase
                 .from('clients')
                 .insert([
@@ -69,15 +96,29 @@ exports.authController = {
                     email,
                     password_hash: hashedPassword,
                     full_name: full_name || "Google User",
-                    status: 'Active'
+                    status: 'Active',
+                    email_verified: false
                 }
             ])
                 .select('*')
                 .single();
             if (error)
                 throw error;
+            // Store verification token in verification_tokens table
+            const { error: tokenError } = await db_1.supabase
+                .from('verification_tokens')
+                .upsert({
+                email: email,
+                code: verificationCode,
+                type: 'email_verify',
+                expires_at: expiresAt
+            }, { onConflict: 'email,type' });
+            if (tokenError) {
+                console.error('Google OAuth verification token error:', tokenError);
+            }
             // Welcome and verification triggers
             await (0, emailService_1.sendWelcomeEmail)(email, full_name || "Google User");
+            await (0, emailService_1.sendVerificationEmail)(email, full_name || "Google User", verificationCode);
             const token = jsonwebtoken_1.default.sign({ id: newClient.id, role: 'client' }, JWT_SECRET, { expiresIn: '7d' });
             return res.status(201).json({
                 message: "Registration successful via Google",
@@ -89,7 +130,7 @@ exports.authController = {
             return res.status(500).json({ error: err.message });
         }
     },
-    // Facebook Callback 
+    // Facebook Callback
     async facebookOAuthCallback(req, res) {
         // Same logic as Google essentially, strictly clients table
         try {
@@ -103,16 +144,42 @@ exports.authController = {
             }
             const salt = await bcryptjs_1.default.genSalt(10);
             const hashedPassword = await bcryptjs_1.default.hash(Math.random().toString(36).slice(-10), salt);
+            // Generate 6-digit verification code
+            const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+            const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
             const { data: newClient, error } = await db_1.supabase
                 .from('clients')
-                .insert([{ email, password_hash: hashedPassword, full_name: full_name || "Facebook User", status: 'Active' }])
+                .insert([{
+                    email,
+                    password_hash: hashedPassword,
+                    full_name: full_name || "Facebook User",
+                    status: 'Active',
+                    email_verified: false
+                }])
                 .select('*')
                 .single();
             if (error)
                 throw error;
+            // Store verification token in verification_tokens table
+            const { error: tokenError } = await db_1.supabase
+                .from('verification_tokens')
+                .upsert({
+                email: email,
+                code: verificationCode,
+                type: 'email_verify',
+                expires_at: expiresAt
+            }, { onConflict: 'email,type' });
+            if (tokenError) {
+                console.error('Facebook OAuth verification token error:', tokenError);
+            }
             await (0, emailService_1.sendWelcomeEmail)(email, full_name || "Facebook User");
+            await (0, emailService_1.sendVerificationEmail)(email, full_name || "Facebook User", verificationCode);
             const token = jsonwebtoken_1.default.sign({ id: newClient.id, role: 'client' }, JWT_SECRET, { expiresIn: '7d' });
-            return res.status(201).json({ message: "Registration successful via Facebook", user: { ...newClient, role: 'client' }, token });
+            return res.status(201).json({
+                message: "Registration successful via Facebook",
+                user: { ...newClient, role: 'client' },
+                token
+            });
         }
         catch (err) {
             return res.status(500).json({ error: err.message });
@@ -408,6 +475,96 @@ exports.authController = {
         catch (err) {
             console.error('Forgot password error:', err);
             // Return 500 cleanly
+            return res.status(500).json({ error: err.message });
+        }
+    },
+    // Verify email with 6-digit code
+    async verifyEmail(req, res) {
+        try {
+            const { email, code } = req.body;
+            if (!email || !code) {
+                return res.status(400).json({ error: 'Missing email or verification code' });
+            }
+            if (code.length !== 6) {
+                return res.status(400).json({ error: 'Invalid verification code' });
+            }
+            // Check if token exists and is valid
+            const { data: token, error: tokenError } = await db_1.supabase
+                .from('verification_tokens')
+                .select('*')
+                .eq('email', email)
+                .eq('code', code)
+                .eq('type', 'email_verify')
+                .gte('expires_at', new Date().toISOString())
+                .single();
+            if (tokenError || !token) {
+                return res.status(400).json({ error: 'Invalid or expired verification code' });
+            }
+            // Mark email as verified in clients table
+            const { error: updateError } = await db_1.supabase
+                .from('clients')
+                .update({ email_verified: true })
+                .eq('email', email);
+            if (updateError) {
+                console.error('Error updating email verification status:', updateError);
+                return res.status(500).json({ error: 'Failed to verify email' });
+            }
+            // Optionally delete the used token
+            await db_1.supabase
+                .from('verification_tokens')
+                .delete()
+                .eq('email', email)
+                .eq('type', 'email_verify');
+            return res.status(200).json({
+                message: 'Email verified successfully',
+                email_verified: true
+            });
+        }
+        catch (err) {
+            console.error('Email verification error:', err);
+            return res.status(500).json({ error: err.message });
+        }
+    },
+    // Resend verification email
+    async resendVerification(req, res) {
+        try {
+            const { email } = req.body;
+            if (!email) {
+                return res.status(400).json({ error: 'Missing email' });
+            }
+            // Find user by email
+            const { data: user, error: userError } = await db_1.supabase
+                .from('clients')
+                .select('id, email, full_name')
+                .eq('email', email)
+                .single();
+            if (userError || !user) {
+                return res.status(404).json({ error: 'User not found' });
+            }
+            // Generate new verification code
+            const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+            const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+            // Update the token
+            const { error: tokenError } = await db_1.supabase
+                .from('verification_tokens')
+                .upsert({
+                email: email,
+                code: verificationCode,
+                type: 'email_verify',
+                expires_at: expiresAt
+            }, { onConflict: 'email,type' });
+            if (tokenError) {
+                console.error('Resend verification token error:', tokenError);
+                return res.status(500).json({ error: 'Failed to generate verification code' });
+            }
+            // Send the verification email
+            await (0, emailService_1.sendVerificationEmail)(email, user.full_name || 'SeeBu User', verificationCode);
+            return res.status(200).json({
+                message: 'Verification code sent to your email'
+            });
+        }
+        catch (err) {
+            console.error('Resend verification error:', err);
             return res.status(500).json({ error: err.message });
         }
     }

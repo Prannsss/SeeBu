@@ -7,96 +7,147 @@ import Image from "next/image";
 import { useState, useRef } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { gooeyToast } from "goey-toast";
+import { useRouter } from "next/navigation";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://seebu.onrender.com";
 
 export default function ForgotPasswordPage() {
+  const router = useRouter();
   const [step, setStep] = useState<'email' | 'code' | 'password'>('email');
+  const [email, setEmail] = useState("");
+  const [resetCode, setResetCode] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const newPasswordRef = useRef<HTMLInputElement>(null);
   const confirmPasswordRef = useRef<HTMLInputElement>(null);
-
   const emailRef = useRef<HTMLInputElement>(null);
+  const codeRef = useRef<HTMLInputElement>(null);
 
+  // ── Step 1: Request OTP ─────────────────────────────────────────────────
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const email = emailRef.current?.value ?? '';
+    const emailVal = emailRef.current?.value?.trim() ?? "";
+    if (!emailVal) return;
+
     setIsLoading(true);
-    
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://seebu.onrender.com"}/api/v1/auth/forgot-password`, {
+      const res = await fetch(`${API_BASE}/api/v1/auth/forgot-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email: emailVal }),
       });
 
       const data = await res.json();
 
       if (res.ok) {
         if (data.found === false) {
-          // Valid response per requirement, but indicates the user doesn't exist
-          gooeyToast.warning(data.message || "We couldn't find an account associated with that email address. Please check your spelling or sign up.", {
-            description: "No active account found for that email address.",
+          gooeyToast.warning("Account Not Found", {
+            description: "We couldn't find an account with that email address.",
           });
         } else {
-          // Success case
+          setEmail(emailVal);
           gooeyToast.success("Code Sent!", {
             description: data.message || "A 6-digit verification code has been sent to your email.",
           });
-          setStep('code');
+          setStep("code");
         }
       } else {
-        // HTTP 400 or 500 errors
         gooeyToast.error("Failed to Send", {
-          description: data.error || "Could not send the code. Please check your email and try again.",
+          description: data.error || "Could not send the code. Please try again.",
         });
       }
     } catch {
       gooeyToast.error("Network Error", {
-        description: "An error occurred while connecting to the server. Please try again.",
+        description: "Could not connect to the server. Please try again.",
       });
     } finally {
       setIsLoading(false);
     }
   };
 
+  // ── Step 2: Validate OTP ────────────────────────────────────────────────
   const handleCodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const codeVal = codeRef.current?.value?.trim() ?? "";
+
+    if (codeVal.length !== 6 || !/^\d{6}$/.test(codeVal)) {
+      gooeyToast.error("Invalid Code", {
+        description: "Please enter the 6-digit code sent to your email.",
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
-      // TODO: validate code against real API
-      await new Promise(res => setTimeout(res, 600));
-      // Simulated success — replace with real validation
-      setStep('password');
-    } catch {
+      const res = await fetch(`${API_BASE}/api/v1/auth/verify-reset-code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, code: codeVal }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Invalid or expired code");
+      }
+
+      setResetCode(codeVal);
+      gooeyToast.success("Code Verified!", {
+        description: "You can now set a new password.",
+      });
+      setStep("password");
+    } catch (err: any) {
       gooeyToast.error("Invalid Code", {
-        description: "The code you entered is incorrect or has expired. Try again.",
+        description: err.message || "The code you entered is incorrect or has expired.",
       });
     } finally {
       setIsLoading(false);
     }
   };
 
+  // ── Step 3: Reset Password ──────────────────────────────────────────────
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newPw = newPasswordRef.current?.value ?? '';
-    const confirmPw = confirmPasswordRef.current?.value ?? '';
+    const newPw = newPasswordRef.current?.value ?? "";
+    const confirmPw = confirmPasswordRef.current?.value ?? "";
+
     if (newPw !== confirmPw) {
       gooeyToast.error("Passwords Don't Match", {
         description: "Please make sure both password fields are identical.",
       });
       return;
     }
+
+    if (newPw.length < 8) {
+      gooeyToast.error("Password Too Short", {
+        description: "Password must be at least 8 characters.",
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
-      // TODO: replace with real API call
-      await new Promise(res => setTimeout(res, 800));
-      gooeyToast.success("Password Reset!", {
-        description: "Your password has been updated. You can now log in.",
+      const res = await fetch(`${API_BASE}/api/v1/auth/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, code: resetCode, new_password: newPw }),
       });
-    } catch {
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Password reset failed");
+      }
+
+      gooeyToast.success("Password Reset!", {
+        description: "Your password has been updated. Redirecting to login…",
+      });
+
+      setTimeout(() => router.push("/auth/login"), 2000);
+    } catch (err: any) {
       gooeyToast.error("Reset Failed", {
-        description: "Something went wrong. Please try again.",
+        description: err.message || "Something went wrong. Please try again.",
       });
     } finally {
       setIsLoading(false);
@@ -104,14 +155,14 @@ export default function ForgotPasswordPage() {
   };
 
   const stepTitles = {
-    email: 'Forgot Password?',
-    code: 'Enter Verification Code',
-    password: 'Set New Password',
+    email: "Forgot Password?",
+    code: "Enter Verification Code",
+    password: "Set New Password",
   };
 
   const stepDescriptions = {
     email: "Enter your email and we'll send you a verification code.",
-    code: "We've sent a 6-digit code to your email. Enter it below.",
+    code: `We've sent a 6-digit code to ${email || "your email"}. Enter it below.`,
     password: "Create a strong new password for your account.",
   };
 
@@ -122,7 +173,7 @@ export default function ForgotPasswordPage() {
         className="fixed top-4 left-4 sm:top-6 sm:left-6 z-50 hidden md:flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors"
       />
 
-      {/* Left Side - CTA & GIF (hidden on mobile) */}
+      {/* Left Side */}
       <div className="hidden lg:flex lg:w-1/2 p-12 items-center justify-center relative overflow-hidden auth-bg">
         <div className="relative z-10 max-w-lg w-full">
           <h1 className="text-4xl lg:text-5xl font-black text-gray-900 mb-6">
@@ -131,12 +182,10 @@ export default function ForgotPasswordPage() {
           <p className="text-gray-700 text-lg mb-8 leading-relaxed">
             Don&apos;t worry! Resetting your password is easy. Just follow the steps and you&apos;ll be back making a difference in no time.
           </p>
-          
-          {/* GIF */}
           <div className="rounded-2xl overflow-hidden">
-            <Image 
-              src="/gifs/verify.gif" 
-              alt="Password reset process" 
+            <Image
+              src="/gifs/verify.gif"
+              alt="Password reset process"
               width={800}
               height={600}
               unoptimized
@@ -146,24 +195,34 @@ export default function ForgotPasswordPage() {
         </div>
       </div>
 
-      {/* Right Side - Form */}
+      {/* Right Side */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-8 lg:p-12 pt-20 sm:pt-24 lg:pt-12">
         <div className="w-full max-w-md space-y-6 sm:space-y-8 animate-in fade-in duration-500">
 
           {/* Step indicator */}
           <div className="flex items-center gap-2 justify-center lg:justify-start">
-            {(['email', 'code', 'password'] as const).map((s, i) => (
+            {(["email", "code", "password"] as const).map((s, i) => (
               <div key={s} className="flex items-center gap-2">
-                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                  step === s
-                    ? 'bg-primary text-white shadow-md'
-                    : ['email', 'code', 'password'].indexOf(step) > i
-                    ? 'bg-green-500 text-white'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-400'
-                }`}>
-                  {['email', 'code', 'password'].indexOf(step) > i ? '✓' : i + 1}
+                <div
+                  className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                    step === s
+                      ? "bg-primary text-white shadow-md"
+                      : ["email", "code", "password"].indexOf(step) > i
+                      ? "bg-green-500 text-white"
+                      : "bg-gray-200 dark:bg-gray-700 text-gray-400"
+                  }`}
+                >
+                  {["email", "code", "password"].indexOf(step) > i ? "✓" : i + 1}
                 </div>
-                {i < 2 && <div className={`w-8 h-0.5 rounded ${['email', 'code', 'password'].indexOf(step) > i ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-700'}`} />}
+                {i < 2 && (
+                  <div
+                    className={`w-8 h-0.5 rounded ${
+                      ["email", "code", "password"].indexOf(step) > i
+                        ? "bg-green-500"
+                        : "bg-gray-200 dark:bg-gray-700"
+                    }`}
+                  />
+                )}
               </div>
             ))}
           </div>
@@ -182,54 +241,57 @@ export default function ForgotPasswordPage() {
 
           <div>
             {/* ── Step 1: Email ── */}
-            {step === 'email' && (
+            {step === "email" && (
               <form className="space-y-5 sm:space-y-6" onSubmit={handleEmailSubmit}>
                 <div className="floating-input">
-                  <input 
-                    id="email" 
+                  <input
+                    id="email"
                     type="email"
                     ref={emailRef}
                     placeholder=" "
-                    required 
+                    required
                     maxLength={100}
                   />
                   <label htmlFor="email">Email</label>
                   <span className="material-symbols-outlined input-icon">mail</span>
                 </div>
 
-              <Button
-                className="w-full h-12 text-lg bg-primary hover:bg-primary-dark text-white font-bold shadow-lg disabled:opacity-60"
-                type="submit"
-                disabled={isLoading}
-              >
-                {isLoading ? "Sending…" : "Send Verification Code"}
-              </Button>
+                <Button
+                  className="w-full h-12 text-lg bg-primary hover:bg-primary-dark text-white font-bold shadow-lg disabled:opacity-60"
+                  type="submit"
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Sending…" : "Send Verification Code"}
+                </Button>
               </form>
             )}
 
             {/* ── Step 2: Verification Code ── */}
-            {step === 'code' && (
+            {step === "code" && (
               <form className="space-y-5 sm:space-y-6" onSubmit={handleCodeSubmit}>
                 <div className="floating-input">
-                  <input 
-                    id="code" 
+                  <input
+                    id="code"
                     type="text"
                     inputMode="numeric"
+                    ref={codeRef}
                     placeholder=" "
-                    required 
+                    required
                     maxLength={6}
                     pattern="[0-9]{6}"
+                    className="text-center text-2xl tracking-widest font-bold"
                   />
                   <label htmlFor="code">6-Digit Verification Code</label>
                   <span className="material-symbols-outlined input-icon">pin</span>
                 </div>
 
                 <div className="flex gap-3">
-                  <Button 
+                  <Button
                     type="button"
-                    variant="outline" 
+                    variant="outline"
                     className="w-full h-12 text-base border-2 hover:border-primary hover:text-primary transition-colors"
-                    onClick={() => setStep('email')}
+                    onClick={() => setStep("email")}
+                    disabled={isLoading}
                   >
                     Back
                   </Button>
@@ -244,17 +306,17 @@ export default function ForgotPasswordPage() {
               </form>
             )}
 
-            {/* ── Step 3: New Password + Confirm Password ── */}
-            {step === 'password' && (
+            {/* ── Step 3: New Password ── */}
+            {step === "password" && (
               <form className="space-y-5 sm:space-y-6" onSubmit={handlePasswordSubmit}>
                 {/* New Password */}
                 <div className="floating-input has-right-icon">
-                  <input 
-                    id="new-password" 
+                  <input
+                    id="new-password"
                     ref={newPasswordRef}
-                    type={showNewPassword ? 'text' : 'password'}
+                    type={showNewPassword ? "text" : "password"}
                     placeholder=" "
-                    required 
+                    required
                     minLength={8}
                     maxLength={50}
                   />
@@ -263,9 +325,9 @@ export default function ForgotPasswordPage() {
                   <button
                     type="button"
                     className="input-icon-right"
-                    onClick={() => setShowNewPassword(v => !v)}
+                    onClick={() => setShowNewPassword((v) => !v)}
                     tabIndex={-1}
-                    aria-label={showNewPassword ? 'Hide password' : 'Show password'}
+                    aria-label={showNewPassword ? "Hide password" : "Show password"}
                   >
                     {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
@@ -274,12 +336,12 @@ export default function ForgotPasswordPage() {
 
                 {/* Confirm Password */}
                 <div className="floating-input has-right-icon">
-                  <input 
-                    id="confirm-password" 
+                  <input
+                    id="confirm-password"
                     ref={confirmPasswordRef}
-                    type={showConfirmPassword ? 'text' : 'password'}
+                    type={showConfirmPassword ? "text" : "password"}
                     placeholder=" "
-                    required 
+                    required
                     minLength={8}
                     maxLength={50}
                   />
@@ -288,20 +350,21 @@ export default function ForgotPasswordPage() {
                   <button
                     type="button"
                     className="input-icon-right"
-                    onClick={() => setShowConfirmPassword(v => !v)}
+                    onClick={() => setShowConfirmPassword((v) => !v)}
                     tabIndex={-1}
-                    aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                    aria-label={showConfirmPassword ? "Hide password" : "Show password"}
                   >
                     {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
 
                 <div className="flex gap-3">
-                  <Button 
+                  <Button
                     type="button"
-                    variant="outline" 
+                    variant="outline"
                     className="w-full h-12 text-base border-2 hover:border-primary hover:text-primary transition-colors"
-                    onClick={() => setStep('code')}
+                    onClick={() => setStep("code")}
+                    disabled={isLoading}
                   >
                     Back
                   </Button>
@@ -315,10 +378,13 @@ export default function ForgotPasswordPage() {
                 </div>
               </form>
             )}
-            
+
             <div className="mt-6 pt-6 border-t border-gray-300 dark:border-gray-700 text-center">
               <p className="text-sm text-text-muted dark:text-gray-400">
-                Remember your password? <Link href="/auth/login" className="text-primary font-bold hover:underline">Log in</Link>
+                Remember your password?{" "}
+                <Link href="/auth/login" className="text-primary font-bold hover:underline">
+                  Log in
+                </Link>
               </p>
             </div>
           </div>

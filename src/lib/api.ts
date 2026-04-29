@@ -168,6 +168,36 @@ export const api = {
         body: JSON.stringify(data),
         requireAuth: false,
       }),
+    forgotPassword: (email: string) =>
+      apiFetch("/api/v1/auth/forgot-password", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+        requireAuth: false,
+      }),
+    verifyEmail: (email: string, code: string) =>
+      apiFetch("/api/v1/auth/verify-email", {
+        method: "POST",
+        body: JSON.stringify({ email, code }),
+        requireAuth: false,
+      }),
+    resendVerification: (email: string) =>
+      apiFetch("/api/v1/auth/resend-verification", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+        requireAuth: false,
+      }),
+    verifyResetCode: (email: string, code: string) =>
+      apiFetch("/api/v1/auth/verify-reset-code", {
+        method: "POST",
+        body: JSON.stringify({ email, code }),
+        requireAuth: false,
+      }),
+    resetPassword: (email: string, code: string, new_password: string) =>
+      apiFetch("/api/v1/auth/reset-password", {
+        method: "POST",
+        body: JSON.stringify({ email, code, new_password }),
+        requireAuth: false,
+      }),
   },
 
   // Users
@@ -291,6 +321,36 @@ export const apiClient = {
       apiFetchClient("/api/v1/auth/facebook", {
         method: "POST",
         body: JSON.stringify(data),
+        requireAuth: false,
+      }),
+    forgotPassword: (email: string) =>
+      apiFetchClient("/api/v1/auth/forgot-password", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+        requireAuth: false,
+      }),
+    verifyEmail: (email: string, code: string) =>
+      apiFetchClient("/api/v1/auth/verify-email", {
+        method: "POST",
+        body: JSON.stringify({ email, code }),
+        requireAuth: false,
+      }),
+    resendVerification: (email: string) =>
+      apiFetchClient("/api/v1/auth/resend-verification", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+        requireAuth: false,
+      }),
+    verifyResetCode: (email: string, code: string) =>
+      apiFetchClient("/api/v1/auth/verify-reset-code", {
+        method: "POST",
+        body: JSON.stringify({ email, code }),
+        requireAuth: false,
+      }),
+    resetPassword: (email: string, code: string, new_password: string) =>
+      apiFetchClient("/api/v1/auth/reset-password", {
+        method: "POST",
+        body: JSON.stringify({ email, code, new_password }),
         requireAuth: false,
       }),
   },

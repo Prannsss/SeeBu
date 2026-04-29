@@ -26,6 +26,7 @@ CREATE TABLE superadmins (
     password_hash VARCHAR(255) NOT NULL,
     full_name VARCHAR(100) NOT NULL,
     contact_number VARCHAR(20),
+    email_verified BOOLEAN DEFAULT FALSE,
     status VARCHAR(20) DEFAULT 'Active', -- Active, Pending
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -37,6 +38,7 @@ CREATE TABLE admins (
     password_hash VARCHAR(255) NOT NULL,
     full_name VARCHAR(100) NOT NULL,
     contact_number VARCHAR(20),
+    email_verified BOOLEAN DEFAULT FALSE,
     municipality_id VARCHAR(50) REFERENCES municipalities(id),
     status VARCHAR(20) DEFAULT 'Pending',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -49,6 +51,7 @@ CREATE TABLE clients (
     password_hash VARCHAR(255) NOT NULL,
     full_name VARCHAR(100) NOT NULL,
     contact_number VARCHAR(20),
+    email_verified BOOLEAN DEFAULT FALSE,
     status VARCHAR(20) DEFAULT 'Active',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -69,6 +72,7 @@ CREATE TABLE workforce_admins (
     password_hash VARCHAR(255) NOT NULL,
     full_name VARCHAR(100) NOT NULL,
     contact_number VARCHAR(20),
+    email_verified BOOLEAN DEFAULT FALSE,
     department_id INTEGER REFERENCES departments(id),
     municipality_id VARCHAR(50) REFERENCES municipalities(id),
     status VARCHAR(20) DEFAULT 'Active',
@@ -83,6 +87,7 @@ CREATE TABLE workforce_officers (
     password_hash VARCHAR(255) NOT NULL,
     full_name VARCHAR(100) NOT NULL,
     contact_number VARCHAR(20),
+    email_verified BOOLEAN DEFAULT FALSE,
     department_id INTEGER REFERENCES departments(id) ON DELETE CASCADE,
     municipality_id VARCHAR(50) REFERENCES municipalities(id),
     role VARCHAR(100), -- specific position
