@@ -23,7 +23,7 @@ export const authController = {
       const { data, error } = await supabase
         .from('clients')
         .insert([
-          { email, password_hash: hashedPassword, full_name, contact_number, status: 'Active' }
+          { email, password_hash: hashedPassword, full_name, contact_number, status: 'Pending' }
         ])
         .select('*')
         .single();
@@ -32,10 +32,31 @@ export const authController = {
         return res.status(500).json({ error: error.message });
       }
 
-      // Send Welcome message
-      await sendWelcomeEmail(email, full_name);
+      // Generate 6-digit OTP
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
-      return res.status(201).json({ message: 'Registration successful', data });
+      // Store verification token
+      const { error: tokenError } = await supabase
+        .from('verification_tokens')
+        .upsert(
+          {
+            email: email,
+            code: otp,
+            type: 'email_verification',
+            expires_at: expiresAt
+          },
+          { onConflict: 'email,type' }
+        );
+
+      if (tokenError) {
+        console.error('Verification token error:', tokenError);
+      }
+
+      // Send Verification email
+      await sendVerificationEmail(email, full_name, otp);
+
+      return res.status(201).json({ message: 'Registration successful. Please verify your email.', data });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
     }
@@ -482,6 +503,113 @@ export const authController = {
     } catch (err: any) {
       console.error('Forgot password error:', err);
       // Return 500 cleanly
+      return res.status(500).json({ error: err.message });
+    }
+  },
+
+  async verifyEmail(req: Request, res: Response) {
+    try {
+      const { email, code } = req.body;
+
+      if (!email || !code) {
+        return res.status(400).json({ error: 'Missing email or code' });
+      }
+
+      const { data: tokenData, error: tokenError } = await supabase
+        .from('verification_tokens')
+        .select('*')
+        .eq('email', email)
+        .eq('code', code)
+        .eq('type', 'email_verification')
+        .single();
+
+      if (tokenError || !tokenData) {
+        return res.status(400).json({ error: 'Invalid or expired verification code' });
+      }
+
+      const expiresAt = new Date(tokenData.expires_at);
+      if (expiresAt < new Date()) {
+        return res.status(400).json({ error: 'Verification code has expired' });
+      }
+
+      // Update client status to Active
+      const { error: updateError } = await supabase
+        .from('clients')
+        .update({ status: 'Active' })
+        .eq('email', email);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      // Delete the token after successful verification
+      await supabase
+        .from('verification_tokens')
+        .delete()
+        .eq('id', tokenData.id);
+
+      // Fetch user info for welcome email
+      const { data: clientData } = await supabase
+        .from('clients')
+        .select('full_name')
+        .eq('email', email)
+        .single();
+
+      if (clientData) {
+        await sendWelcomeEmail(email, clientData.full_name);
+      }
+
+      return res.status(200).json({ message: 'Email verified successfully' });
+    } catch (err: any) {
+      console.error('Verification error:', err);
+      return res.status(500).json({ error: err.message });
+    }
+  },
+
+  async resendVerification(req: Request, res: Response) {
+    try {
+      const { email } = req.body;
+
+      if (!email) {
+        return res.status(400).json({ error: 'Missing email' });
+      }
+
+      const { data: client, error: clientError } = await supabase
+        .from('clients')
+        .select('full_name, status')
+        .eq('email', email)
+        .single();
+
+      if (clientError || !client) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      if (client.status === 'Active') {
+        return res.status(400).json({ error: 'Email is already verified' });
+      }
+
+      // Generate 6-digit OTP
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+
+      // Upsert verification token
+      await supabase
+        .from('verification_tokens')
+        .upsert(
+          {
+            email: email,
+            code: otp,
+            type: 'email_verification',
+            expires_at: expiresAt
+          },
+          { onConflict: 'email,type' }
+        );
+
+      await sendVerificationEmail(email, client.full_name, otp);
+
+      return res.status(200).json({ message: 'Verification code resent' });
+    } catch (err: any) {
+      console.error('Resend verification error:', err);
       return res.status(500).json({ error: err.message });
     }
   }

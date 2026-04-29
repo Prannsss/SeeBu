@@ -11,10 +11,12 @@ import { gooeyToast } from "goey-toast";
 
 export default function VerifyPage() {
   const [code, setCode] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleVerify = (e: React.FormEvent) => {
+  const handleVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
     try {
-      e.preventDefault();
       if (code.length !== 6) {
         gooeyToast.error("Invalid Code", {
           description: "Please enter a valid 6-digit verification code.",
@@ -22,33 +24,70 @@ export default function VerifyPage() {
         return;
       }
 
-      // Simulate verification
+      const email = localStorage.getItem('pending_verification_email');
+      if (!email) {
+        gooeyToast.error("Missing Email", {
+          description: "Please register again or check your email for the verification link.",
+        });
+        return;
+      }
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://seebu.onrender.com"}/api/v1/auth/verify-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, code })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Verification failed');
+
       gooeyToast.success("Verification Successful!", {
         description: "Your account has been verified. Redirecting to login...",
       });
+
+      localStorage.removeItem('pending_verification_email');
 
       // Redirect after delay
       setTimeout(() => {
         window.location.href = "/auth/login";
       }, 2000);
-    } catch (error) {
+    } catch (err: any) {
       gooeyToast.error("Verification Failed", {
-        description: "Something went wrong while verifying your account. Please try again.",
+        description: err.message || "Something went wrong while verifying your account. Please try again.",
       });
-      console.error("Verify flow error:", error);
+      console.error("Verify flow error:", err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleResend = () => {
+  const handleResend = async () => {
     try {
+      const email = localStorage.getItem('pending_verification_email');
+      if (!email) {
+        gooeyToast.error("Missing Email", {
+          description: "Please register again.",
+        });
+        return;
+      }
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://seebu.onrender.com"}/api/v1/auth/resend-verification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to resend code');
+
       gooeyToast.success("Code Sent!", {
         description: "A new verification code has been sent to your email.",
       });
-    } catch (error) {
+    } catch (err: any) {
       gooeyToast.error("Resend Failed", {
-        description: "Unable to resend verification code right now. Please try again.",
+        description: err.message || "Unable to resend verification code right now. Please try again.",
       });
-      console.error("Resend flow error:", error);
+      console.error("Resend flow error:", err);
     }
   };
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -128,8 +167,12 @@ export default function VerifyPage() {
                 <span className="material-symbols-outlined input-icon">pin</span>
               </div>
 
-              <Button className="w-full h-12 text-lg bg-primary hover:bg-primary-dark text-white font-bold shadow-lg" type="submit">
-                Verify Account
+              <Button
+                className="w-full h-12 text-lg bg-primary hover:bg-primary-dark text-white font-bold shadow-lg disabled:opacity-60"
+                type="submit"
+                disabled={isLoading}
+              >
+                {isLoading ? "Verifying…" : "Verify Account"}
               </Button>
             </form>
 

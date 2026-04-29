@@ -104,9 +104,31 @@ export default function RegisterPage() {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+
+    const formData = new FormData(e.target as HTMLFormElement);
+    const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
+    const first_name = formData.get('first-name') as string;
+    const last_name = formData.get('last-name') as string;
+    const contact_number = contactNumber;
+
     try {
-      // TODO: replace with real API call
-      await new Promise(res => setTimeout(res, 800));
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://seebu.onrender.com"}/api/v1/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          password,
+          full_name: `${first_name} ${last_name}`,
+          contact_number
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Registration failed');
+
+      // Store email for verification step
+      localStorage.setItem('pending_verification_email', email);
 
       // Navigate immediately — React will suspend and show the destination's loading.tsx
       router.push('/auth/verify');
@@ -117,9 +139,9 @@ export default function RegisterPage() {
           description: "Check your email to verify your account.",
         });
       }, 50);
-    } catch {
+    } catch (err: any) {
       gooeyToast.error("Sign Up Failed", {
-        description: "Something went wrong. Please try again.",
+        description: err.message || "Something went wrong. Please try again.",
       });
     } finally {
       setIsLoading(false);
@@ -179,6 +201,7 @@ export default function RegisterPage() {
                 <div className="floating-input">
                   <input 
                     id="first-name" 
+                    name="first-name"
                     type="text"
                     placeholder=" "
                     required 
@@ -192,6 +215,7 @@ export default function RegisterPage() {
                 <div className="floating-input">
                   <input 
                     id="last-name" 
+                    name="last-name"
                     type="text"
                     placeholder=" "
                     required 
@@ -206,6 +230,7 @@ export default function RegisterPage() {
               <div className="floating-input">
                 <input 
                   id="email" 
+                  name="email"
                   type="email"
                   placeholder=" "
                   required 
@@ -237,6 +262,7 @@ export default function RegisterPage() {
               <div className="floating-input has-right-icon">
                 <input 
                   id="password" 
+                  name="password"
                   type={showPassword ? 'text' : 'password'}
                   placeholder=" "
                   required 
