@@ -231,6 +231,7 @@ export const api = {
       apiFetch("/api/v1/reports", {
         method: "POST",
         body: JSON.stringify(data),
+        requireAuth: false,
       }),
     update: (id: string, data: any) =>
       apiFetch(`/api/v1/reports/${id}`, {
@@ -386,6 +387,7 @@ export const apiClient = {
       apiFetchClient("/api/v1/reports", {
         method: "POST",
         body: JSON.stringify(data),
+        requireAuth: false,
       }),
     update: (id: string, data: any) =>
       apiFetchClient(`/api/v1/reports/${id}`, {

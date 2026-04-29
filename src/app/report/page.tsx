@@ -367,20 +367,19 @@ export default function ReportPage() {
       };
 
       const { apiClient } = await import('@/lib/api');
-      const { data } = await apiClient.reports.create(payload);
-      console.log('Form submitted successfully:', data);
+      const result = await apiClient.reports.create(payload);
+      const reportData = result.data;
+      console.log('Form submitted successfully:', reportData);
 
-      // Track which email was used so the modal can display it
-      const emailUsed = isLoggedIn
-        ? (submittingUser?.email || null)
-        : formData.reporterEmail?.trim() || null;
-      setSubmittedEmail(emailUsed);
+      // Use actual email status from backend
+      const emailUsed = result.email_used || null;
+      setSubmittedEmail(result.email_sent ? emailUsed : null);
 
       // Show tracking number modal
-      setTrackingNumber(data.id);
+      setTrackingNumber(reportData.id);
       setCurrentStep(5);
       gooeyToast.success("Report submitted!", {
-        description: emailUsed
+        description: result.email_sent
           ? `Your tracking ID has been sent to ${emailUsed}.`
           : "Use your tracking ID to check your report status anytime."
       });
@@ -922,7 +921,7 @@ export default function ReportPage() {
     {/* Tracking Number Success Modal */}
     {trackingNumber && (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-sm w-full p-8 flex flex-col items-center gap-5 border border-gray-100 dark:border-gray-800">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md p-8 flex flex-col items-center gap-5 border border-gray-100 dark:border-gray-800">
           {/* Success icon */}
           <div className="flex items-center justify-center w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/40">
             <span className="material-symbols-outlined text-4xl text-green-600 dark:text-green-400">check_circle</span>
@@ -947,7 +946,7 @@ export default function ReportPage() {
               <Tag size={12} />
               Tracking Number
             </div>
-            <div className="text-3xl font-black text-primary tracking-widest">{trackingNumber}</div>
+            <div className="text-2xl sm:text-3xl font-black text-primary tracking-widest break-all text-center w-full">{trackingNumber}</div>
             <button
               onClick={handleCopyTracking}
               className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-primary transition-colors mt-1"
