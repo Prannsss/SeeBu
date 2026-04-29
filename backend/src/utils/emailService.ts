@@ -88,3 +88,31 @@ export const sendClientUpdateEmail = async (toEmail: string, toName: string, tit
   };
   return sendBrevoEmail(payload);
 };
+
+export const sendReportTrackingEmail = async (
+  toEmail: string,
+  toName: string,
+  trackingId: string,
+  reportTitle: string
+) => {
+  const payload = {
+    to: [{ email: toEmail, name: toName || 'Anonymous User' }],
+    subject: `Your SeeBu Report Tracking ID: ${trackingId}`,
+    htmlContent: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+        <h2>Report Submitted Successfully!</h2>
+        <p>Hi ${toName || 'Anonymous User'},</p>
+        <p>We have received your report <strong>"${reportTitle}"</strong>.</p>
+        <p>Your tracking number is:</p>
+        <div style="background:#f4f4f4;padding:16px;border-radius:8px;font-size:24px;font-weight:bold;text-align:center;margin:20px 0;">
+          ${trackingId}
+        </div>
+        <p>You can track the status of your report anytime using this ID at:</p>
+        <p><a href="${process.env.FRONTEND_URL || 'https://seebucommunity.vercel.app'}/track" style="color:#00B2E2;">${process.env.FRONTEND_URL || 'https://seebucommunity.vercel.app'}/track</a></p>
+        <br/>
+        <p>Best regards,<br/>The SeeBu Team</p>
+      </div>
+    `
+  };
+  return sendBrevoEmail(payload);
+};

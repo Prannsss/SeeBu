@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { supabase } from '../config/db';
 import { persistImageInputs } from '../utils/mediaStorage';
+import { sendReportTrackingEmail } from '../utils/emailService';
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'seebu-super-secret-key-change-me';
@@ -118,14 +119,29 @@ export const reportController = {
         if (photoErr) console.error("Error inserting photos:", photoErr);
       }
 
-      // 3. Add to timeline
-      await supabase.from('report_timeline').insert([{
-        report_id: reportId,
-        status: 'In Review',
-        notes: 'Report created and submitted.'
-      }]);
+        // 3. Add to timeline
+        await supabase.from('report_timeline').insert([{
+          report_id: reportId,
+          status: 'In Review',
+          notes: 'Report created and submitted.'
+        }]);
 
-      return res.status(201).json({ message: 'Report created successfully', data: report });
+        // 4. Send tracking email to reporters who provided an email
+        if (effectiveReporterEmail) {
+          try {
+            await sendReportTrackingEmail(
+              effectiveReporterEmail,
+              effectiveReporterName || 'Anonymous User',
+              reportId,
+              title
+            );
+          } catch (emailErr) {
+            // Non-fatal: email failure should not roll back the report creation
+            console.error('Failed to send tracking email:', emailErr);
+          }
+        }
+
+        return res.status(201).json({ message: 'Report created successfully', data: report });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
     }

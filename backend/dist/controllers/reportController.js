@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.reportController = void 0;
 const db_1 = require("../config/db");
 const mediaStorage_1 = require("../utils/mediaStorage");
+const emailService_1 = require("../utils/emailService");
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const JWT_SECRET = process.env.JWT_SECRET || 'seebu-super-secret-key-change-me';
 async function getAdminMunicipality(adminId) {
@@ -103,6 +104,16 @@ exports.reportController = {
                     status: 'In Review',
                     notes: 'Report created and submitted.'
                 }]);
+            // 4. Send tracking email to reporters who provided an email
+            if (effectiveReporterEmail) {
+                try {
+                    await (0, emailService_1.sendReportTrackingEmail)(effectiveReporterEmail, effectiveReporterName || 'Anonymous User', reportId, title);
+                }
+                catch (emailErr) {
+                    // Non-fatal: email failure should not roll back the report creation
+                    console.error('Failed to send tracking email:', emailErr);
+                }
+            }
             return res.status(201).json({ message: 'Report created successfully', data: report });
         }
         catch (err) {

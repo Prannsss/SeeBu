@@ -34,7 +34,7 @@ export function Hero() {
             </p>
           </div>
           <div className="flex flex-wrap gap-4 justify-center lg:justify-start">
-            <a href="client/report" className="flex items-center gap-2 bg-secondary hover:bg-secondary-dark text-white text-base font-bold h-14 px-8 rounded-xl transition-all shadow-lg shadow-secondary/25 hover:scale-105 btn-shine">
+            <a href="report" className="flex items-center gap-2 bg-secondary hover:bg-secondary-dark text-white text-base font-bold h-14 px-8 rounded-xl transition-all shadow-lg shadow-secondary/25 hover:scale-105 btn-shine">
               <span className="material-symbols-outlined">campaign</span>
               Report an Issue
             </a>
