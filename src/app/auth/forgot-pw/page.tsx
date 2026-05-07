@@ -9,7 +9,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { gooeyToast } from "goey-toast";
 import { useRouter } from "next/navigation";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://seebu.onrender.com";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'development' ? "http://localhost:5000" : "https://seebu.onrender.com");
 
 export default function ForgotPasswordPage() {
   const router = useRouter();

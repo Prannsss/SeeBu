@@ -16,7 +16,9 @@ export function middleware(request: NextRequest) {
   };
 
   // Find if the current path requires a specific role
-  for (const [route, requiredRole] of Object.entries(roleRoutes)) {
+  // Sort by route length descending so more specific paths (like /workforce-admin) match first
+  const sortedRoutes = Object.entries(roleRoutes).sort((a, b) => b[0].length - a[0].length);
+  for (const [route, requiredRole] of sortedRoutes) {
     if (pathname.startsWith(route)) {
       if (!authToken) {
         return NextResponse.redirect(new URL('/auth/login', request.url));
@@ -25,6 +27,8 @@ export function middleware(request: NextRequest) {
       if (userRole !== requiredRole) {
         return NextResponse.redirect(new URL('/forbidden', request.url));
       }
+
+      break;
     }
   }
 

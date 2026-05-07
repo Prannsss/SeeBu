@@ -281,9 +281,17 @@ export const api = {
 
   // Analytics
   analytics: {
-    superadmin: () => apiFetch("/api/v1/analytics/superadmin"),
-    admin: (municipalityId: string) =>
-      apiFetch(`/api/v1/analytics/admin/${municipalityId}`),
+    superadmin: (municipalityId?: string, barangayId?: string) => {
+      const params = new URLSearchParams();
+      if (municipalityId && municipalityId !== 'all') params.append('municipality_id', municipalityId);
+      if (barangayId && barangayId !== 'all') params.append('barangay_id', barangayId);
+      return apiFetch(`/api/v1/analytics/superadmin?${params.toString()}`);
+    },
+    admin: (municipalityId: string, barangayId?: string) => {
+      const params = new URLSearchParams();
+      if (barangayId && barangayId !== 'all') params.append('barangay_id', barangayId);
+      return apiFetch(`/api/v1/analytics/admin/${municipalityId}?${params.toString()}`);
+    },
   },
 };
 
@@ -437,8 +445,16 @@ export const apiClient = {
 
   // Analytics
   analytics: {
-    superadmin: () => apiFetchClient("/api/v1/analytics/superadmin"),
-    admin: (municipalityId: string) =>
-      apiFetchClient(`/api/v1/analytics/admin/${municipalityId}`),
+    superadmin: (municipalityId?: string, barangayId?: string) => {
+      const params = new URLSearchParams();
+      if (municipalityId && municipalityId !== 'all') params.append('municipality_id', municipalityId);
+      if (barangayId && barangayId !== 'all') params.append('barangay_id', barangayId);
+      return apiFetchClient(`/api/v1/analytics/superadmin?${params.toString()}`);
+    },
+    admin: (municipalityId: string, barangayId?: string) => {
+      const params = new URLSearchParams();
+      if (barangayId && barangayId !== 'all') params.append('barangay_id', barangayId);
+      return apiFetchClient(`/api/v1/analytics/admin/${municipalityId}?${params.toString()}`);
+    },
   },
 };

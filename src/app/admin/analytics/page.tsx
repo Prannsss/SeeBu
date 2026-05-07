@@ -5,14 +5,16 @@ import { BarChart3, ArrowUp, ArrowDown } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartBarInteractive } from "@/components/ui/chart-bar-interactive"
 import { ChartAreaInteractive } from "@/components/ui/chart-area-interactive"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useQuery } from '@tanstack/react-query'
 
 export default function AdminAnalyticsPage() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
+  const [barangayFilter, setBarangayFilter] = useState("all")
 
   // For demonstration, fetch for cebu-city. In production, pass context admin's municipality_id
   const { data: analyticsData, isLoading } = useQuery({
-    queryKey: ['admin-analytics', 'dynamic'],
+    queryKey: ['admin-analytics', barangayFilter],
     queryFn: async () => {
       const { apiClient } = await import('@/lib/api');
       // Get admin's municipality_id from profile
@@ -20,7 +22,7 @@ export default function AdminAnalyticsPage() {
       const municipalityId = profileRes.data?.municipality_id;
       if (!municipalityId) throw new Error('No municipality assigned');
       
-      const json = await apiClient.analytics.admin(municipalityId);
+      const json = await apiClient.analytics.admin(municipalityId, barangayFilter);
       return json;
     }
   });
@@ -46,6 +48,19 @@ export default function AdminAnalyticsPage() {
               <h1 className="text-3xl font-bold">Admin Analytics</h1>
               <p className="text-muted-foreground">Deep dive into report trends.</p>
             </div>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Select value={barangayFilter} onValueChange={setBarangayFilter}>
+              <SelectTrigger className="w-[180px] bg-white border-slate-200">
+                <SelectValue placeholder="All Barangays" />
+              </SelectTrigger>
+              <SelectContent className="bg-white">
+                <SelectItem value="all">All Barangays</SelectItem>
+                {analyticsData?.barangays?.map((b: any) => (
+                  <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 

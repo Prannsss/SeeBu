@@ -33,7 +33,7 @@ export default function VerifyPage() {
       }
 
       // Call API to verify email
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://seebu.onrender.com"}/api/v1/auth/verify-email`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'development' ? "http://localhost:5000" : "https://seebu.onrender.com")}/api/v1/auth/verify-email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -78,7 +78,7 @@ export default function VerifyPage() {
       }
 
       setIsResending(true);
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://seebu.onrender.com"}/api/v1/auth/resend-verification`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'development' ? "http://localhost:5000" : "https://seebu.onrender.com")}/api/v1/auth/resend-verification`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })

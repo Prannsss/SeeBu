@@ -16,9 +16,10 @@ export default function LoginPage() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
 
   const handleOAuthBackendSync = async (provider: 'google' | 'facebook', payload: any) => {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://seebu.onrender.com"}/api/v1/auth/${provider}`, {
+    const res = await fetch(`${apiBase}/api/v1/auth/${provider}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -92,7 +93,7 @@ export default function LoginPage() {
     };
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://seebu.onrender.com"}/api/v1/auth/login`, {
+      const res = await fetch(`${apiBase}/api/v1/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

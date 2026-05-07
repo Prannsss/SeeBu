@@ -8,7 +8,7 @@ import { cookies } from "next/headers"
 async function getAdminData() {
   const reqCookies = await cookies();
   const token = reqCookies.get("auth-token")?.value;
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || (process.env.NEXT_PUBLIC_API_URL || "https://seebu.onrender.com");
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'development' ? "http://localhost:5000" : "https://seebu.onrender.com");
 
   try {
     const profileRes = await fetch(`${apiUrl}/api/v1/users/me`, {

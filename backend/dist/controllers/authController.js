@@ -9,44 +9,54 @@ const emailService_1 = require("../utils/emailService");
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const JWT_SECRET = process.env.JWT_SECRET || 'seebu-super-secret-key-change-me';
+// All tables that hold user accounts (used when searching by email)
+const USER_TABLES = [
+    'clients',
+    'admins',
+    'superadmins',
+    'workforce_admins',
+    'workforce_officers',
+];
+/** Generate a 6-digit OTP and upsert it into verification_tokens */
+async function issueVerificationToken(email, type) {
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    const { error } = await db_1.supabase
+        .from('verification_tokens')
+        .upsert({ email, code, type, expires_at: expiresAt }, { onConflict: 'email,type' });
+    if (error) {
+        console.error(`[issueVerificationToken] Failed to upsert token for ${email} (${type}):`, error);
+        throw new Error('Failed to generate verification token: ' + error.message);
+    }
+    return code;
+}
 exports.authController = {
-    // Existing local register
+    // ── Client Registration ──────────────────────────────────────────────────
     async registerClient(req, res) {
         try {
             const { email, password, full_name, contact_number } = req.body;
             if (!email || !password || !full_name) {
                 return res.status(400).json({ error: 'Missing required fields' });
             }
-            // Hash password using bcrypt
             const salt = await bcryptjs_1.default.genSalt(10);
             const hashedPassword = await bcryptjs_1.default.hash(password, salt);
-            // Generate 6-digit verification code
-            const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-            const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
             const { data, error } = await db_1.supabase
                 .from('clients')
-                .insert([
-                { email, password_hash: hashedPassword, full_name, contact_number, status: 'Active', email_verified: false }
-            ])
+                .insert([{
+                    email,
+                    password_hash: hashedPassword,
+                    full_name,
+                    contact_number,
+                    status: 'Active',
+                    email_verified: false,
+                }])
                 .select('*')
                 .single();
             if (error) {
                 return res.status(500).json({ error: error.message });
             }
-            // Store verification token in verification_tokens table
-            const { error: tokenError } = await db_1.supabase
-                .from('verification_tokens')
-                .upsert({
-                email: email,
-                code: verificationCode,
-                type: 'email_verify',
-                expires_at: expiresAt
-            }, { onConflict: 'email,type' });
-            if (tokenError) {
-                console.error('Verification token generation error:', tokenError);
-                // Continue anyway - token may already exist from a previous registration attempt
-            }
-            // Send Welcome and Verification emails
+            // Issue OTP and send emails
+            const verificationCode = await issueVerificationToken(email, 'email_verify');
             await (0, emailService_1.sendWelcomeEmail)(email, full_name);
             await (0, emailService_1.sendVerificationEmail)(email, full_name, verificationCode);
             return res.status(201).json({
@@ -54,137 +64,102 @@ exports.authController = {
                 data: {
                     id: data.id,
                     email: data.email,
-                    email_verified: false
-                }
+                    email_verified: false,
+                },
             });
         }
         catch (err) {
+            console.error('[registerClient]', err);
             return res.status(500).json({ error: err.message });
         }
     },
-    // OAuth Google Callback (Simulated / Simplified for custom table config)
+    // ── Google OAuth ─────────────────────────────────────────────────────────
     async googleOAuthCallback(req, res) {
         try {
-            // In a real scenario, you'd exchange code for tokens via google-auth-library
-            // For this implementation, we assume frontend sends the verified Google email/name
             const { email, full_name, google_id } = req.body;
             if (!email)
-                return res.status(400).json({ error: "Missing OAuth email" });
-            // Check if user already exists across tables, or strictly clients
+                return res.status(400).json({ error: 'Missing OAuth email' });
             let { data: existingClient } = await db_1.supabase
                 .from('clients')
                 .select('*')
                 .eq('email', email)
                 .single();
             if (existingClient) {
-                // They exist, log them in
                 const token = jsonwebtoken_1.default.sign({ id: existingClient.id, role: 'client' }, JWT_SECRET, { expiresIn: '7d' });
-                return res.status(200).json({ message: "Login successful", user: { ...existingClient, role: 'client' }, token });
-            }
-            // If they don't exist, we MUST register them STRICTLY as a client
-            // Generate a random password hash since they use OAuth
-            const salt = await bcryptjs_1.default.genSalt(10);
-            const randomPassword = Math.random().toString(36).slice(-10);
-            const hashedPassword = await bcryptjs_1.default.hash(randomPassword, salt);
-            // Generate 6-digit verification code
-            const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-            const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
-            const { data: newClient, error } = await db_1.supabase
-                .from('clients')
-                .insert([
-                {
-                    email,
-                    password_hash: hashedPassword,
-                    full_name: full_name || "Google User",
-                    status: 'Active',
-                    email_verified: false
-                }
-            ])
-                .select('*')
-                .single();
-            if (error)
-                throw error;
-            // Store verification token in verification_tokens table
-            const { error: tokenError } = await db_1.supabase
-                .from('verification_tokens')
-                .upsert({
-                email: email,
-                code: verificationCode,
-                type: 'email_verify',
-                expires_at: expiresAt
-            }, { onConflict: 'email,type' });
-            if (tokenError) {
-                console.error('Google OAuth verification token error:', tokenError);
-            }
-            // Welcome and verification triggers
-            await (0, emailService_1.sendWelcomeEmail)(email, full_name || "Google User");
-            await (0, emailService_1.sendVerificationEmail)(email, full_name || "Google User", verificationCode);
-            const token = jsonwebtoken_1.default.sign({ id: newClient.id, role: 'client' }, JWT_SECRET, { expiresIn: '7d' });
-            return res.status(201).json({
-                message: "Registration successful via Google",
-                user: { ...newClient, role: 'client' },
-                token
-            });
-        }
-        catch (err) {
-            return res.status(500).json({ error: err.message });
-        }
-    },
-    // Facebook Callback
-    async facebookOAuthCallback(req, res) {
-        // Same logic as Google essentially, strictly clients table
-        try {
-            const { email, full_name } = req.body;
-            if (!email)
-                return res.status(400).json({ error: "Missing OAuth email" });
-            let { data: existingClient } = await db_1.supabase.from('clients').select('*').eq('email', email).single();
-            if (existingClient) {
-                const token = jsonwebtoken_1.default.sign({ id: existingClient.id, role: 'client' }, JWT_SECRET, { expiresIn: '7d' });
-                return res.status(200).json({ message: "Login successful", user: { ...existingClient, role: 'client' }, token });
+                return res.status(200).json({ message: 'Login successful', user: { ...existingClient, role: 'client' }, token });
             }
             const salt = await bcryptjs_1.default.genSalt(10);
             const hashedPassword = await bcryptjs_1.default.hash(Math.random().toString(36).slice(-10), salt);
-            // Generate 6-digit verification code
-            const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-            const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
             const { data: newClient, error } = await db_1.supabase
                 .from('clients')
                 .insert([{
                     email,
                     password_hash: hashedPassword,
-                    full_name: full_name || "Facebook User",
+                    full_name: full_name || 'Google User',
                     status: 'Active',
-                    email_verified: false
+                    email_verified: false,
                 }])
                 .select('*')
                 .single();
             if (error)
                 throw error;
-            // Store verification token in verification_tokens table
-            const { error: tokenError } = await db_1.supabase
-                .from('verification_tokens')
-                .upsert({
-                email: email,
-                code: verificationCode,
-                type: 'email_verify',
-                expires_at: expiresAt
-            }, { onConflict: 'email,type' });
-            if (tokenError) {
-                console.error('Facebook OAuth verification token error:', tokenError);
-            }
-            await (0, emailService_1.sendWelcomeEmail)(email, full_name || "Facebook User");
-            await (0, emailService_1.sendVerificationEmail)(email, full_name || "Facebook User", verificationCode);
+            const verificationCode = await issueVerificationToken(email, 'email_verify');
+            await (0, emailService_1.sendWelcomeEmail)(email, full_name || 'Google User');
+            await (0, emailService_1.sendVerificationEmail)(email, full_name || 'Google User', verificationCode);
             const token = jsonwebtoken_1.default.sign({ id: newClient.id, role: 'client' }, JWT_SECRET, { expiresIn: '7d' });
             return res.status(201).json({
-                message: "Registration successful via Facebook",
+                message: 'Registration successful via Google',
                 user: { ...newClient, role: 'client' },
-                token
+                token,
             });
         }
         catch (err) {
+            console.error('[googleOAuthCallback]', err);
             return res.status(500).json({ error: err.message });
         }
     },
+    // ── Facebook OAuth ───────────────────────────────────────────────────────
+    async facebookOAuthCallback(req, res) {
+        try {
+            const { email, full_name } = req.body;
+            if (!email)
+                return res.status(400).json({ error: 'Missing OAuth email' });
+            let { data: existingClient } = await db_1.supabase.from('clients').select('*').eq('email', email).single();
+            if (existingClient) {
+                const token = jsonwebtoken_1.default.sign({ id: existingClient.id, role: 'client' }, JWT_SECRET, { expiresIn: '7d' });
+                return res.status(200).json({ message: 'Login successful', user: { ...existingClient, role: 'client' }, token });
+            }
+            const salt = await bcryptjs_1.default.genSalt(10);
+            const hashedPassword = await bcryptjs_1.default.hash(Math.random().toString(36).slice(-10), salt);
+            const { data: newClient, error } = await db_1.supabase
+                .from('clients')
+                .insert([{
+                    email,
+                    password_hash: hashedPassword,
+                    full_name: full_name || 'Facebook User',
+                    status: 'Active',
+                    email_verified: false,
+                }])
+                .select('*')
+                .single();
+            if (error)
+                throw error;
+            const verificationCode = await issueVerificationToken(email, 'email_verify');
+            await (0, emailService_1.sendWelcomeEmail)(email, full_name || 'Facebook User');
+            await (0, emailService_1.sendVerificationEmail)(email, full_name || 'Facebook User', verificationCode);
+            const token = jsonwebtoken_1.default.sign({ id: newClient.id, role: 'client' }, JWT_SECRET, { expiresIn: '7d' });
+            return res.status(201).json({
+                message: 'Registration successful via Facebook',
+                user: { ...newClient, role: 'client' },
+                token,
+            });
+        }
+        catch (err) {
+            console.error('[facebookOAuthCallback]', err);
+            return res.status(500).json({ error: err.message });
+        }
+    },
+    // ── Login ────────────────────────────────────────────────────────────────
     async login(req, res) {
         try {
             const { email, password } = req.body;
@@ -201,7 +176,7 @@ exports.authController = {
             let user = null;
             let userRole = null;
             for (const table of tables) {
-                const { data, error } = await db_1.supabase
+                const { data } = await db_1.supabase
                     .from(table.name)
                     .select('*')
                     .eq('email', email)
@@ -215,26 +190,26 @@ exports.authController = {
             if (!user) {
                 return res.status(401).json({ error: 'User not found' });
             }
-            // Check password using bcrypt
             const isMatch = await bcryptjs_1.default.compare(password, user.password_hash);
             if (!isMatch) {
-                // Fallback for plain text passwords in testing/legacy data if needed
+                // Fallback for legacy plain-text passwords during migration
                 if (user.password_hash !== password) {
                     return res.status(401).json({ error: 'Invalid credentials' });
                 }
             }
             user.role = userRole;
             const token = jsonwebtoken_1.default.sign({ id: user.id, role: userRole }, JWT_SECRET, { expiresIn: '7d' });
-            return res.status(200).json({ message: 'Login successful', token, user: user });
+            return res.status(200).json({ message: 'Login successful', token, user });
         }
         catch (err) {
+            console.error('[login]', err);
             return res.status(500).json({ error: err.message });
         }
     },
+    // ── Provision (Admin / Superadmin / Workforce) ───────────────────────────
     async provision(req, res) {
         try {
-            const { email, password, user_role, municipality_id, first_name, last_name, full_name, // legacy compat
-            phone, department, department_id, department_name } = req.body;
+            const { email, password, user_role, municipality_id, first_name, last_name, full_name, phone, department, department_id, department_name, } = req.body;
             if (!req.user?.id || !req.user?.role) {
                 return res.status(401).json({ error: 'Unauthorized' });
             }
@@ -250,6 +225,7 @@ exports.authController = {
             if (creatorRole === 'workforce-admin' && user_role !== 'workforce') {
                 return res.status(403).json({ error: 'Workforce-admin can only provision workforce officers' });
             }
+            // ── Resolve municipality ─────────────────────────────────────────────
             let resolvedMunicipalityId = municipality_id || null;
             if (creatorRole === 'admin') {
                 const { data: creatorAdmin, error: creatorAdminError } = await db_1.supabase
@@ -274,10 +250,13 @@ exports.authController = {
             if ((user_role === 'admin' || user_role === 'workforce-admin') && !resolvedMunicipalityId) {
                 return res.status(400).json({ error: `${user_role} requires a municipality_id` });
             }
+            // ── Resolve department ───────────────────────────────────────────────
             const departmentCandidate = department_id ?? department;
-            const normalizedDepartmentName = department_name || (typeof departmentCandidate === 'string' && !/^\d+$/.test(departmentCandidate) ? departmentCandidate : null);
+            const normalizedDepartmentName = department_name ||
+                (typeof departmentCandidate === 'string' && !/^\d+$/.test(departmentCandidate) ? departmentCandidate : null);
             let resolvedDepartmentId = null;
-            if (typeof departmentCandidate === 'number' || (typeof departmentCandidate === 'string' && /^\d+$/.test(departmentCandidate))) {
+            if (typeof departmentCandidate === 'number' ||
+                (typeof departmentCandidate === 'string' && /^\d+$/.test(departmentCandidate))) {
                 resolvedDepartmentId = Number(departmentCandidate);
             }
             if ((user_role === 'workforce-admin' || user_role === 'workforce') && creatorRole === 'workforce-admin') {
@@ -335,24 +314,19 @@ exports.authController = {
                     return res.status(400).json({ error: 'Department does not belong to the selected municipality' });
                 }
             }
-            // 1. Create User in Supabase Auth via Admin API
+            // ── 1. Create user in Supabase Auth ─────────────────────────────────
             const { data: authData, error: authError } = await db_1.supabase.auth.admin.createUser({
                 email,
                 password,
                 email_confirm: true,
-                user_metadata: {
-                    full_name: nameToUse,
-                    role: user_role,
-                }
+                user_metadata: { full_name: nameToUse, role: user_role },
             });
             if (authError || !authData.user) {
                 return res.status(500).json({ error: authError?.message || 'Failed to create auth user' });
             }
             const userId = authData.user.id;
-            // 2. Insert into the generic "users" table
-            const { error: usersError } = await db_1.supabase
-                .from('users')
-                .insert([{
+            // ── 2. Insert into generic users table ───────────────────────────────
+            const { error: usersError } = await db_1.supabase.from('users').insert([{
                     id: userId,
                     email,
                     role: user_role,
@@ -361,20 +335,21 @@ exports.authController = {
                     department_id: resolvedDepartmentId,
                 }]);
             if (usersError) {
-                // Warning: Might need to cleanup the auth user if this fails, but for now we proceed or return error
-                console.error('Failed to insert into generic users table:', usersError);
+                console.error('[provision] Failed to insert into generic users table:', usersError);
                 return res.status(500).json({ error: usersError.message });
             }
-            // 3. (Optional) Insert into role-specific table if it exists
-            // e.g. admins, superadmins, workforce_officers
+            // ── 3. Insert into role-specific table with HASHED password ──────────
             let table = '';
+            const salt = await bcryptjs_1.default.genSalt(10);
+            const hashedPassword = await bcryptjs_1.default.hash(password, salt);
             const insertData = {
                 id: userId,
                 email,
-                password_hash: password, // Still syncing for legacy login if needed
+                password_hash: hashedPassword, // FIX: was storing plaintext
                 full_name: nameToUse,
                 contact_number: phone,
-                status: 'Active'
+                status: 'Active',
+                email_verified: false,
             };
             if (user_role === 'admin') {
                 table = 'admins';
@@ -396,40 +371,40 @@ exports.authController = {
                 insertData.role = 'officer';
             }
             if (table) {
-                const { error: roleError } = await db_1.supabase
-                    .from(table)
-                    .insert([insertData]);
+                const { error: roleError } = await db_1.supabase.from(table).insert([insertData]);
                 if (roleError) {
-                    console.error(`Failed to insert into ${table}:`, roleError);
-                    // Return non-fatal error but 201 since auth user & generic users table created
+                    console.error(`[provision] Failed to insert into ${table}:`, roleError);
                 }
             }
+            // ── 4. Issue OTP and send verification email ─────────────────────────
+            try {
+                const verificationCode = await issueVerificationToken(email, 'email_verify');
+                await (0, emailService_1.sendVerificationEmail)(email, nameToUse, verificationCode);
+            }
+            catch (emailErr) {
+                // Non-fatal: user is created, just log and continue
+                console.error('[provision] Failed to send verification email:', emailErr);
+            }
             return res.status(201).json({
-                message: 'Provisioning successful',
+                message: 'Provisioning successful. A verification email has been sent.',
                 user_id: userId,
-                role: user_role
+                role: user_role,
             });
         }
         catch (err) {
-            console.error('Provisioning error:', err);
+            console.error('[provision]', err);
             return res.status(500).json({ error: err.message });
         }
     },
+    // ── Forgot Password ──────────────────────────────────────────────────────
     async forgotPassword(req, res) {
         try {
             const { email } = req.body;
             if (!email) {
                 return res.status(400).json({ error: 'Missing email' });
             }
-            const tables = [
-                'clients',
-                'admins',
-                'superadmins',
-                'workforce_admins',
-                'workforce_officers'
-            ];
             let user = null;
-            for (const table of tables) {
+            for (const table of USER_TABLES) {
                 const { data } = await db_1.supabase
                     .from(table)
                     .select('id, email, full_name')
@@ -441,44 +416,94 @@ exports.authController = {
                 }
             }
             if (!user) {
-                // Returning 200 to prevent timing/enumeration trivially,
-                // but with a distinctive payload as per user requirements
-                return res.status(200).json({
-                    found: false,
-                    message: "Account not found."
-                });
+                return res.status(200).json({ found: false, message: 'Account not found.' });
             }
-            // Generate 6-digit OTP
-            const otp = Math.floor(100000 + Math.random() * 900000).toString();
-            const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
-            // Upsert to verification_tokens
-            // (Supabase allows upsert by specifying the UNIQUE constraint: email, type)
-            const { error: tokenError } = await db_1.supabase
-                .from('verification_tokens')
-                .upsert({
-                email: user.email,
-                code: otp,
-                type: 'password_reset',
-                expires_at: expiresAt
-            }, { onConflict: 'email,type' });
-            if (tokenError) {
-                console.error('Token generation error:', tokenError);
-                return res.status(500).json({ error: 'Failed to generate reset token' });
-            }
-            // Fire and forget the email service to ensure fast response timing!
-            (0, emailService_1.sendVerificationEmail)(user.email, user.full_name || 'SeeBu User', otp).catch(err => console.error('Failed to send forgot password email with Resend:', err));
+            const otp = await issueVerificationToken(user.email, 'password_reset');
+            // Fire-and-forget — don't block response on email delivery
+            (0, emailService_1.sendVerificationEmail)(user.email, user.full_name || 'SeeBu User', otp).catch((err) => console.error('[forgotPassword] Email send failed:', err));
             return res.status(200).json({
                 found: true,
-                message: 'A 6-digit verification code has been sent to your email.'
+                message: 'A 6-digit verification code has been sent to your email.',
             });
         }
         catch (err) {
-            console.error('Forgot password error:', err);
-            // Return 500 cleanly
+            console.error('[forgotPassword]', err);
             return res.status(500).json({ error: err.message });
         }
     },
-    // Verify email with 6-digit code
+    // ── Verify Reset Code (Step 2 of forgot-password) ────────────────────────
+    async verifyResetCode(req, res) {
+        try {
+            const { email, code } = req.body;
+            if (!email || !code) {
+                return res.status(400).json({ error: 'Missing email or code' });
+            }
+            const { data: token, error: tokenError } = await db_1.supabase
+                .from('verification_tokens')
+                .select('*')
+                .eq('email', email)
+                .eq('code', code)
+                .eq('type', 'password_reset')
+                .gte('expires_at', new Date().toISOString())
+                .single();
+            if (tokenError || !token) {
+                return res.status(400).json({ error: 'Invalid or expired verification code' });
+            }
+            return res.status(200).json({ valid: true, message: 'Code is valid. You may now reset your password.' });
+        }
+        catch (err) {
+            console.error('[verifyResetCode]', err);
+            return res.status(500).json({ error: err.message });
+        }
+    },
+    // ── Reset Password (Step 3 of forgot-password) ───────────────────────────
+    async resetPassword(req, res) {
+        try {
+            const { email, code, new_password } = req.body;
+            if (!email || !code || !new_password) {
+                return res.status(400).json({ error: 'Missing email, code, or new_password' });
+            }
+            if (new_password.length < 8) {
+                return res.status(400).json({ error: 'Password must be at least 8 characters' });
+            }
+            // Re-validate the token before changing anything
+            const { data: token, error: tokenError } = await db_1.supabase
+                .from('verification_tokens')
+                .select('*')
+                .eq('email', email)
+                .eq('code', code)
+                .eq('type', 'password_reset')
+                .gte('expires_at', new Date().toISOString())
+                .single();
+            if (tokenError || !token) {
+                return res.status(400).json({ error: 'Invalid or expired verification code' });
+            }
+            const salt = await bcryptjs_1.default.genSalt(10);
+            const hashedPassword = await bcryptjs_1.default.hash(new_password, salt);
+            // Update password across all user tables (only one will match)
+            for (const table of USER_TABLES) {
+                const { error: updateError } = await db_1.supabase
+                    .from(table)
+                    .update({ password_hash: hashedPassword })
+                    .eq('email', email);
+                if (updateError) {
+                    console.error(`[resetPassword] Failed to update ${table}:`, updateError);
+                }
+            }
+            // Delete the used token
+            await db_1.supabase
+                .from('verification_tokens')
+                .delete()
+                .eq('email', email)
+                .eq('type', 'password_reset');
+            return res.status(200).json({ message: 'Password reset successfully. You can now log in.' });
+        }
+        catch (err) {
+            console.error('[resetPassword]', err);
+            return res.status(500).json({ error: err.message });
+        }
+    },
+    // ── Verify Email ─────────────────────────────────────────────────────────
     async verifyEmail(req, res) {
         try {
             const { email, code } = req.body;
@@ -488,7 +513,6 @@ exports.authController = {
             if (code.length !== 6) {
                 return res.status(400).json({ error: 'Invalid verification code' });
             }
-            // Check if token exists and is valid
             const { data: token, error: tokenError } = await db_1.supabase
                 .from('verification_tokens')
                 .select('*')
@@ -500,72 +524,56 @@ exports.authController = {
             if (tokenError || !token) {
                 return res.status(400).json({ error: 'Invalid or expired verification code' });
             }
-            // Mark email as verified in clients table
-            const { error: updateError } = await db_1.supabase
-                .from('clients')
-                .update({ email_verified: true })
-                .eq('email', email);
-            if (updateError) {
-                console.error('Error updating email verification status:', updateError);
-                return res.status(500).json({ error: 'Failed to verify email' });
+            // Mark email as verified across all user tables (only one will match)
+            for (const table of USER_TABLES) {
+                await db_1.supabase
+                    .from(table)
+                    .update({ email_verified: true })
+                    .eq('email', email);
             }
-            // Optionally delete the used token
+            // Delete the used token
             await db_1.supabase
                 .from('verification_tokens')
                 .delete()
                 .eq('email', email)
                 .eq('type', 'email_verify');
-            return res.status(200).json({
-                message: 'Email verified successfully',
-                email_verified: true
-            });
+            return res.status(200).json({ message: 'Email verified successfully', email_verified: true });
         }
         catch (err) {
-            console.error('Email verification error:', err);
+            console.error('[verifyEmail]', err);
             return res.status(500).json({ error: err.message });
         }
     },
-    // Resend verification email
+    // ── Resend Verification ───────────────────────────────────────────────────
     async resendVerification(req, res) {
         try {
             const { email } = req.body;
             if (!email) {
                 return res.status(400).json({ error: 'Missing email' });
             }
-            // Find user by email
-            const { data: user, error: userError } = await db_1.supabase
-                .from('clients')
-                .select('id, email, full_name')
-                .eq('email', email)
-                .single();
-            if (userError || !user) {
+            // Find the user across all tables
+            let user = null;
+            for (const table of USER_TABLES) {
+                const { data } = await db_1.supabase
+                    .from(table)
+                    .select('id, email, full_name')
+                    .eq('email', email)
+                    .single();
+                if (data) {
+                    user = data;
+                    break;
+                }
+            }
+            if (!user) {
                 return res.status(404).json({ error: 'User not found' });
             }
-            // Generate new verification code
-            const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-            const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
-            // Update the token
-            const { error: tokenError } = await db_1.supabase
-                .from('verification_tokens')
-                .upsert({
-                email: email,
-                code: verificationCode,
-                type: 'email_verify',
-                expires_at: expiresAt
-            }, { onConflict: 'email,type' });
-            if (tokenError) {
-                console.error('Resend verification token error:', tokenError);
-                return res.status(500).json({ error: 'Failed to generate verification code' });
-            }
-            // Send the verification email
+            const verificationCode = await issueVerificationToken(email, 'email_verify');
             await (0, emailService_1.sendVerificationEmail)(email, user.full_name || 'SeeBu User', verificationCode);
-            return res.status(200).json({
-                message: 'Verification code sent to your email'
-            });
+            return res.status(200).json({ message: 'Verification code sent to your email' });
         }
         catch (err) {
-            console.error('Resend verification error:', err);
+            console.error('[resendVerification]', err);
             return res.status(500).json({ error: err.message });
         }
-    }
+    },
 };

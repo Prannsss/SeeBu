@@ -468,17 +468,19 @@ export default function AdminReportsPage() {
 
                                 <div className="space-y-2">
                                   <label htmlFor="approve-assignee" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                                    Assign To Workforce Admin / Officer *
+                                    Assign To Workforce Admin*
                                   </label>
                                   <Select value={delegateAssignee} onValueChange={setDelegateAssignee} disabled={!delegateDepartmentId}>
                                     <SelectTrigger id="approve-assignee" className="bg-white dark:bg-slate-900 border-slate-200">
                                       <SelectValue placeholder={delegateDepartmentId ? "Select assignee" : "Select department first"} />
                                     </SelectTrigger>
                                     <SelectContent className="bg-white dark:bg-slate-900 z-[100]">
-                                      {selectedDepartmentPersonnel.map((person: any) => (
-                                        <SelectItem key={`${person.role}-${person.id}`} value={`${person.role}:${person.id}`}>
-                                          {person.full_name} ({person.role === 'workforce-admin' ? 'Workforce Admin' : 'Officer'})
-                                        </SelectItem>
+                                      {selectedDepartmentPersonnel
+                                        .filter((person: any) => person.role === 'workforce-admin')
+                                        .map((person: any) => (
+                                          <SelectItem key={`${person.role}-${person.id}`} value={`${person.role}:${person.id}`}>
+                                            {person.full_name} (Workforce Admin)
+                                          </SelectItem>
                                       ))}
                                     </SelectContent>
                                   </Select>
@@ -594,10 +596,12 @@ export default function AdminReportsPage() {
                               <SelectValue placeholder={delegateDepartmentId ? "Choose personnel..." : "Choose department first"} />
                             </SelectTrigger>
                             <SelectContent className="bg-white dark:bg-slate-900 z-[100]">
-                              {selectedDepartmentPersonnel.map((person: any) => (
-                                <SelectItem key={`${person.role}-${person.id}`} value={`${person.role}:${person.id}`}>
-                                  {person.full_name} ({person.role === 'workforce-admin' ? 'Workforce Admin' : 'Officer'})
-                                </SelectItem>
+                              {selectedDepartmentPersonnel
+                                .filter((person: any) => person.role === 'workforce-admin')
+                                .map((person: any) => (
+                                  <SelectItem key={`${person.role}-${person.id}`} value={`${person.role}:${person.id}`}>
+                                    {person.full_name} (Workforce Admin)
+                                  </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>

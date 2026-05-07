@@ -68,7 +68,7 @@ export function VerificationCodeUI({ onVerify, onCancel, email = "" }: Verificat
     setIsLoading(true)
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "https://seebu.onrender.com"}/api/v1/auth/verify-email`,
+        `${process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'development' ? "http://localhost:5000" : "https://seebu.onrender.com")}/api/v1/auth/verify-email`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

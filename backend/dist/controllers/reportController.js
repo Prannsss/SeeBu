@@ -105,16 +105,24 @@ exports.reportController = {
                     notes: 'Report created and submitted.'
                 }]);
             // 4. Send tracking email to reporters who provided an email
-            if (effectiveReporterEmail) {
+            let emailSent = false;
+            const emailUsed = effectiveReporterEmail || null;
+            if (emailUsed) {
                 try {
-                    await (0, emailService_1.sendReportTrackingEmail)(effectiveReporterEmail, effectiveReporterName || 'Anonymous User', reportId, title);
+                    await (0, emailService_1.sendReportTrackingEmail)(emailUsed, effectiveReporterName || 'Anonymous User', reportId, title);
+                    emailSent = true;
                 }
                 catch (emailErr) {
-                    // Non-fatal: email failure should not roll back the report creation
-                    console.error('Failed to send tracking email:', emailErr);
+                    // Non-fatal: log but don't roll back report creation
+                    console.error('[createReport] Failed to send tracking email:', emailErr);
                 }
             }
-            return res.status(201).json({ message: 'Report created successfully', data: report });
+            return res.status(201).json({
+                message: 'Report created successfully',
+                data: report,
+                email_sent: emailSent,
+                email_used: emailUsed,
+            });
         }
         catch (err) {
             return res.status(500).json({ error: err.message });

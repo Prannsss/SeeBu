@@ -6,44 +6,53 @@ exports.analyticsController = {
     // SUPERADMIN: General overview across ALL municipalities
     async getSuperadminAnalytics(req, res) {
         try {
-            // 1. Fetch total counts per status
-            const { data: statusCounts, error: statusErr } = await db_1.supabase
-                .from('reports')
-                .select('status');
+            const { municipality_id, barangay_id } = req.query;
+            let queryStatus = db_1.supabase.from('reports').select('status');
+            let queryIssue = db_1.supabase.from('reports').select('issue_type, other_type_specification, municipality_id');
+            let queryRec = db_1.supabase.from('reports').select(`
+          issue_type,
+          other_type_specification,
+          count:id,
+          municipalities(name)
+        `);
+            let queryTime = db_1.supabase.from('reports').select('created_at').order('created_at', { ascending: true });
+            if (municipality_id && municipality_id !== 'all') {
+                queryStatus = queryStatus.eq('municipality_id', municipality_id);
+                queryIssue = queryIssue.eq('municipality_id', municipality_id);
+                queryRec = queryRec.eq('municipality_id', municipality_id);
+                queryTime = queryTime.eq('municipality_id', municipality_id);
+            }
+            if (barangay_id && barangay_id !== 'all') {
+                queryStatus = queryStatus.eq('barangay_id', barangay_id);
+                queryIssue = queryIssue.eq('barangay_id', barangay_id);
+                queryRec = queryRec.eq('barangay_id', barangay_id);
+                queryTime = queryTime.eq('barangay_id', barangay_id);
+            }
+            const { data: statusCounts, error: statusErr } = await queryStatus;
             if (statusErr)
                 throw statusErr;
-            // Calculate totals
             const totalReports = statusCounts.length;
             const reportedIssues = statusCounts.filter(r => r.status === 'In Review').length;
             const completedTasks = statusCounts.filter(r => r.status === 'Completed' || r.status === 'Resolved').length;
-            // 3. Fetch reports with issue_type for issue type breakdown (include municipality_id for filtering)
-            const { data: reportsWithIssueType, error: issueTypeErr } = await db_1.supabase
-                .from('reports')
-                .select('issue_type, other_type_specification, municipality_id');
+            const { data: reportsWithIssueType, error: issueTypeErr } = await queryIssue;
             if (issueTypeErr)
                 throw issueTypeErr;
-            // 4. Fetch all municipalities for the filter dropdown
             const { data: allMunicipalities, error: munErr } = await db_1.supabase
                 .from('municipalities')
                 .select('id, name')
                 .order('name', { ascending: true });
             if (munErr)
                 throw munErr;
-            // 4. Aggregate recurring issues by municipality
-            const { data: recurringData, error: recErr } = await db_1.supabase
-                .from('reports')
-                .select(`
-          issue_type,
-          other_type_specification,
-          count:id,
-          municipalities(name)
-        `);
+            const { data: allBarangays, error: brgyErr } = await db_1.supabase
+                .from('barangays')
+                .select('id, name, municipality_id')
+                .order('name', { ascending: true });
+            if (brgyErr)
+                throw brgyErr;
+            const { data: recurringData, error: recErr } = await queryRec;
             if (recErr)
                 throw recErr;
-            const { data: reportsOverTime, error: reportsOverTimeErr } = await db_1.supabase
-                .from('reports')
-                .select('created_at')
-                .order('created_at', { ascending: true });
+            const { data: reportsOverTime, error: reportsOverTimeErr } = await queryTime;
             if (reportsOverTimeErr)
                 throw reportsOverTimeErr;
             // Format Chart Data & Recurring Data dynamically from SQL grouping instead of JSON!
@@ -103,7 +112,8 @@ exports.analyticsController = {
                     : [{ date: new Date().toISOString().split('T')[0], reports: 0 }],
                 recurringData: formattedRecurring,
                 issueTypeData,
-                municipalities: allMunicipalities
+                municipalities: allMunicipalities,
+                barangays: allBarangays
             });
         }
         catch (err) {
@@ -114,11 +124,11 @@ exports.analyticsController = {
     async getAdminAnalytics(req, res) {
         try {
             const { municipality_id } = req.params;
+            const { barangay_id } = req.query;
             if (!municipality_id) {
                 return res.status(400).json({ error: 'municipality_id is required' });
             }
-            // Grouped counts filter out everything except the admin's territory
-            const { data: reports, error } = await db_1.supabase
+            let reportsQuery = db_1.supabase
                 .from('reports')
                 .select(`
           status,
@@ -128,6 +138,18 @@ exports.analyticsController = {
           barangays(name)
         `)
                 .eq('municipality_id', municipality_id);
+            if (barangay_id && barangay_id !== 'all') {
+                reportsQuery = reportsQuery.eq('barangay_id', barangay_id);
+            }
+            // Fetch barangays for this municipality for the frontend filter
+            const { data: allBarangays, error: brgyErr } = await db_1.supabase
+                .from('barangays')
+                .select('id, name, municipality_id')
+                .eq('municipality_id', municipality_id)
+                .order('name', { ascending: true });
+            if (brgyErr)
+                throw brgyErr;
+            const { data: reports, error } = await reportsQuery;
             if (error)
                 throw error;
             const totalReports = reports.length;
@@ -176,7 +198,8 @@ exports.analyticsController = {
                     ? chartData
                     : [{ date: new Date().toISOString().split('T')[0], reports: 0 }],
                 recurringData: formattedRecurring,
-                issueTypeData
+                issueTypeData,
+                barangays: allBarangays
             });
         }
         catch (err) {
