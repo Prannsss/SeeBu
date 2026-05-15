@@ -85,7 +85,7 @@ export default function AdminReportsPage() {
 
   const handleApprove = (id: string) => {
     if (!delegateDepartmentId) {
-      gooeyToast.error("Please choose a department before approving.");
+      gooeyToast.error("Error", { description: "Please choose a department before approving." });
       return;
     }
 

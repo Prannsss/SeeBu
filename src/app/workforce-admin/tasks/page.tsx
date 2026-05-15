@@ -117,18 +117,18 @@ export default function WorkforceAdminTasksPage() {
 
   const handleAccept = (taskId: string) => {
     updateTaskMutation.mutate({ id: taskId, status: 'Accepted' }, {
-      onSuccess: () => gooeyToast.success("Task accepted! You can now delegate it.")
+      onSuccess: () => gooeyToast.success("Success", { description: "Task accepted! You can now delegate it." })
     })
   }
 
   const handleDelegate = (taskId: string) => {
     if (!delegateTo) {
-      gooeyToast.error("Please select an officer first.")
+      gooeyToast.error("Error", { description: "Please select an officer first." })
       return
     }
     updateTaskMutation.mutate({ id: taskId, assigned_to: delegateTo, status: 'Assigned' }, {
       onSuccess: () => {
-        gooeyToast.success("Task dispatched and assigned to officer successfully.")
+        gooeyToast.success("Success", { description: "Task dispatched and assigned to officer successfully." })
         setDialogOpen(null)
         setDelegateTo("")
       }
@@ -137,7 +137,7 @@ export default function WorkforceAdminTasksPage() {
 
   const handleViewLinkedReport = (task: any) => {
     if (!task.related_report) {
-      gooeyToast.error("No linked report details available for this task yet.")
+      gooeyToast.error("Error", { description: "No linked report details available for this task yet." })
       return
     }
     setSelectedReport(task.related_report)

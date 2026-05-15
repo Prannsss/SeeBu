@@ -86,10 +86,10 @@ export default function WorkforceAdminProfilePage() {
         });
         router.push("/auth/login");
       } else {
-        gooeyToast.error(res.error || "Failed to delete account");
+        gooeyToast.error("Error", { description: res.error || "Failed to delete account" });
       }
     } catch (err) {
-      gooeyToast.error("Failed to delete account");
+      gooeyToast.error("Error", { description: "Failed to delete account" });
     }
   }
 

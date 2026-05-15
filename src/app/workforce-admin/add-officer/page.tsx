@@ -58,11 +58,11 @@ export default function AddOfficerPage() {
       return result;
     },
     onSuccess: () => {
-      gooeyToast.success("Officer generated successfully! Proceed to verify email.");
+      gooeyToast.success("Success", { description: "Officer generated successfully! Proceed to verify email." });
       setIsVerifying(true);
     },
     onError: (error) => {
-      gooeyToast.error(error?.message?.trim() || "Failed to generate officer account.");
+      gooeyToast.error("Error", { description: error?.message?.trim() || "Failed to generate officer account." });
     }
   })
 

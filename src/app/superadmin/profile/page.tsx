@@ -82,7 +82,7 @@ export default function SuperAdminProfilePage() {
         gooeyToast.success("Account deleted successfully");
         router.push("/auth/login");
       } else {
-        gooeyToast.error(res.error || "Failed to delete account");
+        gooeyToast.error("Error", { description: res.error || "Failed to delete account" });
       }
     } catch (err) {
       gooeyToast.error("Failed to delete account");
@@ -109,7 +109,7 @@ export default function SuperAdminProfilePage() {
         gooeyToast.error(res.error || "Update failed");
       }
     } catch (err) {
-      gooeyToast.error("Failed to update profile");
+      gooeyToast.error("Error", { description: "Failed to update profile" });
     }
   }
 

@@ -73,11 +73,11 @@ export default function SuperadminAddPage() {
     } else {
       // User clicked "Add new municipality" - validate form first
       if (activeTab === 'admin' && !isAdminFormValid()) {
-        gooeyToast.error("Please fill in all required fields before adding a municipality");
+        gooeyToast.error("Error", { description: "Please fill in all required fields before adding a municipality" });
         return;
       }
       if (activeTab === 'superadmin' && !isSuperadminFormValid()) {
-        gooeyToast.error("Please fill in all required fields before adding a municipality");
+        gooeyToast.error("Error", { description: "Please fill in all required fields before adding a municipality" });
         return;
       }
       // Show confirmation dialog for new municipality
@@ -113,7 +113,7 @@ export default function SuperadminAddPage() {
       setIsVerifying(true)
     },
     onError: (error: any) => {
-      gooeyToast.error(error.message || "Failed to add user")
+      gooeyToast.error("Error", { description: error.message || "Failed to add user" })
     }
   })
   

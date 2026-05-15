@@ -102,7 +102,7 @@ export default function WorkforceTasks() {
   const handleAcceptTask = (taskId: string) => {
     updateTaskMutation.mutate({ id: taskId, status: 'Accepted' }, {
       onSuccess: () => gooeyToast.success("Task Accepted!", { description: "The task is now in progress. Good luck!" }),
-      onError: (err) => gooeyToast.error(err?.message?.trim() || "Failed to accept task.")
+      onError: (err) => gooeyToast.error("Error", { description: err?.message?.trim() || "Failed to accept task." })
     });
   };
 
@@ -118,14 +118,14 @@ export default function WorkforceTasks() {
     if (files.length === 0) return;
 
     if (files.length > 5) {
-      gooeyToast.error("You can upload up to 5 proof images only.");
+      gooeyToast.error("Error", { description: "You can upload up to 5 proof images only." });
       event.target.value = "";
       return;
     }
 
     const hasNonImage = files.some((file) => !file.type.startsWith("image/"));
     if (hasNonImage) {
-      gooeyToast.error("Please upload image files only.");
+      gooeyToast.error("Error", { description: "Please upload image files only." });
       event.target.value = "";
       return;
     }
@@ -149,7 +149,7 @@ export default function WorkforceTasks() {
       setCompletionPhotoUrls(photoUrls);
       setProofFileNames(files.map((file) => file.name));
     } catch {
-      gooeyToast.error("Failed to read selected images. Please try again.");
+      gooeyToast.error("Error", { description: "Failed to read selected images. Please try again." });
       setCompletionPhotoUrls([]);
       setProofFileNames([]);
     }
@@ -166,7 +166,7 @@ export default function WorkforceTasks() {
   const handleConfirmComplete = () => {
     if (!selectedTaskId) return;
     if (completionPhotoUrls.length === 0) {
-      gooeyToast.error("Please upload at least one proof image before submitting.");
+      gooeyToast.error("Error", { description: "Please upload at least one proof image before submitting." });
       return;
     }
 
@@ -175,7 +175,7 @@ export default function WorkforceTasks() {
       photo_urls: completionPhotoUrls 
     }, {
       onSuccess: () => gooeyToast.success("Task Completed!", { description: "Great work! Proof submitted successfully." }),
-      onError: (err) => gooeyToast.error(err?.message?.trim() || "Failed to submit completion proof.")
+      onError: (err) => gooeyToast.error("Error", { description: err?.message?.trim() || "Failed to submit completion proof." })
     });
   };
 
