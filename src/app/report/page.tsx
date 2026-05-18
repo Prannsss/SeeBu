@@ -419,6 +419,38 @@ export default function ReportPage() {
     return municipality?.barangays || [];
   }, [formData.municipality, locationData]);
 
+  const getBreadcrumbText = () => {
+    const parts = [];
+    if (formData.issueType) {
+      if (formData.issueType === 'other') {
+        parts.push(formData.otherSpecify || 'Other');
+      } else {
+        const type = issueTypes.find(t => t.value === formData.issueType);
+        if (type) parts.push(type.label);
+      }
+    }
+
+    if (formData.municipality) {
+      const municipality = locationData?.municipalities?.find(m => m.id === formData.municipality);
+      if (municipality) {
+        let locString = municipality.name;
+        if (formData.barangay) {
+          const barangay = availableBarangays?.find(b => b.id === formData.barangay);
+          if (barangay) {
+            locString += ` - ${barangay.name}`;
+          }
+        }
+        parts.push(locString);
+      }
+    }
+
+    if (currentStep >= 3) {
+      parts.push("Details");
+    }
+
+    return parts.join(" > ");
+  };
+
   return (
     <>
       {/* Material Icons Link */}
@@ -467,6 +499,11 @@ export default function ReportPage() {
                 className={`h-full bg-primary transition-all duration-300 ease-out ${getProgressWidthClass()}`}
               />
             </div>
+            {currentStep > 1 && (
+              <div className="mt-3 text-xs font-medium text-gray-400 dark:text-gray-500 truncate pointer-events-none">
+                {getBreadcrumbText()}
+              </div>
+            )}
           </div>
         </div>
 
@@ -677,7 +714,7 @@ export default function ReportPage() {
                   {/* Photo Upload */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Upload Photos (Max 5)
+                      Upload Photos (Max 5) *
                     </label>
                     <div className="space-y-3">
                       {formData.photos.length < 5 && (
@@ -876,7 +913,7 @@ export default function ReportPage() {
                 disabled={
                   (currentStep === 1 && (!formData.issueType || (formData.issueType === 'other' && !formData.otherSpecify))) ||
                   (currentStep === 2 && (!formData.municipality || !formData.barangay || !formData.location)) ||
-                  (currentStep === 3 && (!formData.title || !formData.description))
+                  (currentStep === 3 && (!formData.title || !formData.description || formData.photos.length === 0))
                 }
                 className="flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-primary text-white font-medium hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -888,8 +925,9 @@ export default function ReportPage() {
                 onClick={handleSubmit}
                 disabled={
                   isSubmitting ||
-                  (!isLoggedIn && !formData.anonymous && (!formData.reporterName.trim() || !formData.reporterEmail.trim())) ||
-                  (!isLoggedIn && formData.anonymous && !formData.reporterEmail.trim())
+                  (currentStep === 3 && (!formData.title || !formData.description || formData.photos.length === 0)) ||
+                  (currentStep === 4 && !formData.anonymous && (!formData.reporterName.trim() || !formData.reporterEmail.trim())) ||
+                  (currentStep === 4 && formData.anonymous && !formData.reporterEmail.trim())
                 }
                 className="flex-1 px-6 py-3 rounded-lg bg-secondary text-white font-medium hover:bg-secondary-dark transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -965,7 +1003,7 @@ export default function ReportPage() {
 
           <div className="flex flex-col w-full gap-2">
             <Link
-              href="/track"
+              href={isLoggedIn ? "/client/tracking" : "/track"}
               className="w-full text-center px-6 py-3 rounded-lg bg-primary text-white font-medium hover:bg-primary/90 transition-all"
             >
               Track My Report

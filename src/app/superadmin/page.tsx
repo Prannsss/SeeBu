@@ -94,7 +94,7 @@ export default async function SuperadminHomePage() {
           <ChartAreaInteractive
             title="Reports Overview"
             description="Last 7 days"
-            chartData={chartData?.length > 0 ? chartData : [{ name: 'Loading', reports: 0 }]}
+            chartData={chartData?.length > 0 ? chartData : [{ date: new Date().toISOString().split('T')[0], reports: 0, resolved: 0 }]}
             defaultTimeRange="7d"
             hideFilter={true}
             headerAction={
@@ -106,21 +106,14 @@ export default async function SuperadminHomePage() {
               </Link>
             }
             chartConfig={{
-              views: {
-                label: "Reports"
+              reports: {
+                label: "Total Reports",
+                color: "#2563eb",
               },
-              cebu_city: {
-                label: "Cebu City",
-                color: "#2563eb"
+              resolved: {
+                label: "Resolved",
+                color: "#10b981",
               },
-              mandaue: {
-                label: "Mandaue",
-                color: "#10b981"
-              },
-              lapu_lapu: {
-                label: "Lapu-Lapu",
-                color: "#f59e0b"
-              }
             }}
           />
         </div>

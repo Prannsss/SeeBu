@@ -1,4 +1,3 @@
-﻿
 "use client"
 
 import * as React from "react"
@@ -19,20 +18,19 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+
+const TIME_TABS = [
+  { key: "7d",         label: "7 Days" },
+  { key: "this_month", label: "This Month" },
+  { key: "this_year",  label: "This Year" },
+] as const
 
 export function ChartAreaInteractive({
   title = "Area Chart",
   description = "Showing data over time",
   chartData = [],
   chartConfig = {},
-  defaultTimeRange = "this_month",
+  defaultTimeRange = "7d",
   headerAction,
   hideFilter = false,
   className = "",
@@ -44,82 +42,74 @@ export function ChartAreaInteractive({
   const processedData = React.useMemo(() => {
     if (!chartData || chartData.length === 0) return []
 
-    const sorted = [...chartData].sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
-    const latestDate = new Date(sorted[sorted.length - 1].date)
-    let startDate = new Date(sorted[0].date)
+    const now = new Date()
+    const todayStr = now.toISOString().split("T")[0]
+    let startDate: Date
 
-    if (timeRange !== "all") {
-      if (timeRange === "this_month") {
-        startDate = new Date(latestDate)
-        startDate.setUTCDate(1)
-      } else {
-        let daysToSubtract = 29
-        if (timeRange === "7d") daysToSubtract = 6
-        
-        startDate = new Date(latestDate)
-        startDate.setUTCDate(startDate.getUTCDate() - daysToSubtract)
-      }
+    if (timeRange === "7d") {
+      // Last 7 days including today
+      startDate = new Date(now)
+      startDate.setDate(now.getDate() - 6)
+      startDate = new Date(startDate.toISOString().split("T")[0])
+    } else if (timeRange === "this_month") {
+      startDate = new Date(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`)
+    } else {
+      // this_year
+      startDate = new Date(`${now.getFullYear()}-01-01`)
     }
 
+    const endDate = new Date(todayStr)
+
     const dataMap: Record<string, any> = {}
-    sorted.forEach((item: any) => {
+    chartData.forEach((item: any) => {
       dataMap[item.date] = item
     })
 
     const result = []
-    const currentDate = new Date(startDate)
-    
-    while (currentDate <= latestDate) {
-      const dateStr = currentDate.toISOString().split("T")[0]
+    const cur = new Date(startDate)
+    while (cur <= endDate) {
+      const dateStr = cur.toISOString().split("T")[0]
       if (dataMap[dateStr]) {
         result.push(dataMap[dateStr])
       } else {
-        const emptyItem: any = { date: dateStr }
-        chartKeys.forEach(k => {
-          emptyItem[k] = 0
-        })
-        result.push(emptyItem)
+        const empty: any = { date: dateStr }
+        chartKeys.forEach(k => { empty[k] = 0 })
+        result.push(empty)
       }
-      currentDate.setUTCDate(currentDate.getUTCDate() + 1)
+      cur.setDate(cur.getDate() + 1)
     }
 
     return result
-  }, [chartData, timeRange, chartConfig])
+  }, [chartData, timeRange, chartKeys])
 
   return (
     <Card className={"flex flex-col border-slate-200 dark:border-slate-800 shadow-sm w-full " + className}>
-      <CardHeader className="flex items-center gap-2 space-y-0 border-b border-slate-100 dark:border-slate-800 py-5 sm:flex-row">
+      <CardHeader className="flex items-center gap-2 space-y-0 border-b border-slate-100 dark:border-slate-800 py-5 sm:flex-row flex-wrap">
         <div className="grid flex-1 gap-1">
           <CardTitle>{title}</CardTitle>
           <CardDescription>{description}</CardDescription>
         </div>
-        <div className="flex items-center gap-2 sm:ml-auto">
+        <div className="flex items-center gap-2 sm:ml-auto flex-wrap">
           {headerAction && (
             <div className="shrink-0">{headerAction}</div>
           )}
           {!hideFilter && (
-            <Select value={timeRange} onValueChange={setTimeRange}>
-              <SelectTrigger
-                className="w-[160px] rounded-lg bg-white dark:bg-slate-900 border-slate-200 shadow-sm"
-                aria-label="Select a value"
-              >
-                <SelectValue placeholder="This Month" />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl bg-white dark:bg-slate-900 z-50">
-                <SelectItem value="this_month" className="rounded-lg">
-                  This Month
-                </SelectItem>
-                <SelectItem value="30d" className="rounded-lg">
-                  Last 30 days
-                </SelectItem>
-                <SelectItem value="7d" className="rounded-lg">
-                  Last 7 days
-                </SelectItem>
-                <SelectItem value="all" className="rounded-lg">
-                  All Time
-                </SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-1 gap-0.5">
+              {TIME_TABS.map(tab => (
+                <button
+                  key={tab.key}
+                  onClick={() => setTimeRange(tab.key)}
+                  className={
+                    "px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-150 " +
+                    (timeRange === tab.key
+                      ? "bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm"
+                      : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200")
+                  }
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           )}
         </div>
       </CardHeader>
@@ -146,10 +136,10 @@ export function ChartAreaInteractive({
               minTickGap={32}
               tickFormatter={(value) => {
                 const date = new Date(value)
-                return date.toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                })
+                if (timeRange === "today") {
+                  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                }
+                return date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
               }}
             />
             <ChartTooltip
@@ -166,9 +156,21 @@ export function ChartAreaInteractive({
                 />
               }
             />
-            {chartKeys.map((key) => (
-                <Area key={key} dataKey={key} type="monotone" fill={"url(#fill" + key + ")"} stroke={"var(--color-" + key + ")"} stackId="a" />
-            ))}
+            {/* Render total/base keys first (underneath), then resolved on top */}
+            {chartKeys
+              .slice()
+              .sort((a) => (a === "resolved" ? 1 : -1))
+              .map((key) => (
+                <Area
+                  key={key}
+                  dataKey={key}
+                  type="monotone"
+                  fill={"url(#fill" + key + ")"}
+                  stroke={"var(--color-" + key + ")"}
+                  strokeWidth={2}
+                  // No stackId → true overlap
+                />
+              ))}
             <ChartLegend content={<ChartLegendContent />} />
           </AreaChart>
         </ChartContainer>

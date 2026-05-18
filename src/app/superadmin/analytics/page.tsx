@@ -56,21 +56,28 @@ export default function SuperadminAnalyticsPage() {
           {/* Chart Section */}
           <ChartAreaInteractive
             className="lg:col-span-2 lg:h-[600px]"
-            title="Global Reports Overview" 
-            description="Visualizing reports received across all active locations." 
-            chartData={chartData} 
+            title="Global Reports Overview"
+            description="Total vs. resolved reports across all active locations."
+            chartData={chartData}
             chartConfig={{
               reports: {
-                label: "Reports",
+                label: "Total Reports",
                 color: "#2563eb",
               },
-            }} 
+              resolved: {
+                label: "Resolved",
+                color: "#10b981",
+              },
+            }}
           />
 
-          {/* Issue Type Bar Chart with Municipality Filter */}
-          <Card className="border-slate-200 dark:border-slate-800 shadow-sm flex flex-col h-[500px] lg:h-[600px]">
+          {/* Issue Type Bar Chart — resolution split, per-type colors */}
+          <Card className="border-slate-200 dark:border-slate-800 shadow-sm flex flex-col h-[500px] lg:h-[600px] overflow-y-auto">
             <CardHeader className="pb-3 flex flex-col gap-3 space-y-0 sticky top-0 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 z-10 rounded-t-xl">
-              <CardTitle className="text-lg">Reports by Issue Type</CardTitle>
+              <div>
+                <CardTitle className="text-lg">Reports by Issue Type</CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">Resolved vs. unresolved per category</p>
+              </div>
               {/* Municipality Filter */}
               <div className="flex flex-col gap-2">
                 <select
@@ -79,7 +86,7 @@ export default function SuperadminAnalyticsPage() {
                   value={municipalityFilter}
                   onChange={(e) => {
                     setMunicipalityFilter(e.target.value);
-                    setBarangayFilter("all"); // reset barangay when municipality changes
+                    setBarangayFilter("all");
                   }}
                 >
                   <option value="all">All Municipalities</option>
@@ -103,16 +110,11 @@ export default function SuperadminAnalyticsPage() {
                 </select>
               </div>
             </CardHeader>
-            <CardContent className="px-2 pt-4 sm:px-4 sm:pt-4 flex-1 flex items-stretch">
+            <CardContent className="px-2 pt-2 sm:px-4 sm:pt-2 flex-1">
               <ChartBarInteractive
-                className="w-full h-full"
+                className="w-full border-0 shadow-none"
                 chartData={issueTypeData}
-                chartConfig={{
-                  count: {
-                    label: "Reports",
-                    color: "#2563eb",
-                  }
-                }}
+                chartConfig={{}}
               />
             </CardContent>
           </Card>

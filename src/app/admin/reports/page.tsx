@@ -20,7 +20,9 @@ export default function AdminReportsPage() {
   const [delegationOpen, setDelegationOpen] = useState<string | null>(null);    
   const [reviewOpen, setReviewOpen] = useState<string | null>(null);
   const [rejectMode, setRejectMode] = useState(false);
-  const [rejectReason, setRejectReason] = useState("");
+  const [rejectReasonType, setRejectReasonType] = useState("");
+  const [rejectReasonOther, setRejectReasonOther] = useState("");
+  const [resolvedOpen, setResolvedOpen] = useState<string | null>(null);
   const [delegateDepartmentId, setDelegateDepartmentId] = useState("");
   const [delegateAssignee, setDelegateAssignee] = useState("");
 
@@ -121,15 +123,19 @@ export default function AdminReportsPage() {
   }
 
   const handleReject = (id: string) => {
-    if (!rejectReason.trim()) {
-      gooeyToast.error("Please provide a reason for rejection.");
+    const actualReason = rejectReasonType === "Other"
+      ? rejectReasonOther.trim()
+      : rejectReasonType;
+    if (!actualReason) {
+      gooeyToast.error("Please select a reason for rejection.");
       return;
     }
-    updateStatusMutation.mutate({ id, status: 'Rejected', notes: 'Report rejected.', rejection_reason: rejectReason }, {
+    updateStatusMutation.mutate({ id, status: 'Rejected', notes: 'Report rejected.', rejection_reason: actualReason }, {
       onSuccess: () => {
         gooeyToast.success(`Report rejected.`);       
         setRejectMode(false);
-        setRejectReason("");
+        setRejectReasonType("");
+        setRejectReasonOther("");
         setReviewOpen(null);
       },
       onError: (err) => {
@@ -332,7 +338,8 @@ export default function AdminReportsPage() {
                             onClick={() => {
                               setReviewOpen(item.id)
                               setRejectMode(false)
-                              setRejectReason("")
+                              setRejectReasonType("")
+                              setRejectReasonOther("")
                               setDelegateDepartmentId("")
                               setDelegateAssignee("")
                             }}
@@ -341,13 +348,14 @@ export default function AdminReportsPage() {
                           </Button>
                         )}
 
-                        {item.status === 'Action Taken' && (
+                        {item.status === 'Resolved' && (
                           <Button 
                             variant="outline" 
                             size="sm" 
-                            className="mt-2 w-full font-medium text-blue-600 border-blue-200 hover:bg-blue-50"
+                            className="mt-2 w-full font-medium text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+                            onClick={() => setResolvedOpen(item.id)}
                           >
-                            View Progress
+                            View Details &amp; Proof
                           </Button>
                         )}
                         
@@ -365,6 +373,8 @@ export default function AdminReportsPage() {
                       if (!open) {
                         setReviewOpen(null);
                         setRejectMode(false);
+                        setRejectReasonType("");
+                        setRejectReasonOther("");
                         setDelegateDepartmentId("");
                         setDelegateAssignee("");
                       }
@@ -489,26 +499,35 @@ export default function AdminReportsPage() {
                             ) : null}
 
                             {rejectMode ? (
-                              <div className="space-y-2 animate-in fade-in zoom-in duration-200">
-                                <label htmlFor="reject-reason" className="text-sm font-medium text-red-600 flex items-center gap-1.5"><AlertCircle className="w-4 h-4"/> Reason for Rejection *</label>
-                                <Textarea 
-                                  id="reject-reason" 
-                                  placeholder="Explain why this report is being rejected..." 
-                                  value={rejectReason}
-                                  onChange={(e) => setRejectReason(e.target.value)}
-                                  className="min-h-[100px] border-red-200 focus-visible:ring-red-500 bg-red-50/30"
-                                />
+                              <div className="space-y-3 animate-in fade-in zoom-in duration-200">
+                                <label className="text-sm font-medium text-red-600 flex items-center gap-1.5">
+                                  <AlertCircle className="w-4 h-4"/> Reason for Rejection *
+                                </label>
+                                <Select value={rejectReasonType} onValueChange={(v) => { setRejectReasonType(v); setRejectReasonOther(""); }}>
+                                  <SelectTrigger className="bg-white dark:bg-slate-900 border-red-200 focus:ring-red-500">
+                                    <SelectValue placeholder="Select a reason..." />
+                                  </SelectTrigger>
+                                  <SelectContent className="bg-white dark:bg-slate-900 z-[100]">
+                                    <SelectItem value="Spam report">Spam report</SelectItem>
+                                    <SelectItem value="Duplicate report">Duplicate report</SelectItem>
+                                    <SelectItem value="Insufficient report details">Insufficient report details</SelectItem>
+                                    <SelectItem value="Other">Other</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                {rejectReasonType === "Other" && (
+                                  <Textarea
+                                    placeholder="Describe the reason for rejection..."
+                                    value={rejectReasonOther}
+                                    onChange={(e) => setRejectReasonOther(e.target.value)}
+                                    className="min-h-[90px] border-red-200 focus-visible:ring-red-500 bg-red-50/30 animate-in fade-in duration-150"
+                                  />
+                                )}
                               </div>
                             ) : null}
                           </div>
 
-                          <div className="space-y-4">
-                            <Tabs defaultValue="reporter" className="w-full">
-                              <TabsList className="grid w-full grid-cols-2">
-                                <TabsTrigger value="reporter">Reporter Uploaded</TabsTrigger>
-                                <TabsTrigger value="completion">Completion Proof</TabsTrigger>
-                              </TabsList>
-                              <TabsContent value="reporter" className="mt-3">
+                          <div className="space-y-3">
+                                <div className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-1">Reporter Uploaded Images</div>
                                 <ReportMediaGallery
                                   title="Reporter Uploaded Images"
                                   images={(item.reporterPhotos || []).map((url: string, index: number) => ({
@@ -517,21 +536,9 @@ export default function AdminReportsPage() {
                                   }))}
                                   emptyText="No reporter images available for this report yet."
                                 />
-                              </TabsContent>
-                              <TabsContent value="completion" className="mt-3">
-                                <ReportMediaGallery
-                                  title="Completion Proof Images"
-                                  images={(item.completionPhotos || []).map((url: string, index: number) => ({
-                                    url,
-                                    alt: `${item.title} completion proof ${index + 1}`
-                                  }))}
-                                  emptyText="No completion proof submitted yet."
-                                />
-                              </TabsContent>
-                            </Tabs>
+                              </div>
 
                           </div>
-                        </div>
                         
                         <div className="grid grid-cols-3 gap-2 sm:gap-3 mt-2">
                           <Button className="w-full bg-slate-600 hover:bg-slate-700 text-white" onClick={() => {
@@ -550,6 +557,99 @@ export default function AdminReportsPage() {
                               <Button onClick={() => handleApprove(item.id)} className="w-full bg-blue-600 hover:bg-blue-700 text-white">Approve &amp; Delegate</Button>
                             </>
                           )}
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+
+                    {/* Resolved Detail Dialog */}
+                    <Dialog open={resolvedOpen === item.id} onOpenChange={(open) => { if (!open) setResolvedOpen(null); }}>
+                      <DialogContent className="w-[calc(100%-2rem)] sm:max-w-5xl rounded-xl max-h-[88vh] overflow-y-auto p-5 sm:p-7">
+                        <DialogHeader>
+                          <DialogTitle className="flex items-center gap-2 text-emerald-700">
+                            <CheckCircle2 className="h-5 w-5" /> Resolved Report Details
+                          </DialogTitle>
+                          <DialogDescription>
+                            Full report details and completion proof submitted by workforce.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-5 py-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
+                          <div className="space-y-4">
+                            <div className="rounded-lg bg-slate-50 dark:bg-slate-900 border p-4">
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="font-semibold text-base text-slate-900 dark:text-slate-100">{item.title}</div>
+                                <span className="text-xs font-mono font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded-md border border-emerald-200">{item.id}</span>
+                              </div>
+                              <div className="space-y-4">
+                                <div>
+                                  <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2">Reporter</h4>
+                                  <div className="text-sm text-muted-foreground grid gap-2">
+                                    <div className="flex justify-between border-b pb-2 gap-4">
+                                      <span className="text-slate-500">Name:</span>
+                                      <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{item.reporterName}</span>
+                                    </div>
+                                    <div className="flex justify-between border-b pb-2 gap-4">
+                                      <span className="text-slate-500">Email:</span>
+                                      <span className="font-medium text-slate-700 dark:text-slate-300 text-right break-all">{item.reporterEmail}</span>
+                                    </div>
+                                    <div className="flex justify-between pb-1 gap-4">
+                                      <span className="text-slate-500">Phone:</span>
+                                      <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{item.reporterPhone}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div>
+                                  <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2">Report Details</h4>
+                                  <div className="text-sm text-muted-foreground grid gap-2">
+                                    <div className="flex justify-between border-b pb-2 gap-4">
+                                      <span className="text-slate-500">Urgency:</span>
+                                      <span className={`font-medium text-right ${
+                                        item.urgency === 'High' ? 'text-red-600' : item.urgency === 'Medium' ? 'text-yellow-600' : 'text-green-600'
+                                      }`}>{item.urgency}</span>
+                                    </div>
+                                    <div className="grid border-b pb-2 gap-1">
+                                      <span className="text-slate-500">Description:</span>
+                                      <span className="font-medium text-slate-700 dark:text-slate-300 leading-relaxed">{item.description}</span>
+                                    </div>
+                                    <div className="flex justify-between border-b pb-2 gap-4">
+                                      <span className="text-slate-500">Barangay:</span>
+                                      <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{item.barangay}</span>
+                                    </div>
+                                    <div className="flex justify-between border-b pb-2 gap-4">
+                                      <span className="text-slate-500">Street:</span>
+                                      <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{item.streetAddress}</span>
+                                    </div>
+                                    <div className="flex justify-between pb-1 gap-4">
+                                      <span className="text-slate-500">Landmark:</span>
+                                      <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{item.landmark}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                                {item.completedBy && (
+                                  <div className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-lg p-3">
+                                    <CheckCircle2 className="h-4 w-4 shrink-0" />
+                                    <span>Completed by: <span className="font-semibold">{item.completedBy}</span></span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="space-y-4">
+                            <div className="text-sm font-semibold text-slate-700 dark:text-slate-200">Reporter Uploaded Images</div>
+                            <ReportMediaGallery
+                              title="Reporter Uploaded Images"
+                              images={(item.reporterPhotos || []).map((url: string, index: number) => ({ url, alt: `Reporter image ${index + 1}` }))}
+                              emptyText="No reporter images available."
+                            />
+                            <div className="text-sm font-semibold text-emerald-700 dark:text-emerald-300 mt-4">Completion Proof</div>
+                            <ReportMediaGallery
+                              title="Completion Proof"
+                              images={(item.completionPhotos || []).map((url: string, index: number) => ({ url, alt: `Proof image ${index + 1}` }))}
+                              emptyText="No completion proof submitted yet."
+                            />
+                          </div>
+                        </div>
+                        <div className="flex justify-end mt-2">
+                          <Button className="bg-slate-600 hover:bg-slate-700 text-white" onClick={() => setResolvedOpen(null)}>Close</Button>
                         </div>
                       </DialogContent>
                     </Dialog>

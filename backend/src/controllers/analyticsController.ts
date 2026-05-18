@@ -8,14 +8,14 @@ export const analyticsController = {
       const { municipality_id, barangay_id } = req.query;
 
       let queryStatus = supabase.from('reports').select('status');
-      let queryIssue = supabase.from('reports').select('issue_type, other_type_specification, municipality_id');
+      let queryIssue = supabase.from('reports').select('issue_type, other_type_specification, municipality_id, status');
       let queryRec = supabase.from('reports').select(`
           issue_type,
           other_type_specification,
           count:id,
           municipalities(name)
         `);
-      let queryTime = supabase.from('reports').select('created_at').order('created_at', { ascending: true });
+      let queryTime = supabase.from('reports').select('created_at, status').order('created_at', { ascending: true });
 
       if (municipality_id && municipality_id !== 'all') {
         queryStatus = queryStatus.eq('municipality_id', municipality_id);
@@ -60,43 +60,52 @@ export const analyticsController = {
 
       // Format Chart Data & Recurring Data dynamically from SQL grouping instead of JSON!
       const groupedByMun: Record<string, number> = {};
-      const groupedByIssueType: Record<string, { count: number; municipalityId: string }> = {};
-      const reportsByDate: Record<string, number> = {};
-      
+      const groupedByIssueType: Record<string, { resolved: number; unresolved: number; municipalityId: string }> = {};
+      const reportsByDate: Record<string, { reports: number; resolved: number }> = {};
+
       recurringData.forEach((row: any) => {
         const area = row.municipalities?.name || 'Unknown';
         groupedByMun[area] = (groupedByMun[area] || 0) + 1;
       });
 
-      // Group by issue_type for bar chart - use other_type_specification when issue_type is 'other'
-      // Include municipalityId so frontend can filter
+      // Group by issue_type for bar chart with resolved/unresolved split
       (reportsWithIssueType || []).forEach((row: any) => {
         const issueLabel = row.issue_type === 'other' && row.other_type_specification
           ? row.other_type_specification
           : (row.issue_type || 'Unknown');
         const key = `${issueLabel}__${row.municipality_id}`;
         if (!groupedByIssueType[key]) {
-          groupedByIssueType[key] = { count: 0, municipalityId: row.municipality_id };
+          groupedByIssueType[key] = { resolved: 0, unresolved: 0, municipalityId: row.municipality_id };
         }
-        groupedByIssueType[key].count++;
+        const isResolved = row.status === 'Completed' || row.status === 'Resolved';
+        if (isResolved) {
+          groupedByIssueType[key].resolved++;
+        } else {
+          groupedByIssueType[key].unresolved++;
+        }
       });
 
+      // Build chartData with resolved/unresolved split per date
       (reportsOverTime || []).forEach((row: any) => {
         const dateKey = new Date(row.created_at).toISOString().split('T')[0];
-        reportsByDate[dateKey] = (reportsByDate[dateKey] || 0) + 1;
+        if (!reportsByDate[dateKey]) reportsByDate[dateKey] = { reports: 0, resolved: 0 };
+        reportsByDate[dateKey].reports++;
+        const isResolved = row.status === 'Completed' || row.status === 'Resolved';
+        if (isResolved) reportsByDate[dateKey].resolved++;
       });
 
-      // Issue type data for bar chart - sorted by count descending, includes municipalityId for filtering
+      // Issue type data for bar chart - sorted by total count descending
       const issueTypeData = Object.keys(groupedByIssueType)
         .map((key) => {
           const [issueType] = key.split('__');
           return {
             issueType,
-            count: groupedByIssueType[key].count,
+            resolved: groupedByIssueType[key].resolved,
+            unresolved: groupedByIssueType[key].unresolved,
             municipalityId: groupedByIssueType[key].municipalityId
           };
         })
-        .sort((a, b) => b.count - a.count);
+        .sort((a, b) => (b.resolved + b.unresolved) - (a.resolved + a.unresolved));
 
       const formattedRecurring = Object.keys(groupedByMun).map((key) => ({
          area: key,
@@ -108,7 +117,8 @@ export const analyticsController = {
         .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
         .map((date) => ({
           date,
-          reports: reportsByDate[date],
+          reports: reportsByDate[date].reports,
+          resolved: reportsByDate[date].resolved,
         }));
 
       // Return the dynamically aggregated response
@@ -119,7 +129,7 @@ export const analyticsController = {
         pendingReports: totalReports - completedTasks - reportedIssues,
         chartData: formattedChartData.length > 0
           ? formattedChartData
-          : [{ date: new Date().toISOString().split('T')[0], reports: 0 }],
+          : [{ date: new Date().toISOString().split('T')[0], reports: 0, resolved: 0 }],
         recurringData: formattedRecurring,
         issueTypeData,
         municipalities: allMunicipalities,
@@ -129,6 +139,7 @@ export const analyticsController = {
       return res.status(500).json({ error: err.message });
     }
   },
+
   // ADMIN: Filtered exclusively to a single municipality
   async getAdminAnalytics(req: Request, res: Response) {
     try {
@@ -172,29 +183,41 @@ export const analyticsController = {
       const delayedTasks = reports.filter(r => r.status === 'Delegated' || r.status === 'Delayed').length;
 
       const groupedByBrgy: Record<string, number> = {};
-      const groupedByIssueType: Record<string, number> = {};
-      const reportsByDate: Record<string, number> = {};
+      const groupedByIssueType: Record<string, { resolved: number; unresolved: number }> = {};
+      const reportsByDate: Record<string, { reports: number; resolved: number }> = {};
+
       reports.forEach((r: any) => {
-         const brgy = r.barangays?.name || 'Unknown';
-         groupedByBrgy[brgy] = (groupedByBrgy[brgy] || 0) + 1;
+        const brgy = r.barangays?.name || 'Unknown';
+        groupedByBrgy[brgy] = (groupedByBrgy[brgy] || 0) + 1;
 
-         const dateKey = new Date(r.created_at).toISOString().split('T')[0];
-         reportsByDate[dateKey] = (reportsByDate[dateKey] || 0) + 1;
+        const dateKey = new Date(r.created_at).toISOString().split('T')[0];
+        if (!reportsByDate[dateKey]) reportsByDate[dateKey] = { reports: 0, resolved: 0 };
+        reportsByDate[dateKey].reports++;
 
-         // Group by issue_type for bar chart - use other_type_specification when issue_type is 'other'
-         const issueLabel = r.issue_type === 'other' && r.other_type_specification
-           ? r.other_type_specification
-           : (r.issue_type || 'Unknown');
-         groupedByIssueType[issueLabel] = (groupedByIssueType[issueLabel] || 0) + 1;
+        // Group by issue_type with resolved/unresolved split
+        const issueLabel = r.issue_type === 'other' && r.other_type_specification
+          ? r.other_type_specification
+          : (r.issue_type || 'Unknown');
+
+        if (!groupedByIssueType[issueLabel]) groupedByIssueType[issueLabel] = { resolved: 0, unresolved: 0 };
+
+        const isResolved = r.status === 'Completed' || r.status === 'Resolved';
+        if (isResolved) {
+          groupedByIssueType[issueLabel].resolved++;
+          reportsByDate[dateKey].resolved++;
+        } else {
+          groupedByIssueType[issueLabel].unresolved++;
+        }
       });
 
-      // Issue type data for bar chart - sorted by count descending
+      // Issue type data for bar chart - sorted by total count descending
       const issueTypeData = Object.keys(groupedByIssueType)
         .map((issueType) => ({
           issueType,
-          count: groupedByIssueType[issueType]
+          resolved: groupedByIssueType[issueType].resolved,
+          unresolved: groupedByIssueType[issueType].unresolved,
         }))
-        .sort((a, b) => b.count - a.count);
+        .sort((a, b) => (b.resolved + b.unresolved) - (a.resolved + a.unresolved));
 
       const formattedRecurring = Object.keys(groupedByBrgy).map((key) => ({
          area: key,
@@ -206,7 +229,8 @@ export const analyticsController = {
         .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
         .map((date) => ({
           date,
-          reports: reportsByDate[date],
+          reports: reportsByDate[date].reports,
+          resolved: reportsByDate[date].resolved,
         }));
 
       return res.status(200).json({
@@ -217,7 +241,7 @@ export const analyticsController = {
         pendingReports: totalReports - completedTasks - reportedIssues,
         chartData: chartData.length > 0
           ? chartData
-          : [{ date: new Date().toISOString().split('T')[0], reports: 0 }],
+          : [{ date: new Date().toISOString().split('T')[0], reports: 0, resolved: 0 }],
         recurringData: formattedRecurring,
         issueTypeData,
         barangays: allBarangays
