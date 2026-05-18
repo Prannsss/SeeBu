@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ChevronLeft, ChevronRight, Upload, X, Copy, CheckCheck, Tag } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Upload, X, Copy, CheckCheck, Tag, Camera, RefreshCcw } from 'lucide-react';
 import { gooeyToast } from 'goey-toast';
 import { useQuery } from '@tanstack/react-query';
 import BackButton from '@/components/navigation/back-button';
@@ -101,6 +101,99 @@ export default function ReportPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { isLoggedIn, user } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
+  const [showCamera, setShowCamera] = useState(false);
+  const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
+  const [flash, setFlash] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    let activeStream: MediaStream | null = null;
+    if (showCamera) {
+      const initCamera = async () => {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { 
+              facingMode,
+              aspectRatio: 3/4
+            } 
+          });
+          activeStream = stream;
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+          }
+        } catch (err) {
+          console.error("Error accessing camera:", err);
+          gooeyToast.error("Camera access denied.");
+          setShowCamera(false);
+        }
+      };
+      initCamera();
+    }
+    
+    return () => {
+      if (activeStream) {
+        activeStream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [showCamera, facingMode]);
+
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const context = canvasRef.current.getContext('2d');
+      if (context) {
+        setFlash(true);
+        setTimeout(() => setFlash(false), 150);
+        
+        const vWidth = videoRef.current.videoWidth;
+        const vHeight = videoRef.current.videoHeight;
+        
+        const targetRatio = 3 / 4;
+        const videoRatio = vWidth / vHeight;
+        
+        let sWidth = vWidth;
+        let sHeight = vHeight;
+        let sx = 0;
+        let sy = 0;
+        
+        if (videoRatio > targetRatio) {
+          sWidth = vHeight * targetRatio;
+          sx = (vWidth - sWidth) / 2;
+        } else if (videoRatio < targetRatio) {
+          sHeight = vWidth / targetRatio;
+          sy = (vHeight - sHeight) / 2;
+        }
+        
+        canvasRef.current.width = sWidth;
+        canvasRef.current.height = sHeight;
+        
+        if (facingMode === 'user') {
+          context.translate(canvasRef.current.width, 0);
+          context.scale(-1, 1);
+        }
+        
+        context.drawImage(videoRef.current, sx, sy, sWidth, sHeight, 0, 0, sWidth, sHeight);
+        
+        if (facingMode === 'user') {
+          context.setTransform(1, 0, 0, 1, 0, 0);
+        }
+        
+        canvasRef.current.toBlob((blob) => {
+          if (blob) {
+            const file = new File([blob], `camera-${Date.now()}.jpg`, { type: 'image/jpeg' });
+            if (formData.photos.length < 5) {
+              const newPhotos = [...formData.photos, file];
+              updateFormData('photos', newPhotos);
+              if (newPhotos.length >= 5) {
+                setTimeout(() => setShowCamera(false), 300);
+              }
+            }
+          }
+        }, 'image/jpeg', 0.8);
+      }
+    }
+  };
+
   const [trackingNumber, setTrackingNumber] = useState<string | null>(null);
   const [submittedEmail, setSubmittedEmail] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -718,21 +811,37 @@ export default function ReportPage() {
                     </label>
                     <div className="space-y-3">
                       {formData.photos.length < 5 && (
-                        <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg cursor-pointer bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                          <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                            <Upload className="w-8 h-8 mb-2 text-gray-400" />
-                            <p className="text-sm text-gray-500 dark:text-gray-400">
-                              Click to upload ({formData.photos.length}/5)
-                            </p>
-                          </div>
-                          <input
-                            type="file"
-                            className="hidden"
-                            accept="image/*"
-                            multiple
-                            onChange={handleFileUpload}
-                          />
-                        </label>
+                        <div className="grid grid-cols-2 gap-3">
+                          <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg cursor-pointer bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                            <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center">
+                              <Upload className="w-8 h-8 mb-2 text-gray-400 mx-auto" />
+                              <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Upload Photos</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                ({formData.photos.length}/5)
+                              </p>
+                            </div>
+                            <input
+                              type="file"
+                              className="hidden"
+                              accept="image/*"
+                              multiple
+                              onChange={handleFileUpload}
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setShowCamera(true)}
+                            className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg cursor-pointer bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-primary"
+                          >
+                            <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center">
+                              <Camera className="w-8 h-8 mb-2 text-gray-400 mx-auto" />
+                              <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Take a picture</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                ({formData.photos.length}/5)
+                              </p>
+                            </div>
+                          </button>
+                        </div>
                       )}
 
                       {/* Photo Previews */}
@@ -955,6 +1064,53 @@ export default function ReportPage() {
     <div className="md:hidden block">
 
     </div>
+
+    {/* Camera Modal */}
+    {showCamera && (
+      <div className="fixed inset-0 z-[100] bg-black flex flex-col animate-fade-in">
+        <div className="p-4 flex justify-between items-center bg-black/50 text-white absolute top-0 left-0 right-0 z-20">
+          <span className="font-medium">{formData.photos.length} / 5 Photos</span>
+          <button onClick={() => setShowCamera(false)} className="text-white hover:text-gray-300 transition-colors p-2">
+            <X size={24} />
+          </button>
+        </div>
+        
+        <div className="flex-1 w-full bg-black flex items-center justify-center relative overflow-hidden py-16">
+          <div className="relative w-full max-w-[calc(100vh*0.75)] sm:max-w-md aspect-[3/4] bg-gray-900 overflow-hidden shadow-xl">
+            {flash && <div className="absolute inset-0 bg-white z-[110] animate-pulse pointer-events-none"></div>}
+            <video 
+              ref={videoRef} 
+              autoPlay 
+              playsInline 
+              className={`w-full h-full object-cover ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`} 
+            />
+            <canvas ref={canvasRef} className="hidden" />
+          </div>
+        </div>
+
+        <div className="p-6 pb-12 bg-black flex justify-between items-center z-20">
+          <button
+            onClick={() => setFacingMode(prev => prev === 'environment' ? 'user' : 'environment')}
+            className="w-12 h-12 rounded-full bg-gray-800 text-white flex items-center justify-center hover:bg-gray-700 transition-colors"
+          >
+            <RefreshCcw size={24} />
+          </button>
+          <button 
+            onClick={capturePhoto} 
+            disabled={formData.photos.length >= 5}
+            className="w-16 h-16 rounded-full bg-white border-4 border-gray-300 flex items-center justify-center disabled:opacity-50 active:scale-95 transition-transform"
+          >
+            <div className="w-14 h-14 rounded-full bg-white border-2 border-black"></div>
+          </button>
+          <button 
+            onClick={() => setShowCamera(false)} 
+            className="w-20 py-2 px-4 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 transition-colors"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    )}
 
     {/* Tracking Number Success Modal */}
     {trackingNumber && (
