@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useMutation } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
-import { UserPlus, HardHat, ShieldCheck, MapPin } from "lucide-react"
+import { UserPlus, HardHat, ShieldCheck, MapPin, Eye, EyeOff } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { PasswordChecklist } from "@/components/ui/password-checklist"
@@ -14,11 +14,31 @@ import { apiClient } from "@/lib/api"
 export default function AdminAddPage() {
   const [activeTab, setActiveTab] = useState("admin")
   const [adminPassword, setAdminPassword] = useState("")
+  const [showAdminPassword, setShowAdminPassword] = useState(false)
   const [wfPassword, setWfPassword] = useState("")
+  const [showWfPassword, setShowWfPassword] = useState(false)
   const [isVerifying, setIsVerifying] = useState(false)
   const [verifyingEmail, setVerifyingEmail] = useState("")
   const [municipalityId, setMunicipalityId] = useState<string | null>(null)
   const [currentAdminArea, setCurrentAdminArea] = useState("Loading...")
+
+  // Phone number formatter for Philippine format
+  const formatPhoneNumber = (value: string) => {
+    const digits = value.replace(/\D/g, '');
+
+    if (digits.startsWith('63')) {
+      const remaining = digits.slice(2, 12);
+      return '+63' + remaining;
+    }
+
+    if (digits.startsWith('0')) {
+      const remaining = digits.slice(1, 11);
+      return '+63' + remaining;
+    }
+
+    const limited = digits.slice(0, 10);
+    return limited ? '+63' + limited : '';
+  };
 
   // Fetch current admin's profile to get their municipality
   useEffect(() => {
@@ -156,12 +176,22 @@ export default function AdminAddPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="floating-input !mt-0">
-                    <input id="admin-name" type="text" placeholder=" " required />
+                    <input id="admin-name" type="text" placeholder=" " required maxLength={50} />
                     <label htmlFor="admin-name">Full Name</label>
                     <span className="material-symbols-outlined input-icon">person</span>
                   </div>
                   <div className="floating-input !mt-0">
-                    <input id="admin-contact" type="tel" placeholder=" " required />
+                    <input
+                      id="admin-contact"
+                      type="tel"
+                      placeholder=" "
+                      required
+                      inputMode="tel"
+                      maxLength={13}
+                      onChange={(e) => {
+                        e.currentTarget.value = formatPhoneNumber(e.currentTarget.value);
+                      }}
+                    />
                     <label htmlFor="admin-contact">Contact Number</label>
                     <span className="material-symbols-outlined input-icon">call</span>
                   </div>
@@ -174,6 +204,7 @@ export default function AdminAddPage() {
                       type="email" 
                       placeholder=" " 
                       required 
+                      maxLength={100}
                       value={verifyingEmail}
                       onChange={(e) => setVerifyingEmail(e.target.value)}
                     />
@@ -184,18 +215,28 @@ export default function AdminAddPage() {
                 </div>
 
                 <div className="flex flex-col gap-1">
-                  <div className="floating-input !mt-0">
+                  <div className="floating-input !mt-0 relative">
                     <input 
                       id="admin-password" 
-                      type="password" 
+                      type={showAdminPassword ? "text" : "password"} 
                       placeholder=" " 
                       required 
                       minLength={8}
+                      maxLength={50}
                       value={adminPassword}
                       onChange={(e) => setAdminPassword(e.target.value)}
                     />
                     <label htmlFor="admin-password">Temporary Password</label>
                     <span className="material-symbols-outlined input-icon">lock</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowAdminPassword((prev) => !prev)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      aria-label={showAdminPassword ? "Hide password" : "Show password"}
+                      title={showAdminPassword ? "Hide password" : "Show password"}
+                    >
+                      {showAdminPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    </button>
                   </div>
                   <div className="pt-2 pl-1">
                     <PasswordChecklist password={adminPassword} />
@@ -228,12 +269,22 @@ export default function AdminAddPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="floating-input !mt-0">
-                    <input id="wf-name" type="text" placeholder=" " required />
+                    <input id="wf-name" type="text" placeholder=" " required maxLength={50} />
                     <label htmlFor="wf-name">Contact Person (Admin Name)</label>
                     <span className="material-symbols-outlined input-icon">badge</span>
                   </div>
-                  <div className="floating-input !mt-0">
-                    <input id="wf-contact" type="tel" placeholder=" " required />
+                  <div className="floating-input !mt-0 relative">
+                    <input
+                      id="wf-contact"
+                      type="tel"
+                      placeholder=" "
+                      required
+                      inputMode="tel"
+                      maxLength={13}
+                      onChange={(e) => {
+                        e.currentTarget.value = formatPhoneNumber(e.currentTarget.value);
+                      }}
+                    />
                     <label htmlFor="wf-contact">Contact Number</label>
                     <span className="material-symbols-outlined input-icon">call</span>
                   </div>
@@ -246,6 +297,7 @@ export default function AdminAddPage() {
                       type="email" 
                       placeholder=" " 
                       required 
+                      maxLength={100}
                       value={verifyingEmail}
                       onChange={(e) => setVerifyingEmail(e.target.value)}
                     />
@@ -256,18 +308,28 @@ export default function AdminAddPage() {
                 </div>
 
                 <div className="flex flex-col gap-1">
-                  <div className="floating-input !mt-0">
+                  <div className="floating-input !mt-0 relative">
                     <input 
                       id="wf-password" 
-                      type="password" 
+                      type={showWfPassword ? "text" : "password"} 
                       placeholder=" " 
                       required 
                       minLength={8}
+                      maxLength={50}
                       value={wfPassword}
                       onChange={(e) => setWfPassword(e.target.value)}
                     />
                     <label htmlFor="wf-password">Temporary Password</label>
                     <span className="material-symbols-outlined input-icon">lock</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowWfPassword((prev) => !prev)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      aria-label={showWfPassword ? "Hide password" : "Show password"}
+                      title={showWfPassword ? "Hide password" : "Show password"}
+                    >
+                      {showWfPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    </button>
                   </div>
                   <div className="pt-2 pl-1">
                     <PasswordChecklist password={wfPassword} />

@@ -490,8 +490,8 @@ export default function ReportPage() {
   ];
 
   const urgencyLevels = [
-    { value: 'low', label: 'Low', color: 'bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800' },
-    { value: 'medium', label: 'Medium', color: 'bg-yellow-100 text-yellow-700 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-800' },
+    { value: 'low', label: 'Low', color: 'bg-yellow-100 text-yellow-700 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-800' },
+    { value: 'medium', label: 'Medium', color: 'bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800' },
     { value: 'high', label: 'High', color: 'bg-red-100 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800' },
   ];
 
@@ -1062,7 +1062,13 @@ export default function ReportPage() {
       <div className="fixed inset-0 z-[100] bg-black flex flex-col animate-fade-in">
         <div className="p-4 flex justify-between items-center bg-black/50 text-white absolute top-0 left-0 right-0 z-20">
           <span className="font-medium">{formData.photos.length} / 5 Photos</span>
-          <button onClick={() => setShowCamera(false)} className="text-white hover:text-gray-300 transition-colors p-2">
+          <button
+            type="button"
+            onClick={() => setShowCamera(false)}
+            title="Close camera"
+            aria-label="Close camera"
+            className="text-white hover:text-gray-300 transition-colors p-2"
+          >
             <X size={24} />
           </button>
         </div>
@@ -1082,14 +1088,20 @@ export default function ReportPage() {
 
         <div className="p-6 pb-12 bg-black flex justify-between items-center z-20">
           <button
+            type="button"
             onClick={() => setFacingMode(prev => prev === 'environment' ? 'user' : 'environment')}
+            title="Switch camera"
+            aria-label="Switch camera"
             className="w-12 h-12 rounded-full bg-gray-800 text-white flex items-center justify-center hover:bg-gray-700 transition-colors"
           >
             <RefreshCcw size={24} />
           </button>
           <button 
+            type="button"
             onClick={capturePhoto} 
             disabled={formData.photos.length >= 5}
+            title="Capture photo"
+            aria-label="Capture photo"
             className="w-16 h-16 rounded-full bg-white border-4 border-gray-300 flex items-center justify-center disabled:opacity-50 active:scale-95 transition-transform"
           >
             <div className="w-14 h-14 rounded-full bg-white border-2 border-black"></div>

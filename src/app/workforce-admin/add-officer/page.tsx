@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { PasswordChecklist } from "@/components/ui/password-checklist"
 import { VerificationCodeUI } from "@/components/ui/verification-code"
 import { gooeyToast } from "goey-toast"
+import { Eye, EyeOff } from "lucide-react"
 
 export default function AddOfficerPage() {
   const [firstName, setFirstName] = useState("")
@@ -46,6 +47,7 @@ export default function AddOfficerPage() {
       : "";
 
   const [officerPassword, setOfficerPassword] = useState("")
+  const [showOfficerPassword, setShowOfficerPassword] = useState(false)
   const [isVerifying, setIsVerifying] = useState(false)
 
   const mutation = useMutation({
@@ -188,10 +190,10 @@ export default function AddOfficerPage() {
               <span className="material-symbols-outlined input-icon">domain</span>        
             </div>
 
-            <div className="floating-input">
+            <div className="floating-input relative">
               <input
                 id="officer-password"
-                type="password"
+                type={showOfficerPassword ? "text" : "password"}
                 placeholder=" "
                 required
                 minLength={8}
@@ -199,7 +201,16 @@ export default function AddOfficerPage() {
                 onChange={(e) => setOfficerPassword(e.target.value)}
               />
               <label htmlFor="officer-password">Temporary Password</label>
-              <span className="material-symbols-outlined input-icon">lock</span>        
+              <span className="material-symbols-outlined input-icon">lock</span>
+              <button
+                type="button"
+                onClick={() => setShowOfficerPassword((prev) => !prev)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                title={showOfficerPassword ? "Hide password" : "Show password"}
+                aria-label={showOfficerPassword ? "Hide password" : "Show password"}
+              >
+                {showOfficerPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
             </div>
 
             <div className="pt-1">

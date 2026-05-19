@@ -313,16 +313,17 @@ export default function AdminReportsPage() {
                           <div className="flex items-center gap-2">
                             <div className={`flex items-center gap-1.5 text-xs font-semibold px-2 py-0.5 rounded-full ${
                               item.urgency === 'High' ? 'bg-red-100 text-red-700' :
-                              item.urgency === 'Medium' ? 'bg-orange-100 text-orange-700' :
-                              'bg-green-100 text-green-700'
+                              item.urgency === 'Medium' ? 'bg-emerald-100 text-emerald-700' :
+                              'bg-yellow-100 text-yellow-700'
                             }`}>
                               <AlertCircle className="h-3 w-3" />
                               {item.urgency}
                             </div>
                             <div className={`flex items-center gap-1.5 text-sm font-semibold px-2.5 py-1 rounded-full ${
                               item.status === 'Resolved' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
-                              item.status === 'Action Taken' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
-                              'bg-indigo-100 text-indigo-700 border border-indigo-200'
+                              item.status === 'Rejected' ? 'bg-red-100 text-red-700 border border-red-200' :
+                              item.status === 'In Review' || item.status === 'Action Taken' ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' :
+                              'bg-slate-100 text-slate-700 border border-slate-200'
                             }`}>
                               {item.status === 'Resolved' && <CheckCircle2 className="h-4 w-4" />}
                               {item.status}

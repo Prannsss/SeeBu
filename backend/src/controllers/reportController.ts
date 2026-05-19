@@ -3,8 +3,35 @@ import { supabase } from '../config/db';
 import { persistImageInputs } from '../utils/mediaStorage';
 import { sendReportTrackingEmail } from '../utils/emailService';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
+import { z } from 'zod';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'seebu-super-secret-key-change-me';
+const reportSchema = z.object({
+  id: z.string().optional(),
+  reporter_id: z.string().uuid().optional().nullable(),
+  issue_type: z.string().min(1).max(100),
+  other_type_specification: z.string().max(255).optional().nullable(),
+  title: z.string().min(1).max(255),
+  description: z.string().min(1).max(2000),
+  municipality_id: z.union([z.string(), z.number()]),
+  barangay_id: z.union([z.string(), z.number()]),
+  location: z.string().min(1).max(500),
+  landmark: z.string().max(255).optional().nullable(),
+  urgency: z.enum(['Low', 'Medium', 'High', 'Critical']).optional().default('Medium'),
+  is_anonymous: z.boolean().optional().default(false),
+  reporter_name: z.string().max(255).optional().nullable(),
+  reporter_email: z.string().email().optional().nullable().or(z.literal('')),
+  reporter_phone: z.string().max(50).optional().nullable(),
+  photos: z.array(z.string().refine(val => {
+    if (val.startsWith('data:image/')) {
+      const sizeInBytes = val.length * 0.75;
+      return sizeInBytes <= 5 * 1024 * 1024;
+    }
+    return val.startsWith('http');
+  }, { message: 'Photo must be a valid URL or base64 image under 5MB' })).max(10).optional().nullable(),
+});
+
+const JWT_SECRET = process.env.JWT_SECRET as string;
 
 async function getAdminMunicipality(adminId: string) {
   const { data, error } = await supabase
@@ -39,6 +66,11 @@ export const reportController = {
         reporter_phone,
         photos // Expected as array of public URLs String[]
       } = req.body;
+
+      const validation = reportSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ error: 'Validation failed', details: validation.error.format() });
+      }
 
       // Best-effort identity fallback: if Authorization exists, trust token identity for client linkage.
       const authHeader = req.headers.authorization;
@@ -75,7 +107,7 @@ export const reportController = {
       }
 
       // Handle custom ID generation if not provided
-      const reportId = id || `RPT-${Math.floor(1000 + Math.random() * 9000)}-${Date.now().toString().slice(-4)}`;
+      const reportId = id || `RPT-${crypto.randomUUID().slice(0, 8).toUpperCase()}-${Date.now().toString().slice(-4)}`;
 
       // 1. Insert into reports
       const { data: report, error } = await supabase
@@ -159,7 +191,7 @@ export const reportController = {
   // READ REPORTS
   async getReports(req: Request, res: Response) {
     try {
-      const { municipality_id, status, reporter_id, reporter_email } = req.query;
+      const { municipality_id, status, reporter_id, reporter_email, updated_after } = req.query;
       const reporterIdParam = reporter_id ? String(reporter_id).trim() : '';
 
       const baseSelect = `
@@ -171,6 +203,13 @@ export const reportController = {
 
       const applyBaseFilters = (query: any, options?: { ignoreStatus?: boolean }) => {
         let q = query;
+        
+        // Cache Incremental Sync Hook (Stale-While-Revalidate Delta API)
+        if (updated_after) {
+            const timestamp = new Date(String(updated_after)).toISOString();
+            q = q.gte('updated_at', timestamp);
+        }
+
         if (municipality_id) {
           const rawMunicipality = String(municipality_id);
           const normalizedDash = rawMunicipality.replace(/_/g, '-');
@@ -472,7 +511,7 @@ export const reportController = {
           .limit(1);
 
         if (!existingOpenTask || existingOpenTask.length === 0) {
-          const taskId = `TSK-${Math.floor(1000 + Math.random() * 9000)}-${Date.now().toString().slice(-4)}`;
+          const taskId = `TSK-${crypto.randomUUID().slice(0, 8).toUpperCase()}-${Date.now().toString().slice(-4)}`;
           const priority = (existingReport.urgency || 'Medium').charAt(0).toUpperCase() + (existingReport.urgency || 'Medium').slice(1).toLowerCase();
           const assigneeRole = assigned_role ? String(assigned_role) : '';
           const assignedOfficerId = assigneeRole === 'workforce' ? assigned_to : null;

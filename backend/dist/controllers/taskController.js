@@ -7,7 +7,7 @@ exports.taskController = {
     // READ TASKS
     async getTasks(req, res) {
         try {
-            const { assigned_to, delegated_to, status } = req.query;
+            const { assigned_to, delegated_to, status, updated_after } = req.query;
             let query = db_1.supabase
                 .from('tasks')
                 .select(`
@@ -25,6 +25,9 @@ exports.taskController = {
           )
         `)
                 .order('created_at', { ascending: false });
+            if (updated_after) {
+                query = query.gte('updated_at', new Date(String(updated_after)).toISOString());
+            }
             if (assigned_to)
                 query = query.eq('assigned_to', assigned_to);
             if (delegated_to) {

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { reportController } from '../controllers/reportController';
 import { withAuth } from '../middlewares/withAuth';
 import { requireRole } from '../middlewares/requireRole';
+import { reportLimiter } from '../middlewares/rateLimiter';
 
 const router = Router();
 
@@ -12,7 +13,7 @@ router.get('/', reportController.getReports);
 router.get('/:id', reportController.getReportById);
 
 // Create a new report
-router.post('/', reportController.createReport);
+router.post('/', reportLimiter, reportController.createReport);
 
 // Update a specific report (Status change)
 router.put('/:id', withAuth, requireRole(['admin', 'superadmin']), reportController.updateReportStatus);

@@ -2,7 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
-
+import rateLimit from 'express-rate-limit';
+import { limiter } from './middlewares/rateLimiter';
 import authRoutes from './routes/authRoutes';
 import locationRoutes from './routes/locationRoutes';
 import reportRoutes from './routes/reportRoutes';
@@ -15,14 +16,23 @@ import departmentRoutes from './routes/departmentRoutes';
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 dotenv.config({ path: path.resolve(process.cwd(), 'backend/.env') });
 
+if (!process.env.JWT_SECRET) {
+  console.error('FATAL ERROR: JWT_SECRET environment variable is not set.');
+  process.exit(1);
+}
+
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Apply rate limiting to all requests
+app.use(limiter);
 
 const allowedOrigins = [
   'https://seebucommunity.vercel.app',
   'http://localhost:3000',
+  ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : []),
   process.env.FRONTEND_URL
-].filter(Boolean);
+].filter(Boolean) as string[];
 
 app.use(cors({
   origin: function (origin, callback) {

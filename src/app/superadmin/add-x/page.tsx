@@ -19,6 +19,23 @@ export default function SuperadminAddPage() {
   const [showSuperadminPassword, setShowSuperadminPassword] = useState(false)
   const [isVerifying, setIsVerifying] = useState(false)
   const [verifyingEmail, setVerifyingEmail] = useState("")
+
+  const formatPhoneNumber = (value: string) => {
+    const digits = value.replace(/\D/g, '');
+
+    if (digits.startsWith('63')) {
+      const remaining = digits.slice(2, 12);
+      return '+63' + remaining;
+    }
+
+    if (digits.startsWith('0')) {
+      const remaining = digits.slice(1, 11);
+      return '+63' + remaining;
+    }
+
+    const limited = digits.slice(0, 10);
+    return limited ? '+63' + limited : '';
+  };
   const [municipalityId, setMunicipalityId] = useState("")
   const [municipalityInput, setMunicipalityInput] = useState("")
   const [showMunicipalityDropdown, setShowMunicipalityDropdown] = useState(false)
@@ -212,12 +229,22 @@ export default function SuperadminAddPage() {
               <form className="flex flex-col gap-4 flex-1" onSubmit={handleAddSubmit}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="floating-input !mt-0">
-                    <input id="admin-name" type="text" placeholder=" " required />
+                    <input id="admin-name" type="text" placeholder=" " required maxLength={50} />
                     <label htmlFor="admin-name">Full Name</label>
                     <span className="material-symbols-outlined input-icon">person</span>
                   </div>
                   <div className="floating-input !mt-0">
-                    <input id="admin-contact" type="tel" placeholder=" " required />
+                    <input
+                      id="admin-contact"
+                      type="tel"
+                      placeholder=" "
+                      required
+                      inputMode="tel"
+                      maxLength={13}
+                      onChange={(e) => {
+                        e.currentTarget.value = formatPhoneNumber(e.currentTarget.value);
+                      }}
+                    />
                     <label htmlFor="admin-contact">Contact Number</label>
                     <span className="material-symbols-outlined input-icon">call</span>
                   </div>
@@ -230,6 +257,7 @@ export default function SuperadminAddPage() {
                       type="email" 
                       placeholder=" " 
                       required 
+                      maxLength={100}
                       value={verifyingEmail}
                       onChange={(e) => setVerifyingEmail(e.target.value)}
                     />
@@ -295,6 +323,7 @@ export default function SuperadminAddPage() {
                       placeholder=" " 
                       required 
                       minLength={8}
+                      maxLength={50}
                       value={adminPassword}
                       onChange={(e) => setAdminPassword(e.target.value)}
                     />
@@ -333,12 +362,22 @@ export default function SuperadminAddPage() {
               <form className="flex flex-col gap-4 flex-1" onSubmit={handleAddSubmit}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="floating-input !mt-0">
-                    <input id="sa-name" type="text" placeholder=" " required />
+                    <input id="sa-name" type="text" placeholder=" " required maxLength={50} />
                     <label htmlFor="sa-name">Full Name</label>
                     <span className="material-symbols-outlined input-icon">person</span>
                   </div>
                   <div className="floating-input !mt-0">
-                    <input id="sa-contact" type="tel" placeholder=" " required />
+                    <input
+                      id="sa-contact"
+                      type="tel"
+                      placeholder=" "
+                      required
+                      inputMode="tel"
+                      maxLength={13}
+                      onChange={(e) => {
+                        e.currentTarget.value = formatPhoneNumber(e.currentTarget.value);
+                      }}
+                    />
                     <label htmlFor="sa-contact">Contact Number</label>
                     <span className="material-symbols-outlined input-icon">call</span>
                   </div>
@@ -351,6 +390,7 @@ export default function SuperadminAddPage() {
                       type="email" 
                       placeholder=" " 
                       required 
+                      maxLength={100}
                       value={verifyingEmail}
                       onChange={(e) => setVerifyingEmail(e.target.value)}
                     />
@@ -368,6 +408,7 @@ export default function SuperadminAddPage() {
                       placeholder=" " 
                       required 
                       minLength={8}
+                      maxLength={50}
                       value={superadminPassword}
                       onChange={(e) => setSuperadminPassword(e.target.value)}
                     />

@@ -4,7 +4,7 @@ import { sendWelcomeEmail, sendVerificationEmail } from '../utils/emailService';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'seebu-super-secret-key-change-me';
+const JWT_SECRET = process.env.JWT_SECRET as string;
 
 // All tables that hold user accounts (used when searching by email)
 const USER_TABLES = [
@@ -222,10 +222,7 @@ export const authController = {
 
       const isMatch = await bcrypt.compare(password, user.password_hash);
       if (!isMatch) {
-        // Fallback for legacy plain-text passwords during migration
-        if (user.password_hash !== password) {
-          return res.status(401).json({ error: 'Invalid credentials' });
-        }
+        return res.status(401).json({ error: 'Invalid credentials' });
       }
 
       user.role = userRole;

@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Clock3, FileText, CheckCircle2, Copy } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useQuery } from '@tanstack/react-query'
 import { gooeyToast } from "goey-toast"
 
@@ -17,6 +17,11 @@ function truncate(str: string, length = 60) {
 export default function ClientHistoryPage() {
   const [activeTab, setActiveTab] = useState("all");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const handleCopyTracking = async (trackingId: string) => {
     try {
@@ -92,7 +97,8 @@ export default function ClientHistoryPage() {
 
   const filteredItems = items.filter((item: any) => {
     if (activeTab === "all") return true;
-    if (activeTab === "pending") return !['Resolved', 'Completed'].includes(item.status);
+    if (activeTab === "pending") return !['Resolved', 'Completed', 'Rejected'].includes(item.status);
+    if (activeTab === "rejected") return item.status === 'Rejected';
     if (activeTab === "resolved") return ['Resolved', 'Completed'].includes(item.status);
     return true;
   });
@@ -123,6 +129,12 @@ export default function ClientHistoryPage() {
               Pending
             </TabsTrigger>
             <TabsTrigger 
+              value="rejected" 
+              className="flex-1 text-sm md:text-base py-3 px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-blue-700 font-medium transition-all duration-300 ease-in-out"
+            >
+              Rejected
+            </TabsTrigger>
+            <TabsTrigger 
               value="resolved" 
               className="flex-1 text-sm md:text-base py-3 px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-blue-700 font-medium transition-all duration-300 ease-in-out"
             >
@@ -132,7 +144,11 @@ export default function ClientHistoryPage() {
           
           <TabsContent value={activeTab} className="m-0 focus-visible:outline-none">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
-              {filteredItems.length === 0 ? (
+              {!isMounted || isLoading ? (
+                <div className="text-center py-10 col-span-full text-muted-foreground bg-white/50 rounded-xl border border-dashed border-gray-300">
+                  Loading...
+                </div>
+              ) : filteredItems.length === 0 ? (
                 <div className="text-center py-10 col-span-full text-muted-foreground bg-white/50 rounded-xl border border-dashed border-gray-300">
                   No records found in this category.
                 </div>
@@ -184,8 +200,9 @@ export default function ClientHistoryPage() {
                         <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Status</span>
                         <div className={`flex items-center gap-1.5 text-sm font-semibold px-2.5 py-1 rounded-full ${
                           item.status === 'Resolved' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
-                          item.status === 'Action Taken' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
-                          'bg-indigo-100 text-indigo-700 border border-indigo-200'
+                          item.status === 'Rejected' ? 'bg-red-100 text-red-700 border border-red-200' :
+                          item.status === 'In Review' || item.status === 'Action Taken' ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' :
+                          'bg-slate-100 text-slate-700 border border-slate-200'
                         }`}>
                           {item.status === 'Resolved' && <CheckCircle2 className="h-4 w-4" />}
                           {item.status}

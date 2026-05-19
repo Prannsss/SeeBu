@@ -8,7 +8,7 @@ const db_1 = require("../config/db");
 const emailService_1 = require("../utils/emailService");
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
-const JWT_SECRET = process.env.JWT_SECRET || 'seebu-super-secret-key-change-me';
+const JWT_SECRET = process.env.JWT_SECRET;
 // All tables that hold user accounts (used when searching by email)
 const USER_TABLES = [
     'clients',
@@ -192,10 +192,7 @@ exports.authController = {
             }
             const isMatch = await bcryptjs_1.default.compare(password, user.password_hash);
             if (!isMatch) {
-                // Fallback for legacy plain-text passwords during migration
-                if (user.password_hash !== password) {
-                    return res.status(401).json({ error: 'Invalid credentials' });
-                }
+                return res.status(401).json({ error: 'Invalid credentials' });
             }
             user.role = userRole;
             const token = jsonwebtoken_1.default.sign({ id: user.id, role: userRole }, JWT_SECRET, { expiresIn: '7d' });

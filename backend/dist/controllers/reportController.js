@@ -8,7 +8,33 @@ const db_1 = require("../config/db");
 const mediaStorage_1 = require("../utils/mediaStorage");
 const emailService_1 = require("../utils/emailService");
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
-const JWT_SECRET = process.env.JWT_SECRET || 'seebu-super-secret-key-change-me';
+const crypto_1 = __importDefault(require("crypto"));
+const zod_1 = require("zod");
+const reportSchema = zod_1.z.object({
+    id: zod_1.z.string().optional(),
+    reporter_id: zod_1.z.string().uuid().optional().nullable(),
+    issue_type: zod_1.z.string().min(1).max(100),
+    other_type_specification: zod_1.z.string().max(255).optional().nullable(),
+    title: zod_1.z.string().min(1).max(255),
+    description: zod_1.z.string().min(1).max(2000),
+    municipality_id: zod_1.z.union([zod_1.z.string(), zod_1.z.number()]),
+    barangay_id: zod_1.z.union([zod_1.z.string(), zod_1.z.number()]),
+    location: zod_1.z.string().min(1).max(500),
+    landmark: zod_1.z.string().max(255).optional().nullable(),
+    urgency: zod_1.z.enum(['Low', 'Medium', 'High', 'Critical']).optional().default('Medium'),
+    is_anonymous: zod_1.z.boolean().optional().default(false),
+    reporter_name: zod_1.z.string().max(255).optional().nullable(),
+    reporter_email: zod_1.z.string().email().optional().nullable().or(zod_1.z.literal('')),
+    reporter_phone: zod_1.z.string().max(50).optional().nullable(),
+    photos: zod_1.z.array(zod_1.z.string().refine(val => {
+        if (val.startsWith('data:image/')) {
+            const sizeInBytes = val.length * 0.75;
+            return sizeInBytes <= 5 * 1024 * 1024;
+        }
+        return val.startsWith('http');
+    }, { message: 'Photo must be a valid URL or base64 image under 5MB' })).max(10).optional().nullable(),
+});
+const JWT_SECRET = process.env.JWT_SECRET;
 async function getAdminMunicipality(adminId) {
     const { data, error } = await db_1.supabase
         .from('admins')
@@ -26,6 +52,10 @@ exports.reportController = {
             const { id, // Frontend can send UUID or we can generate logic (e.g. 'RPT-...')
             reporter_id, issue_type, other_type_specification, title, description, municipality_id, barangay_id, location, landmark, urgency, is_anonymous, reporter_name, reporter_email, reporter_phone, photos // Expected as array of public URLs String[]
              } = req.body;
+            const validation = reportSchema.safeParse(req.body);
+            if (!validation.success) {
+                return res.status(400).json({ error: 'Validation failed', details: validation.error.format() });
+            }
             // Best-effort identity fallback: if Authorization exists, trust token identity for client linkage.
             const authHeader = req.headers.authorization;
             let tokenUserId = null;
@@ -58,7 +88,7 @@ exports.reportController = {
                 }
             }
             // Handle custom ID generation if not provided
-            const reportId = id || `RPT-${Math.floor(1000 + Math.random() * 9000)}-${Date.now().toString().slice(-4)}`;
+            const reportId = id || `RPT-${crypto_1.default.randomUUID().slice(0, 8).toUpperCase()}-${Date.now().toString().slice(-4)}`;
             // 1. Insert into reports
             const { data: report, error } = await db_1.supabase
                 .from('reports')
@@ -131,7 +161,7 @@ exports.reportController = {
     // READ REPORTS
     async getReports(req, res) {
         try {
-            const { municipality_id, status, reporter_id, reporter_email } = req.query;
+            const { municipality_id, status, reporter_id, reporter_email, updated_after } = req.query;
             const reporterIdParam = reporter_id ? String(reporter_id).trim() : '';
             const baseSelect = `
         *,
@@ -141,6 +171,11 @@ exports.reportController = {
       `;
             const applyBaseFilters = (query, options) => {
                 let q = query;
+                // Cache Incremental Sync Hook (Stale-While-Revalidate Delta API)
+                if (updated_after) {
+                    const timestamp = new Date(String(updated_after)).toISOString();
+                    q = q.gte('updated_at', timestamp);
+                }
                 if (municipality_id) {
                     const rawMunicipality = String(municipality_id);
                     const normalizedDash = rawMunicipality.replace(/_/g, '-');
@@ -403,7 +438,7 @@ exports.reportController = {
                     .neq('status', 'Completed')
                     .limit(1);
                 if (!existingOpenTask || existingOpenTask.length === 0) {
-                    const taskId = `TSK-${Math.floor(1000 + Math.random() * 9000)}-${Date.now().toString().slice(-4)}`;
+                    const taskId = `TSK-${crypto_1.default.randomUUID().slice(0, 8).toUpperCase()}-${Date.now().toString().slice(-4)}`;
                     const priority = (existingReport.urgency || 'Medium').charAt(0).toUpperCase() + (existingReport.urgency || 'Medium').slice(1).toLowerCase();
                     const assigneeRole = assigned_role ? String(assigned_role) : '';
                     const assignedOfficerId = assigneeRole === 'workforce' ? assigned_to : null;
