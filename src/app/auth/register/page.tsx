@@ -19,6 +19,7 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const handleOAuthBackendSync = async (provider: 'google' | 'facebook', payload: any) => {
+    payload.action = 'register';
     const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'development' ? "http://localhost:5000" : "https://seebu.onrender.com")}/api/v1/auth/${provider}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

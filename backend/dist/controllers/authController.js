@@ -76,7 +76,7 @@ exports.authController = {
     // ── Google OAuth ─────────────────────────────────────────────────────────
     async googleOAuthCallback(req, res) {
         try {
-            const { email, full_name, google_id } = req.body;
+            const { email, full_name, google_id, action } = req.body;
             if (!email)
                 return res.status(400).json({ error: 'Missing OAuth email' });
             let { data: existingClient } = await db_1.supabase
@@ -84,6 +84,14 @@ exports.authController = {
                 .select('*')
                 .eq('email', email)
                 .single();
+            if (action === 'login') {
+                if (!existingClient) {
+                    return res.status(401).json({ error: "Invalid. This account doesn't have an account. Sign up first" });
+                }
+                const token = jsonwebtoken_1.default.sign({ id: existingClient.id, role: 'client' }, JWT_SECRET, { expiresIn: '7d' });
+                return res.status(200).json({ message: 'Login successful', user: { ...existingClient, role: 'client' }, token });
+            }
+            // If action is register (or fallback)
             if (existingClient) {
                 const token = jsonwebtoken_1.default.sign({ id: existingClient.id, role: 'client' }, JWT_SECRET, { expiresIn: '7d' });
                 return res.status(200).json({ message: 'Login successful', user: { ...existingClient, role: 'client' }, token });
@@ -97,15 +105,16 @@ exports.authController = {
                     password_hash: hashedPassword,
                     full_name: full_name || 'Google User',
                     status: 'Active',
-                    email_verified: false,
+                    email_verified: true, // verified by default for OAuth
                 }])
                 .select('*')
                 .single();
             if (error)
                 throw error;
-            const verificationCode = await issueVerificationToken(email, 'email_verify');
-            await (0, emailService_1.sendWelcomeEmail)(email, full_name || 'Google User');
-            await (0, emailService_1.sendVerificationEmail)(email, full_name || 'Google User', verificationCode);
+            // Do NOT trigger the email service for OAuth registrations
+            // const verificationCode = await issueVerificationToken(email, 'email_verify');
+            // await sendWelcomeEmail(email, full_name || 'Google User');
+            // await sendVerificationEmail(email, full_name || 'Google User', verificationCode);
             const token = jsonwebtoken_1.default.sign({ id: newClient.id, role: 'client' }, JWT_SECRET, { expiresIn: '7d' });
             return res.status(201).json({
                 message: 'Registration successful via Google',
@@ -121,10 +130,17 @@ exports.authController = {
     // ── Facebook OAuth ───────────────────────────────────────────────────────
     async facebookOAuthCallback(req, res) {
         try {
-            const { email, full_name } = req.body;
+            const { email, full_name, action } = req.body;
             if (!email)
                 return res.status(400).json({ error: 'Missing OAuth email' });
             let { data: existingClient } = await db_1.supabase.from('clients').select('*').eq('email', email).single();
+            if (action === 'login') {
+                if (!existingClient) {
+                    return res.status(401).json({ error: "Invalid. This account doesn't have an account. Sign up first" });
+                }
+                const token = jsonwebtoken_1.default.sign({ id: existingClient.id, role: 'client' }, JWT_SECRET, { expiresIn: '7d' });
+                return res.status(200).json({ message: 'Login successful', user: { ...existingClient, role: 'client' }, token });
+            }
             if (existingClient) {
                 const token = jsonwebtoken_1.default.sign({ id: existingClient.id, role: 'client' }, JWT_SECRET, { expiresIn: '7d' });
                 return res.status(200).json({ message: 'Login successful', user: { ...existingClient, role: 'client' }, token });
@@ -138,15 +154,16 @@ exports.authController = {
                     password_hash: hashedPassword,
                     full_name: full_name || 'Facebook User',
                     status: 'Active',
-                    email_verified: false,
+                    email_verified: true, // verified by default for OAuth
                 }])
                 .select('*')
                 .single();
             if (error)
                 throw error;
-            const verificationCode = await issueVerificationToken(email, 'email_verify');
-            await (0, emailService_1.sendWelcomeEmail)(email, full_name || 'Facebook User');
-            await (0, emailService_1.sendVerificationEmail)(email, full_name || 'Facebook User', verificationCode);
+            // Do NOT trigger the email service for OAuth registrations
+            // const verificationCode = await issueVerificationToken(email, 'email_verify');
+            // await sendWelcomeEmail(email, full_name || 'Facebook User');
+            // await sendVerificationEmail(email, full_name || 'Facebook User', verificationCode);
             const token = jsonwebtoken_1.default.sign({ id: newClient.id, role: 'client' }, JWT_SECRET, { expiresIn: '7d' });
             return res.status(201).json({
                 message: 'Registration successful via Facebook',

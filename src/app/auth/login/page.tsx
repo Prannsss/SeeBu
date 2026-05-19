@@ -19,6 +19,7 @@ export default function LoginPage() {
   const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
 
   const handleOAuthBackendSync = async (provider: 'google' | 'facebook', payload: any) => {
+    payload.action = 'login';
     const res = await fetch(`${apiBase}/api/v1/auth/${provider}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
