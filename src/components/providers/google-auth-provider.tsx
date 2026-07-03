@@ -7,7 +7,7 @@ export default function GoogleAuthProvider({ children }: { children: React.React
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "1234567890-mockclientid.apps.googleusercontent.com";
 
   return (
-    <GoogleOAuthProvider clientId={clientId}>
+    <GoogleOAuthProvider clientId={clientId} locale="en">
       {children}
     </GoogleOAuthProvider>
   );

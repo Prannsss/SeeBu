@@ -47,8 +47,8 @@ export function Footer() {
           <div className="col-span-2 md:col-span-1 flex flex-col items-center md:items-start text-center md:text-left">
             <h4 className="font-bold text-text-main dark:text-white mb-4">Legal</h4>
             <ul className="space-y-3 text-sm text-text-muted dark:text-gray-400 flex flex-col items-center md:items-start">
-              <li><Link className="hover:text-primary transition-colors" href="#">Privacy Policy</Link></li>
-              <li><Link className="hover:text-primary transition-colors" href="#">Terms of Service</Link></li>
+              <li><Link className="hover:text-primary transition-colors" href="/privacy">Privacy Policy</Link></li>
+              <li><Link className="hover:text-primary transition-colors" href="/terms">Terms of Service</Link></li>
               <li><Link className="hover:text-primary transition-colors" href="#">Cookie Policy</Link></li>
             </ul>
           </div>

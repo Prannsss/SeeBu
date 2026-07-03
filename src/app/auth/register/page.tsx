@@ -283,7 +283,7 @@ export default function RegisterPage() {
               <div className="flex items-start space-x-2 pt-2">
                 <Checkbox id="terms" required />
                 <label htmlFor="terms" className="text-xs leading-relaxed peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-text-muted dark:text-gray-400">
-                  I agree to SeeBu's <Link href="#" className="text-primary underline hover:text-primary-dark">Terms of Service</Link> and <Link href="#" className="text-primary underline hover:text-primary-dark">Privacy Policy</Link>.
+                  I agree to SeeBu's <Link href="/terms" target="_blank" className="text-primary underline hover:text-primary-dark">Terms of Service</Link> and <Link href="/privacy" target="_blank" className="text-primary underline hover:text-primary-dark">Privacy Policy</Link>.
                 </label>
               </div>
               <Button
@@ -302,12 +302,24 @@ export default function RegisterPage() {
             </div>
 
             <div className="mt-6 flex flex-col space-y-4">
-              <div className="flex justify-center [&>div]:w-full">
-                <GoogleLogin
-                  onSuccess={handleGoogleSuccess}
-                  onError={() => gooeyToast.error('Google Login Failed', { description: 'Failed to connect to Google.' })}
-                  width="100%"
-                />
+              <div className="relative w-full h-12">
+                <Button
+                  type="button"
+                  variant="outline"
+                  tabIndex={-1}
+                  className="w-full h-12 flex items-center justify-center gap-3 font-semibold text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 pointer-events-none"
+                >
+                  <Image src="/assets/google.svg" alt="Google" width={20} height={20} />
+                  Continue with Google
+                </Button>
+                <div className="absolute inset-0 overflow-hidden opacity-0 [&>div]:w-full [&>div]:h-full [&_iframe]:!w-full [&_iframe]:!h-full">
+                  <GoogleLogin
+                    onSuccess={handleGoogleSuccess}
+                    onError={() => gooeyToast.error('Google Login Failed', { description: 'Failed to connect to Google.' })}
+                    width="100%"
+                    size="large"
+                  />
+                </div>
               </div>
               <FacebookLogin
                 appId={process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || ""}

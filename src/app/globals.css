@@ -369,3 +369,115 @@
     max-width: calc(100vw - 48px);
   }
 }
+
+/* Legal page prose (Terms of Service / Privacy Policy) */
+.prose-legal h2 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin-top: 2.5rem;
+  margin-bottom: 1rem;
+  scroll-margin-top: 7rem;
+}
+
+.dark .prose-legal h2 {
+  color: #ffffff;
+}
+
+.prose-legal h3 {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-top: 1.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.dark .prose-legal h3 {
+  color: #ffffff;
+}
+
+.prose-legal p {
+  color: #475569;
+  line-height: 1.75;
+  margin-bottom: 1rem;
+}
+
+.dark .prose-legal p {
+  color: #9ca3af;
+}
+
+.prose-legal ul,
+.prose-legal ol {
+  color: #475569;
+  line-height: 1.75;
+  margin-bottom: 1rem;
+  padding-left: 1.5rem;
+}
+
+.dark .prose-legal ul,
+.dark .prose-legal ol {
+  color: #9ca3af;
+}
+
+.prose-legal ul {
+  list-style-type: disc;
+}
+
+.prose-legal ol {
+  list-style-type: decimal;
+}
+
+.prose-legal li {
+  margin-bottom: 0.5rem;
+}
+
+.prose-legal li::marker {
+  color: #13b6ec;
+}
+
+.prose-legal a {
+  color: #13b6ec;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.prose-legal strong {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.dark .prose-legal strong {
+  color: #ffffff;
+}
+
+.prose-legal table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1.5rem;
+  font-size: 0.875rem;
+}
+
+.prose-legal th {
+  text-align: left;
+  font-weight: 700;
+  color: #0f172a;
+  border-bottom: 2px solid #e5e7eb;
+  padding: 0.6rem 0.75rem;
+}
+
+.dark .prose-legal th {
+  color: #ffffff;
+  border-bottom-color: #374151;
+}
+
+.prose-legal td {
+  color: #475569;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 0.6rem 0.75rem;
+  vertical-align: top;
+}
+
+.dark .prose-legal td {
+  color: #9ca3af;
+  border-bottom-color: #374151;
+}
