@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { userController } from '../controllers/userController';
 import { withAuth } from '../middlewares/withAuth';
+import { requireRole } from '../middlewares/requireRole';
 
 const router = Router();
 
@@ -10,6 +11,6 @@ router.patch('/me', withAuth, userController.updateCurrentUser);
 router.delete('/me', withAuth, userController.deleteCurrentUser);
 
 // /api/v1/users (Global view for super admins)
-router.get('/', withAuth, userController.getAllUsers);
+router.get('/', withAuth, requireRole(['superadmin']), userController.getAllUsers);
 
 export default router;

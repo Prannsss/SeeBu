@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { supabase } from '../config/db';
+import { serverErrorMessage } from '../utils/errorResponse';
 
 type DepartmentRecord = {
   id: number;
@@ -139,7 +140,7 @@ export const departmentController = {
 
       return res.status(200).json({ data });
     } catch (err: any) {
-      return res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: serverErrorMessage(err) });
     }
   },
 
@@ -192,7 +193,7 @@ export const departmentController = {
 
       return res.status(200).json({ data: personnel });
     } catch (err: any) {
-      return res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: serverErrorMessage(err) });
     }
   },
 };

@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { supabase } from '../config/db';
+import { serverErrorMessage } from '../utils/errorResponse';
 
 export const analyticsController = {
   // SUPERADMIN: General overview across ALL municipalities
@@ -30,33 +31,31 @@ export const analyticsController = {
         queryTime = queryTime.eq('barangay_id', barangay_id);
       }
 
-      const { data: statusCounts, error: statusErr } = await queryStatus;
+      const [
+        { data: statusCounts, error: statusErr },
+        { data: reportsWithIssueType, error: issueTypeErr },
+        { data: allMunicipalities, error: munErr },
+        { data: allBarangays, error: brgyErr },
+        { data: recurringData, error: recErr },
+        { data: reportsOverTime, error: reportsOverTimeErr },
+      ] = await Promise.all([
+        queryStatus,
+        queryIssue,
+        supabase.from('municipalities').select('id, name').order('name', { ascending: true }),
+        supabase.from('barangays').select('id, name, municipality_id').order('name', { ascending: true }),
+        queryRec,
+        queryTime,
+      ]);
       if (statusErr) throw statusErr;
+      if (issueTypeErr) throw issueTypeErr;
+      if (munErr) throw munErr;
+      if (brgyErr) throw brgyErr;
+      if (recErr) throw recErr;
+      if (reportsOverTimeErr) throw reportsOverTimeErr;
 
       const totalReports = statusCounts.length;
       const reportedIssues = statusCounts.filter(r => r.status === 'In Review').length;
       const completedTasks = statusCounts.filter(r => r.status === 'Completed' || r.status === 'Resolved').length;
-
-      const { data: reportsWithIssueType, error: issueTypeErr } = await queryIssue;
-      if (issueTypeErr) throw issueTypeErr;
-
-      const { data: allMunicipalities, error: munErr } = await supabase
-        .from('municipalities')
-        .select('id, name')
-        .order('name', { ascending: true });
-      if (munErr) throw munErr;
-
-      const { data: allBarangays, error: brgyErr } = await supabase
-        .from('barangays')
-        .select('id, name, municipality_id')
-        .order('name', { ascending: true });
-      if (brgyErr) throw brgyErr;
-
-      const { data: recurringData, error: recErr } = await queryRec;
-      if (recErr) throw recErr;
-
-      const { data: reportsOverTime, error: reportsOverTimeErr } = await queryTime;
-      if (reportsOverTimeErr) throw reportsOverTimeErr;
 
       // Format Chart Data & Recurring Data dynamically from SQL grouping instead of JSON!
       const groupedByMun: Record<string, number> = {};
@@ -136,7 +135,7 @@ export const analyticsController = {
         barangays: allBarangays
       });
     } catch (err: any) {
-      return res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: serverErrorMessage(err) });
     }
   },
 
@@ -148,6 +147,12 @@ export const analyticsController = {
 
       if (!municipality_id) {
         return res.status(400).json({ error: 'municipality_id is required' });
+      }
+
+      if (req.user?.role === 'admin') {
+        if (!req.user.municipality_id || req.user.municipality_id !== municipality_id) {
+          return res.status(403).json({ error: 'You may only view analytics for your own municipality' });
+        }
       }
 
       let reportsQuery = supabase
@@ -166,15 +171,19 @@ export const analyticsController = {
       }
 
       // Fetch barangays for this municipality for the frontend filter
-      const { data: allBarangays, error: brgyErr } = await supabase
-        .from('barangays')
-        .select('id, name, municipality_id')
-        .eq('municipality_id', municipality_id)
-        .order('name', { ascending: true });
+      const [
+        { data: allBarangays, error: brgyErr },
+        { data: reports, error },
+      ] = await Promise.all([
+        supabase
+          .from('barangays')
+          .select('id, name, municipality_id')
+          .eq('municipality_id', municipality_id)
+          .order('name', { ascending: true }),
+        reportsQuery,
+      ]);
 
       if (brgyErr) throw brgyErr;
-
-      const { data: reports, error } = await reportsQuery;
       if (error) throw error;
 
       const totalReports = reports.length;
@@ -247,7 +256,7 @@ export const analyticsController = {
         barangays: allBarangays
       });
     } catch (err: any) {
-      return res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: serverErrorMessage(err) });
     }
   }
 };

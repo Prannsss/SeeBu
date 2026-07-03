@@ -7,6 +7,7 @@ import { PasswordChecklist } from "@/components/ui/password-checklist"
 import { VerificationCodeUI } from "@/components/ui/verification-code"
 import { gooeyToast } from "goey-toast"
 import { Eye, EyeOff } from "lucide-react"
+import { useCurrentUser } from "@/hooks/queries/useCurrentUser"
 
 export default function AddOfficerPage() {
   const [firstName, setFirstName] = useState("")
@@ -14,14 +15,7 @@ export default function AddOfficerPage() {
   const [email, setEmail] = useState("")
   const [phone, setPhone] = useState("")
   const [department, setDepartment] = useState("")
-    const { data: profileData } = useQuery({
-      queryKey: ['workforce-admin-me'],
-      queryFn: async () => {
-        const { apiClient } = await import('@/lib/api');
-        const result = await apiClient.users.me();
-        return result.data;
-      }
-    })
+    const { data: profileData } = useCurrentUser()
 
     const { data: departmentsData } = useQuery({
       queryKey: ['workforce-admin-departments'],

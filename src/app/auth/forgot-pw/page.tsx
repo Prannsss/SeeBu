@@ -16,6 +16,8 @@ export default function ForgotPasswordPage() {
   const [step, setStep] = useState<'email' | 'code' | 'password'>('email');
   const [email, setEmail] = useState("");
   const [resetCode, setResetCode] = useState("");
+  const [channel, setChannel] = useState<'email' | 'sms'>('email');
+  const [contactNumber, setContactNumber] = useState("+63");
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -24,34 +26,54 @@ export default function ForgotPasswordPage() {
   const emailRef = useRef<HTMLInputElement>(null);
   const codeRef = useRef<HTMLInputElement>(null);
 
-  // ── Step 1: Request OTP ─────────────────────────────────────────────────
-  const handleEmailSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const emailVal = emailRef.current?.value?.trim() ?? "";
-    if (!emailVal) return;
+  // Phone number formatter for Philippine format (same as signup page)
+  const formatPhoneNumber = (value: string) => {
+    // Remove all non-digit characters
+    const digits = value.replace(/\D/g, '');
 
+    // If it starts with 63, add +
+    if (digits.startsWith('63')) {
+      const remaining = digits.slice(2, 12); // Max 10 digits after 63
+      return '+63' + remaining;
+    }
+
+    // If it starts with 0, replace with +63
+    if (digits.startsWith('0')) {
+      const remaining = digits.slice(1, 11); // Max 10 digits after 0
+      return '+63' + remaining;
+    }
+
+    // Otherwise, add +63 prefix
+    const limited = digits.slice(0, 10); // Max 10 digits
+    return limited ? '+63' + limited : '';
+  };
+
+  // ── Step 1: Request OTP ─────────────────────────────────────────────────
+  // Note: the backend intentionally responds identically whether or not an
+  // account exists (prevents account enumeration), so we always advance to
+  // the code step and use the email/number the user typed, not anything
+  // echoed back by the server.
+  const requestCode = async (channelVal: 'email' | 'sms', emailVal?: string, contactNumberVal?: string) => {
     setIsLoading(true);
     try {
       const res = await fetch(`${API_BASE}/api/v1/auth/forgot-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: emailVal }),
+        body: JSON.stringify({
+          channel: channelVal,
+          ...(channelVal === "sms" ? { contact_number: contactNumberVal } : { email: emailVal }),
+        }),
       });
 
       const data = await res.json();
 
       if (res.ok) {
-        if (data.found === false) {
-          gooeyToast.warning("Account Not Found", {
-            description: "We couldn't find an account with that email address.",
-          });
-        } else {
-          setEmail(emailVal);
-          gooeyToast.success("Code Sent!", {
-            description: data.message || "A 6-digit verification code has been sent to your email.",
-          });
-          setStep("code");
-        }
+        if (emailVal) setEmail(emailVal);
+        setChannel(channelVal);
+        gooeyToast.success("Code Sent", {
+          description: data.message || `If an account exists, a 6-digit verification code has been sent via ${channelVal === "sms" ? "SMS" : "email"}.`,
+        });
+        setStep("code");
       } else {
         gooeyToast.error("Failed to Send", {
           description: data.error || "Could not send the code. Please try again.",
@@ -64,6 +86,25 @@ export default function ForgotPasswordPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleEmailSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (channel === "sms") {
+      if (contactNumber.replace(/\D/g, '').length < 12) {
+        gooeyToast.error("Invalid Number", {
+          description: "Please enter a complete phone number.",
+        });
+        return;
+      }
+      await requestCode("sms", undefined, contactNumber);
+      return;
+    }
+
+    const emailVal = emailRef.current?.value?.trim() ?? "";
+    if (!emailVal) return;
+    await requestCode("email", emailVal);
   };
 
   // ── Step 2: Validate OTP ────────────────────────────────────────────────
@@ -161,8 +202,12 @@ export default function ForgotPasswordPage() {
   };
 
   const stepDescriptions = {
-    email: "Enter your email and we'll send you a verification code.",
-    code: `We've sent a 6-digit code to ${email || "your email"}. Enter it below.`,
+    email: channel === "sms"
+      ? "Enter your phone number and we'll send you a verification code via SMS."
+      : "Enter your email and we'll send you a verification code.",
+    code: channel === "sms"
+      ? "We've sent a 6-digit code to your phone via SMS. Enter it below."
+      : `We've sent a 6-digit code to ${email || "your email"}. Enter it below.`,
     password: "Create a strong new password for your account.",
   };
 
@@ -240,21 +285,37 @@ export default function ForgotPasswordPage() {
           </div>
 
           <div>
-            {/* ── Step 1: Email ── */}
+            {/* ── Step 1: Email or Phone ── */}
             {step === "email" && (
               <form className="space-y-5 sm:space-y-6" onSubmit={handleEmailSubmit}>
-                <div className="floating-input">
-                  <input
-                    id="email"
-                    type="email"
-                    ref={emailRef}
-                    placeholder=" "
-                    required
-                    maxLength={100}
-                  />
-                  <label htmlFor="email">Email</label>
-                  <span className="material-symbols-outlined input-icon">mail</span>
-                </div>
+                {channel === "email" ? (
+                  <div className="floating-input">
+                    <input
+                      id="email"
+                      type="email"
+                      ref={emailRef}
+                      placeholder=" "
+                      required
+                      maxLength={100}
+                    />
+                    <label htmlFor="email">Email</label>
+                    <span className="material-symbols-outlined input-icon">mail</span>
+                  </div>
+                ) : (
+                  <div className="floating-input">
+                    <input
+                      id="contact"
+                      type="tel"
+                      placeholder=" "
+                      required
+                      value={contactNumber}
+                      onChange={(e) => setContactNumber(formatPhoneNumber(e.target.value))}
+                      maxLength={13}
+                    />
+                    <label htmlFor="contact">Contact Number</label>
+                    <span className="material-symbols-outlined input-icon">phone</span>
+                  </div>
+                )}
 
                 <Button
                   className="w-full h-12 text-lg bg-primary hover:bg-primary-dark text-white font-bold shadow-lg disabled:opacity-60"
@@ -262,6 +323,16 @@ export default function ForgotPasswordPage() {
                   disabled={isLoading}
                 >
                   {isLoading ? "Sending…" : "Send Verification Code"}
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full h-12 text-base border-2 hover:border-primary hover:text-primary transition-colors"
+                  onClick={() => setChannel(channel === "email" ? "sms" : "email")}
+                  disabled={isLoading}
+                >
+                  {channel === "email" ? "Send via SMS instead" : "Send via email instead"}
                 </Button>
               </form>
             )}

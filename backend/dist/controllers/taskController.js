@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.taskController = void 0;
 const db_1 = require("../config/db");
+const errorResponse_1 = require("../utils/errorResponse");
 const mediaStorage_1 = require("../utils/mediaStorage");
 exports.taskController = {
     // READ TASKS
@@ -51,7 +52,7 @@ exports.taskController = {
             return res.status(200).json({ data });
         }
         catch (err) {
-            return res.status(500).json({ error: err.message });
+            return res.status(500).json({ error: (0, errorResponse_1.serverErrorMessage)(err) });
         }
     },
     // UPDATE TASK STATUS (Assigned -> Accepted -> Completed)
@@ -173,7 +174,7 @@ exports.taskController = {
             return res.status(200).json({ message: 'Task updated successfully', data });
         }
         catch (err) {
-            return res.status(500).json({ error: err.message });
+            return res.status(500).json({ error: (0, errorResponse_1.serverErrorMessage)(err) });
         }
     },
     // COMPLETE TASK WITH PROOF
@@ -285,7 +286,7 @@ exports.taskController = {
             return res.status(200).json({ message: 'Task completed successfully', data: task });
         }
         catch (err) {
-            return res.status(500).json({ error: err.message });
+            return res.status(500).json({ error: (0, errorResponse_1.serverErrorMessage)(err) });
         }
     }
 };

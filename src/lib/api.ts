@@ -8,7 +8,7 @@
  * - Type-safe request/response handling
  */
 
-function resolveApiBaseUrl(): string {
+export function resolveApiBaseUrl(): string {
   const envBaseUrl = process.env.NEXT_PUBLIC_API_URL;
   if (envBaseUrl && envBaseUrl.trim()) {
     return envBaseUrl.replace(/\/$/, '');
@@ -33,15 +33,6 @@ export async function getAuthToken(): Promise<string | undefined> {
     return reqCookies.get("auth-token")?.value;
   }
   return undefined;
-}
-
-/**
- * Get the auth token from cookies (client-side)
- */
-export function getAuthTokenClient(): string | undefined {
-  if (typeof document === "undefined") return undefined;
-  const match = document.cookie.match(/(?:^|;\s*)auth-token=([^;]*)/);
-  return match?.[1];
 }
 
 /**
@@ -92,7 +83,10 @@ export async function apiFetch<T = any>(
 }
 
 /**
- * Client-side API fetch with automatic auth
+ * Client-side API fetch. Authenticated requests are routed through the
+ * same-origin /api/proxy route handler, which reads the httpOnly auth-token
+ * cookie server-side and forwards it as a Bearer header — client JS never
+ * has direct access to the token.
  */
 export async function apiFetchClient<T = any>(
   path: string,
@@ -105,14 +99,10 @@ export async function apiFetchClient<T = any>(
     requestHeaders.set("Content-Type", "application/json");
   }
 
-  if (requireAuth) {
-    const token = getAuthTokenClient();
-    if (token) {
-      requestHeaders.set("Authorization", `Bearer ${token}`);
-    }
-  }
+  const cleanPath = path.startsWith("/") ? path.slice(1) : path;
+  const proxiedApiPath = cleanPath.startsWith("api/v1/") ? cleanPath.slice("api/v1/".length) : cleanPath;
+  const requestUrl = requireAuth ? `/api/proxy/${proxiedApiPath}` : apiUrl(path);
 
-  const requestUrl = apiUrl(path);
   let response: Response;
   try {
     response = await fetch(requestUrl, {
@@ -120,7 +110,7 @@ export async function apiFetchClient<T = any>(
       headers: requestHeaders,
     });
   } catch (error: any) {
-    throw new Error(`API network error. Check backend availability at ${resolveApiBaseUrl()} (${error?.message || "request failed"}).`);
+    throw new Error(`API network error (${error?.message || "request failed"}).`);
   }
 
   if (!response.ok) {
@@ -168,10 +158,10 @@ export const api = {
         body: JSON.stringify(data),
         requireAuth: false,
       }),
-    forgotPassword: (email: string) =>
+    forgotPassword: (identifier: { email: string; channel?: "email" } | { contact_number: string; channel: "sms" }) =>
       apiFetch("/api/v1/auth/forgot-password", {
         method: "POST",
-        body: JSON.stringify({ email }),
+        body: JSON.stringify(identifier),
         requireAuth: false,
       }),
     verifyEmail: (email: string, code: string) =>
@@ -332,10 +322,10 @@ export const apiClient = {
         body: JSON.stringify(data),
         requireAuth: false,
       }),
-    forgotPassword: (email: string) =>
+    forgotPassword: (identifier: { email: string; channel?: "email" } | { contact_number: string; channel: "sms" }) =>
       apiFetchClient("/api/v1/auth/forgot-password", {
         method: "POST",
-        body: JSON.stringify({ email }),
+        body: JSON.stringify(identifier),
         requireAuth: false,
       }),
     verifyEmail: (email: string, code: string) =>

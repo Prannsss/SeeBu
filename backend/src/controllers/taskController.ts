@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { supabase } from '../config/db';
+import { serverErrorMessage } from '../utils/errorResponse';
 import { persistImageInput } from '../utils/mediaStorage';
 
 export const taskController = {
@@ -53,7 +54,7 @@ export const taskController = {
 
       return res.status(200).json({ data });
     } catch (err: any) {
-      return res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: serverErrorMessage(err) });
     }
   },
 
@@ -188,7 +189,7 @@ export const taskController = {
 
       return res.status(200).json({ message: 'Task updated successfully', data });
     } catch (err: any) {
-      return res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: serverErrorMessage(err) });
     }
   },
 
@@ -320,7 +321,7 @@ export const taskController = {
 
       return res.status(200).json({ message: 'Task completed successfully', data: task });
     } catch (err: any) {
-      return res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: serverErrorMessage(err) });
     }
   }
 };

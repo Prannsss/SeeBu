@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { supabase } from '../config/db';
 
 const DEFAULT_BUCKET = process.env.SUPABASE_STORAGE_BUCKET || 'report-photos';
@@ -7,6 +8,19 @@ type UploadResult = {
   storedUrl: string;
 };
 
+// Known image magic bytes — the sniffed signature decides the extension/content-type,
+// never the client-declared MIME string. SVG is deliberately not supported (script risk).
+const IMAGE_SIGNATURES: { ext: string; mimeType: string; matches: (buf: Buffer) => boolean }[] = [
+  { ext: 'jpg', mimeType: 'image/jpeg', matches: (buf) => buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff },
+  { ext: 'png', mimeType: 'image/png', matches: (buf) => buf.length >= 4 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47 },
+  { ext: 'gif', mimeType: 'image/gif', matches: (buf) => buf.length >= 3 && buf.toString('ascii', 0, 3) === 'GIF' },
+  { ext: 'webp', mimeType: 'image/webp', matches: (buf) => buf.length >= 12 && buf.toString('ascii', 0, 4) === 'RIFF' && buf.toString('ascii', 8, 12) === 'WEBP' },
+];
+
+function sniffImageSignature(buffer: Buffer) {
+  return IMAGE_SIGNATURES.find((sig) => sig.matches(buffer)) || null;
+}
+
 function parseDataUrl(value: string): { mimeType: string; base64Data: string } | null {
   const match = value.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
   if (!match) return null;
@@ -14,11 +28,6 @@ function parseDataUrl(value: string): { mimeType: string; base64Data: string } |
     mimeType: match[1],
     base64Data: match[2],
   };
-}
-
-function extensionFromMime(mimeType: string): string {
-  const parts = mimeType.split('/');
-  return (parts[1] || 'jpg').toLowerCase();
 }
 
 export async function persistImageInput(input: string, folder: string): Promise<UploadResult> {
@@ -32,17 +41,21 @@ export async function persistImageInput(input: string, folder: string): Promise<
 
   const parsed = parseDataUrl(input);
   if (!parsed) {
-    return { original: input, storedUrl: input };
+    throw new Error('Unsupported image input format');
   }
 
   const buffer = Buffer.from(parsed.base64Data, 'base64');
-  const ext = extensionFromMime(parsed.mimeType);
-  const filePath = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+  const signature = sniffImageSignature(buffer);
+  if (!signature) {
+    throw new Error('Image content does not match a supported image type');
+  }
+
+  const filePath = `${folder}/${crypto.randomUUID()}.${signature.ext}`;
 
   const { error: uploadError } = await supabase.storage
     .from(DEFAULT_BUCKET)
     .upload(filePath, buffer, {
-      contentType: parsed.mimeType,
+      contentType: signature.mimeType,
       upsert: false,
     });
 
@@ -54,6 +67,8 @@ export async function persistImageInput(input: string, folder: string): Promise<
   return { original: input, storedUrl: data.publicUrl };
 }
 
+/** Persists each image; a failed upload drops that photo (logged) rather than
+ * blocking report creation or falling back to storing raw input. */
 export async function persistImageInputs(inputs: string[], folder: string): Promise<string[]> {
   const results: string[] = [];
 
@@ -62,8 +77,7 @@ export async function persistImageInputs(inputs: string[], folder: string): Prom
       const persisted = await persistImageInput(input, folder);
       results.push(persisted.storedUrl);
     } catch (error) {
-      console.error('Image persistence failed, keeping original input as fallback:', error);
-      results.push(input);
+      console.error('Image persistence failed, dropping photo:', error);
     }
   }
 

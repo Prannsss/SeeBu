@@ -12,9 +12,11 @@ import { gooeyToast } from "goey-toast"
 import { Textarea } from "@/components/ui/textarea"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { ReportMediaGallery } from "@/components/reports/report-media-gallery"
+import { useCurrentUser } from "@/hooks/queries/useCurrentUser"
 
 export default function AdminReportsPage() {
   const queryClient = useQueryClient();
+  const { data: currentUser } = useCurrentUser();
   const [activeTab, setActiveTab] = useState("In Review");
   const [urgencyFilter, setUrgencyFilter] = useState("All");
   const [delegationOpen, setDelegationOpen] = useState<string | null>(null);    
@@ -27,18 +29,10 @@ export default function AdminReportsPage() {
   const [delegateAssignee, setDelegateAssignee] = useState("");
 
   const { data: reportsData, isLoading } = useQuery({
-    queryKey: ['admin-reports'],
+    queryKey: ['admin-reports', currentUser?.municipality_id],
     queryFn: async () => {
       const { apiClient } = await import('@/lib/api');
-      // Try municipality-scoped fetch for admins; gracefully fallback to unfiltered reports.
-      let municipalityId: string | undefined;
-      try {
-        const profileRes = await apiClient.users.me();
-        municipalityId = profileRes?.data?.municipality_id || undefined;
-      } catch {
-        municipalityId = undefined;
-      }
-
+      const municipalityId: string | undefined = currentUser?.municipality_id || undefined;
       const json = municipalityId
         ? await apiClient.reports.getAll({ municipality_id: municipalityId })
         : await apiClient.reports.getAll();

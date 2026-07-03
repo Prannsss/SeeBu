@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { supabase } from '../config/db';
+import { serverErrorMessage } from '../utils/errorResponse';
 
 export const locationController = {
   async getLocations(req: Request, res: Response) {
@@ -18,12 +19,12 @@ export const locationController = {
         .order('name');
 
       if (error) {
-        return res.status(500).json({ error: error.message });
+        return res.status(500).json({ error: serverErrorMessage(error) });
       }
 
       return res.status(200).json({ data: municipalities });
     } catch (err: any) {
-      return res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: serverErrorMessage(err) });
     }
   }
 };

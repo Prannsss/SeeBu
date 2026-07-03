@@ -1,13 +1,25 @@
 import { Request, Response } from 'express';
 import { supabase } from '../config/db';
+import { serverErrorMessage } from '../utils/errorResponse';
 import { persistImageInputs } from '../utils/mediaStorage';
 import { sendReportTrackingEmail } from '../utils/emailService';
+import { sendReportTrackingSms } from '../utils/smsService';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { z } from 'zod';
 
+const JWT_SECRET = process.env.JWT_SECRET as string;
+
+function trustedStorageHost(): string | null {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
+  try {
+    return supabaseUrl ? new URL(supabaseUrl).host : null;
+  } catch {
+    return null;
+  }
+}
+
 const reportSchema = z.object({
-  id: z.string().optional(),
   reporter_id: z.string().uuid().optional().nullable(),
   issue_type: z.string().min(1).max(100),
   other_type_specification: z.string().max(255).optional().nullable(),
@@ -27,11 +39,47 @@ const reportSchema = z.object({
       const sizeInBytes = val.length * 0.75;
       return sizeInBytes <= 5 * 1024 * 1024;
     }
-    return val.startsWith('http');
-  }, { message: 'Photo must be a valid URL or base64 image under 5MB' })).max(10).optional().nullable(),
+    if (val.startsWith('http://') || val.startsWith('https://')) {
+      const storageHost = trustedStorageHost();
+      try {
+        return !!storageHost && new URL(val).host === storageHost;
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  }, { message: 'Photo must be a base64 image under 5MB or a URL hosted on our storage domain' })).max(10).optional().nullable(),
 });
 
-const JWT_SECRET = process.env.JWT_SECRET as string;
+const STAFF_ROLES = ['admin', 'superadmin', 'workforce', 'workforce-admin'];
+const REPORTER_PII_FIELDS = ['reporter_name', 'reporter_email', 'reporter_phone'] as const;
+
+/** Decode the Bearer token if present; never throws. */
+function decodeBearer(req: Request): { id: string; role: string } | null {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) return null;
+  try {
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    if (decoded?.id && decoded?.role) return { id: String(decoded.id), role: String(decoded.role) };
+  } catch {
+    // ignore invalid/expired token — treated as anonymous
+  }
+  return null;
+}
+
+/** Strip reporter PII from a report unless the caller owns it or is staff. */
+function stripReporterPii<T extends Record<string, any>>(report: T, caller: { id: string; role: string } | null): T {
+  const isStaff = !!caller && STAFF_ROLES.includes(caller.role);
+  const isOwner = !!caller && caller.role === 'client' && String(report.reporter_id || '') === caller.id;
+  if (isStaff || isOwner) return report;
+
+  const sanitized: any = { ...report };
+  for (const field of REPORTER_PII_FIELDS) {
+    if (field in sanitized) sanitized[field] = null;
+  }
+  return sanitized;
+}
 
 async function getAdminMunicipality(adminId: string) {
   const { data, error } = await supabase
@@ -44,12 +92,54 @@ async function getAdminMunicipality(adminId: string) {
   return data?.municipality_id || null;
 }
 
+// Per-recipient notification throttle: caps tracking emails/SMS sent to any single
+// email/phone within a window, independent of the per-IP reportLimiter. Prevents the
+// public, unauthenticated report form from being used to spam a third party's contact
+// info. In-memory is fine here — a restart just resets the window, no security regression.
+const NOTIFICATION_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const NOTIFICATION_MAX_PER_RECIPIENT = 5;
+const notificationHistory = new Map<string, number[]>();
+
+function allowNotification(recipient: string): boolean {
+  const key = recipient.trim().toLowerCase();
+  const now = Date.now();
+  const timestamps = (notificationHistory.get(key) || []).filter((t) => now - t < NOTIFICATION_WINDOW_MS);
+
+  if (timestamps.length >= NOTIFICATION_MAX_PER_RECIPIENT) {
+    notificationHistory.set(key, timestamps);
+    return false;
+  }
+
+  timestamps.push(now);
+  notificationHistory.set(key, timestamps);
+  return true;
+}
+
+async function municipalityAndBarangayExist(municipalityId: string | number, barangayId: string | number) {
+  const { data: municipality, error: municipalityError } = await supabase
+    .from('municipalities')
+    .select('id')
+    .eq('id', municipalityId)
+    .maybeSingle();
+  if (municipalityError) throw municipalityError;
+  if (!municipality) return false;
+
+  const { data: barangay, error: barangayError } = await supabase
+    .from('barangays')
+    .select('id, municipality_id')
+    .eq('id', barangayId)
+    .maybeSingle();
+  if (barangayError) throw barangayError;
+  if (!barangay || String(barangay.municipality_id) !== String(municipalityId)) return false;
+
+  return true;
+}
+
 export const reportController = {
   // CREATE REPORT
   async createReport(req: Request, res: Response) {
     try {
       const {
-        id, // Frontend can send UUID or we can generate logic (e.g. 'RPT-...')
         reporter_id,
         issue_type,
         other_type_specification,
@@ -70,6 +160,11 @@ export const reportController = {
       const validation = reportSchema.safeParse(req.body);
       if (!validation.success) {
         return res.status(400).json({ error: 'Validation failed', details: validation.error.format() });
+      }
+
+      const locationsValid = await municipalityAndBarangayExist(municipality_id, barangay_id);
+      if (!locationsValid) {
+        return res.status(400).json({ error: 'Invalid municipality_id or barangay_id' });
       }
 
       // Best-effort identity fallback: if Authorization exists, trust token identity for client linkage.
@@ -106,8 +201,8 @@ export const reportController = {
         }
       }
 
-      // Handle custom ID generation if not provided
-      const reportId = id || `RPT-${crypto.randomUUID().slice(0, 8).toUpperCase()}-${Date.now().toString().slice(-4)}`;
+      // Report ID is always generated server-side — never trust a client-supplied id.
+      const reportId = `RPT-${crypto.randomUUID().slice(0, 8).toUpperCase()}-${Date.now().toString().slice(-4)}`;
 
       // 1. Insert into reports
       const { data: report, error } = await supabase
@@ -162,7 +257,7 @@ export const reportController = {
         let emailSent = false;
         const emailUsed = effectiveReporterEmail || null;
 
-        if (emailUsed) {
+        if (emailUsed && allowNotification(emailUsed)) {
           try {
             await sendReportTrackingEmail(
               emailUsed,
@@ -177,6 +272,16 @@ export const reportController = {
           }
         }
 
+        // 5. Send tracking SMS to reporters who provided a phone number
+        if (effectiveReporterPhone && allowNotification(effectiveReporterPhone)) {
+          try {
+            await sendReportTrackingSms(effectiveReporterPhone, reportId);
+          } catch (smsErr) {
+            // Non-fatal: log but don't roll back report creation
+            console.error('[createReport] Failed to send tracking SMS:', smsErr);
+          }
+        }
+
         return res.status(201).json({
           message: 'Report created successfully',
           data: report,
@@ -184,7 +289,7 @@ export const reportController = {
           email_used: emailUsed,
         });
     } catch (err: any) {
-      return res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: serverErrorMessage(err) });
     }
   },
 
@@ -238,25 +343,35 @@ export const reportController = {
         return data || [];
       };
 
-      const emailValue = reporter_email ? String(reporter_email).trim() : '';
-      let tokenClientId = '';
+      const caller = decodeBearer(req);
+      const isStaff = !!caller && STAFF_ROLES.includes(caller.role);
+      const tokenClientId = caller?.role === 'client' ? caller.id : '';
 
-      if (!reporterIdParam) {
-        const authHeader = req.headers.authorization;
-        if (authHeader?.startsWith('Bearer ')) {
-          try {
-            const token = authHeader.split(' ')[1];
-            const decoded = jwt.verify(token, JWT_SECRET) as any;
-            if (decoded?.role === 'client' && decoded?.id) {
-              tokenClientId = String(decoded.id);
-            }
-          } catch {
-            tokenClientId = '';
-          }
+      // Only trust a caller-supplied reporter_id/reporter_email filter when it matches
+      // the caller's own identity, or the caller is staff. Anyone else attempting to
+      // filter by another person's id/email is treated as an unscoped (public) query.
+      const requestedEmail = reporter_email ? String(reporter_email).trim() : '';
+      const requestedReporterId = reporterIdParam;
+
+      let effectiveReporterId = '';
+      let emailValue = '';
+
+      if (isStaff) {
+        effectiveReporterId = requestedReporterId;
+        emailValue = requestedEmail;
+      } else {
+        if (requestedReporterId && requestedReporterId === tokenClientId) {
+          effectiveReporterId = requestedReporterId;
+        } else if (!requestedReporterId && tokenClientId) {
+          effectiveReporterId = tokenClientId;
+        }
+        // A non-staff caller may only filter by their own email if they're also
+        // authenticated as the matching client — email alone is not proof of identity.
+        if (requestedEmail && tokenClientId && effectiveReporterId === tokenClientId) {
+          emailValue = requestedEmail;
         }
       }
 
-      const effectiveReporterId = reporterIdParam || tokenClientId;
       const isReporterScoped = Boolean(effectiveReporterId || emailValue);
 
       let data: any[] = [];
@@ -363,9 +478,10 @@ export const reportController = {
         });
       }
 
-      return res.status(200).json({ data });
+      const sanitized = data.map((report: any) => stripReporterPii(report, caller));
+      return res.status(200).json({ data: sanitized });
     } catch (err: any) {
-      return res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: serverErrorMessage(err) });
     }
   },
 
@@ -394,9 +510,10 @@ export const reportController = {
         throw error;
       }
 
-      return res.status(200).json({ data });
+      const caller = decodeBearer(req);
+      return res.status(200).json({ data: stripReporterPii(data, caller) });
     } catch (err: any) {
-      return res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: serverErrorMessage(err) });
     }
   },
 
@@ -553,7 +670,7 @@ export const reportController = {
 
       return res.status(200).json({ message: 'Report updated', data });
     } catch (err: any) {
-      return res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: serverErrorMessage(err) });
     }
   }
 };

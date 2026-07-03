@@ -7,24 +7,27 @@ import { ChartBarInteractive } from "@/components/ui/chart-bar-interactive"
 import { ChartAreaInteractive } from "@/components/ui/chart-area-interactive"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useQuery } from '@tanstack/react-query'
+import { useCurrentUser } from '@/hooks/queries/useCurrentUser'
+import { AnalyticsSkeleton } from '@/components/ui/analytics-skeleton'
 
 export default function AdminAnalyticsPage() {
   const [barangayFilter, setBarangayFilter] = useState("all")
+  const { data: currentUser, isLoading: isUserLoading } = useCurrentUser()
+  const municipalityId = currentUser?.municipality_id
 
-  // For demonstration, fetch for cebu-city. In production, pass context admin's municipality_id
-  const { data: analyticsData, isLoading } = useQuery({
-    queryKey: ['admin-analytics', barangayFilter],
+  const { data: analyticsData, isLoading: isAnalyticsLoading } = useQuery({
+    queryKey: ['admin-analytics', municipalityId, barangayFilter],
+    enabled: !!municipalityId,
     queryFn: async () => {
       const { apiClient } = await import('@/lib/api');
-      // Get admin's municipality_id from profile
-      const profileRes = await apiClient.users.me();
-      const municipalityId = profileRes.data?.municipality_id;
-      if (!municipalityId) throw new Error('No municipality assigned');
-      
       const json = await apiClient.analytics.admin(municipalityId, barangayFilter);
       return json;
     }
   });
+
+  if (isUserLoading || isAnalyticsLoading) {
+    return <AnalyticsSkeleton />
+  }
 
   const chartData = analyticsData?.chartData || [];
   const issueTypeData = analyticsData?.issueTypeData || [];

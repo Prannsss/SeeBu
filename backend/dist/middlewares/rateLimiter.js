@@ -25,10 +25,10 @@ exports.authLimiter = (0, express_rate_limit_1.default)({
     standardHeaders: true,
     legacyHeaders: false,
 });
-// Even stricter for report creation
+// Limit for report creation (includes image uploads)
 exports.reportLimiter = (0, express_rate_limit_1.default)({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 5, // limit each IP to 5 report creations per windowMs
+    max: 30, // limit each IP to 30 report creations per windowMs
     message: {
         error: 'Too many reports created from this IP, please try again after 15 minutes'
     },

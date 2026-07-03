@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useMutation } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { UserPlus, HardHat, ShieldCheck, MapPin, Eye, EyeOff } from "lucide-react"
@@ -10,6 +10,7 @@ import { PasswordChecklist } from "@/components/ui/password-checklist"
 import { VerificationCodeUI } from "@/components/ui/verification-code"
 import { gooeyToast } from "goey-toast"
 import { apiClient } from "@/lib/api"
+import { useCurrentUser } from "@/hooks/queries/useCurrentUser"
 
 export default function AdminAddPage() {
   const [activeTab, setActiveTab] = useState("admin")
@@ -19,8 +20,11 @@ export default function AdminAddPage() {
   const [showWfPassword, setShowWfPassword] = useState(false)
   const [isVerifying, setIsVerifying] = useState(false)
   const [verifyingEmail, setVerifyingEmail] = useState("")
-  const [municipalityId, setMunicipalityId] = useState<string | null>(null)
-  const [currentAdminArea, setCurrentAdminArea] = useState("Loading...")
+  const { data: currentUser } = useCurrentUser()
+  const municipalityId = currentUser?.municipality_id ?? null
+  const currentAdminArea = currentUser
+    ? (currentUser.municipality_name || municipalityId || "Unknown")
+    : "Loading..."
 
   // Phone number formatter for Philippine format
   const formatPhoneNumber = (value: string) => {
@@ -39,23 +43,6 @@ export default function AdminAddPage() {
     const limited = digits.slice(0, 10);
     return limited ? '+63' + limited : '';
   };
-
-  // Fetch current admin's profile to get their municipality
-  useEffect(() => {
-    async function loadProfile() {
-      try {
-        const profileRes = await apiClient.users.me();
-        const munId = profileRes.data?.municipality_id;
-        const munName = profileRes.data?.municipality_name || munId || "Unknown";
-        setMunicipalityId(munId);
-        setCurrentAdminArea(munName);
-      } catch (err) {
-        console.error("Failed to load profile:", err);
-        setCurrentAdminArea("Unknown");
-      }
-    }
-    loadProfile();
-  }, []);
 
   const provisionMutation = useMutation({
     mutationFn: async (data: any) => {

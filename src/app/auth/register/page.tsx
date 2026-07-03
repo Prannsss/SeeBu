@@ -8,7 +8,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { useGoogleLogin } from "@react-oauth/google";
+import { GoogleLogin, CredentialResponse } from "@react-oauth/google";
 import FacebookLogin from "react-facebook-login/dist/facebook-login-render-props";
 import { Eye, EyeOff } from "lucide-react";
 import { gooeyToast } from "goey-toast";
@@ -18,6 +18,15 @@ export default function RegisterPage() {
   const [contactNumber, setContactNumber] = useState("+63");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const establishSession = async (token: string, role: string) => {
+    const res = await fetch('/api/session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, role }),
+    });
+    if (!res.ok) throw new Error('Failed to establish session');
+  };
+
   const handleOAuthBackendSync = async (provider: 'google' | 'facebook', payload: any) => {
     payload.action = 'register';
     const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'development' ? "http://localhost:5000" : "https://seebu.onrender.com")}/api/v1/auth/${provider}`, {
@@ -28,51 +37,36 @@ export default function RegisterPage() {
 
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'OAuth Registration failed');
+    if (!data.user?.role) throw new Error('OAuth registration response missing user role');
 
-    document.cookie = `auth-token=${data.token}; path=/; max-age=86400; SameSite=Lax`;
-    if (data.user && data.user.role) {
-      document.cookie = `user-role=${data.user.role}; path=/; max-age=86400; SameSite=Lax`;
-    }
+    await establishSession(data.token, data.user.role);
 
     gooeyToast.success('Registration via OAuth successful!', { description: `Logged in via ${provider}` });
     router.push('/client');
   };
 
-  const loginGoogle = useGoogleLogin({
-    onSuccess: async (tokenResponse) => {
-      try {
-        setIsLoading(true);
-        const userInfo = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-          headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
-        }).then(res => res.json());
-        
-        await handleOAuthBackendSync('google', {
-          email: userInfo.email,
-          full_name: userInfo.name,
-          google_id: userInfo.sub
-        });
-      } catch (err: any) {
-        gooeyToast.error('Google Login Failed', { description: err.message });
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    onError: () => {
-      gooeyToast.error('Google Login Failed', { description: 'Failed to connect to Google.' });
+  const handleGoogleSuccess = async (credentialResponse: CredentialResponse) => {
+    if (!credentialResponse.credential) {
+      gooeyToast.error('Google Login Failed', { description: 'No credential returned by Google.' });
+      return;
     }
-  });
+    try {
+      setIsLoading(true);
+      await handleOAuthBackendSync('google', { credential: credentialResponse.credential });
+    } catch (err: any) {
+      gooeyToast.error('Google Login Failed', { description: err.message });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleFacebookCallback = async (response: any) => {
-    if (response?.status === 'unknown' || response?.error) {
+    if (response?.status === 'unknown' || response?.error || !response?.accessToken) {
       return;
     }
     setIsLoading(true);
     try {
-      await handleOAuthBackendSync('facebook', {
-        email: response.email,
-        full_name: response.name,
-        facebook_id: response.id
-      });
+      await handleOAuthBackendSync('facebook', { accessToken: response.accessToken });
     } catch (err: any) {
        gooeyToast.error('Facebook Login Failed', { description: err.message });
     } finally {
@@ -308,15 +302,13 @@ export default function RegisterPage() {
             </div>
 
             <div className="mt-6 flex flex-col space-y-4">
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full h-12 flex items-center justify-center gap-3 font-semibold text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
-                onClick={() => loginGoogle()}
-              >
-                <Image src="/assets/google.svg" alt="Google" width={24} height={24} />
-                Continue with Google
-              </Button>
+              <div className="flex justify-center [&>div]:w-full">
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={() => gooeyToast.error('Google Login Failed', { description: 'Failed to connect to Google.' })}
+                  width="100%"
+                />
+              </div>
               <FacebookLogin
                 appId={process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || ""}
                 callback={handleFacebookCallback}

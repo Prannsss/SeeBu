@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.userController = void 0;
 const db_1 = require("../config/db");
+const errorResponse_1 = require("../utils/errorResponse");
 exports.userController = {
     async getCurrentUser(req, res) {
         try {
@@ -43,7 +44,7 @@ exports.userController = {
             return res.status(200).json({ data: userProfile });
         }
         catch (err) {
-            return res.status(500).json({ error: err.message });
+            return res.status(500).json({ error: (0, errorResponse_1.serverErrorMessage)(err) });
         }
     },
     async updateCurrentUser(req, res) {
@@ -84,12 +85,12 @@ exports.userController = {
                 .update(updates)
                 .eq('id', userReq.id);
             if (error) {
-                return res.status(500).json({ error: error.message });
+                return res.status(500).json({ error: (0, errorResponse_1.serverErrorMessage)(error) });
             }
             return res.status(200).json({ message: 'Profile updated successfully' });
         }
         catch (err) {
-            return res.status(500).json({ error: err.message });
+            return res.status(500).json({ error: (0, errorResponse_1.serverErrorMessage)(err) });
         }
     },
     async getAllUsers(req, res) {
@@ -144,7 +145,7 @@ exports.userController = {
             return res.status(200).json({ data: allUsers });
         }
         catch (err) {
-            return res.status(500).json({ error: err.message });
+            return res.status(500).json({ error: (0, errorResponse_1.serverErrorMessage)(err) });
         }
     },
     async deleteCurrentUser(req, res) {
@@ -179,12 +180,12 @@ exports.userController = {
                 .update({ status: 'Inactive' })
                 .eq('id', userReq.id);
             if (error) {
-                return res.status(500).json({ error: error.message });
+                return res.status(500).json({ error: (0, errorResponse_1.serverErrorMessage)(error) });
             }
             return res.status(200).json({ message: 'Account deleted successfully' });
         }
         catch (err) {
-            return res.status(500).json({ error: err.message });
+            return res.status(500).json({ error: (0, errorResponse_1.serverErrorMessage)(err) });
         }
     }
 };

@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useState, useEffect } from "react"
 import { useQuery } from '@tanstack/react-query'
 import { gooeyToast } from "goey-toast"
+import { useCurrentUser } from "@/hooks/queries/useCurrentUser"
 
 function truncate(str: string, length = 60) {
   if (!str) return '';
@@ -34,50 +35,10 @@ export default function ClientHistoryPage() {
     }
   };
 
-  const decodeJwtPayload = (token: string) => {
-    const parts = token.split('.');
-    if (parts.length < 2) return null;
+  const { data: profileData } = useCurrentUser();
 
-    // JWT payload uses base64url encoding, so normalize before decoding.
-    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-    const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
-    return JSON.parse(atob(padded));
-  };
-
-  const getFallbackIdentityFromCookie = () => {
-    if (typeof document === 'undefined') return { id: null as string | null, email: null as string | null };
-    const match = document.cookie.match(/(?:^|;\s*)auth-token=([^;]*)/);
-    if (!match?.[1]) return { id: null as string | null, email: null as string | null };
-
-    try {
-      const token = decodeURIComponent(match[1]);
-      const payload = decodeJwtPayload(token);
-      const payloadId = payload?.id || payload?.uuid || payload?.user_id || payload?.client_id || payload?.sub || null;
-      return {
-        id: payloadId,
-        email: payload?.email || null,
-      };
-    } catch {
-      return { id: null as string | null, email: null as string | null };
-    }
-  };
-
-  const { data: profileData } = useQuery({
-    queryKey: ['client-me'],
-    queryFn: async () => {
-      const { apiClient } = await import('@/lib/api');
-      try {
-        const json = await apiClient.users.me();
-        return json.data;
-      } catch {
-        return null;
-      }
-    },
-  });
-
-  const fallbackIdentity = getFallbackIdentityFromCookie();
-  const userId = profileData?.id || profileData?.uuid || profileData?.user_id || profileData?.client_id || fallbackIdentity.id;
-  const userEmail = profileData?.email || fallbackIdentity.email;
+  const userId = profileData?.id || profileData?.uuid || profileData?.user_id || profileData?.client_id;
+  const userEmail = profileData?.email;
 
   const { data: reportData, isLoading } = useQuery({
     queryKey: ['client-reports', userId, userEmail],

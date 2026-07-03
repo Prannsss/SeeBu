@@ -1,11 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import { BarChart3, Activity } from "lucide-react"
+import { BarChart3 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartBarInteractive } from "@/components/ui/chart-bar-interactive"
 import { ChartAreaInteractive } from "@/components/ui/chart-area-interactive"
 import { useQuery } from "@tanstack/react-query"
+import { AnalyticsSkeleton } from "@/components/ui/analytics-skeleton"
 
 export default function SuperadminAnalyticsPage() {
   const [sortOrder] = useState<"asc" | "desc">("desc")
@@ -22,11 +23,7 @@ export default function SuperadminAnalyticsPage() {
   })
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-slate-950">
-        <Activity className="h-8 w-8 animate-spin text-blue-600" />
-      </div>
-    )
+    return <AnalyticsSkeleton />
   }
 
   const recurringData = analyticsData?.recurringData || []

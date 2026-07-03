@@ -15,8 +15,10 @@
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.2",
     "genkit": "^1.28.0",
+    "google-auth-library": "^10.9.0",
+    "helmet": "^8.2.0",
     "jsonwebtoken": "^9.0.3",
-    "resend": "^6.12.2",
+    "nodemailer": "^7.0.9",
     "zod": "^3.24.2"
   },
   "devDependencies": {
@@ -25,6 +27,7 @@
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20",
+    "@types/nodemailer": "^7.0.2",
     "tsx": "^4.21.0",
     "typescript": "^5"
   }

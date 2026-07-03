@@ -4,7 +4,6 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Menu, X } from 'lucide-react';
-import { ThemeToggle } from './ThemeToggle';
 
 interface NavItem {
   label: string;
@@ -97,12 +96,10 @@ export function Navbar({ items = [] }: NavbarProps) {
               >
                 Login
               </Link>
-              <ThemeToggle />
             </div>
 
-            {/* Mobile: Theme Toggle and Burger Menu */}
+            {/* Mobile: Burger Menu */}
             <div className="flex md:hidden items-center gap-2">
-              <ThemeToggle />
               <button
                 onClick={() => setIsOpen(!isOpen)}
                 className="p-2 text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors"

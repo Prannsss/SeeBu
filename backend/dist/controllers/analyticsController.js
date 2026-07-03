@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.analyticsController = void 0;
 const db_1 = require("../config/db");
+const errorResponse_1 = require("../utils/errorResponse");
 exports.analyticsController = {
     // SUPERADMIN: General overview across ALL municipalities
     async getSuperadminAnalytics(req, res) {
@@ -28,33 +29,29 @@ exports.analyticsController = {
                 queryRec = queryRec.eq('barangay_id', barangay_id);
                 queryTime = queryTime.eq('barangay_id', barangay_id);
             }
-            const { data: statusCounts, error: statusErr } = await queryStatus;
+            const [{ data: statusCounts, error: statusErr }, { data: reportsWithIssueType, error: issueTypeErr }, { data: allMunicipalities, error: munErr }, { data: allBarangays, error: brgyErr }, { data: recurringData, error: recErr }, { data: reportsOverTime, error: reportsOverTimeErr },] = await Promise.all([
+                queryStatus,
+                queryIssue,
+                db_1.supabase.from('municipalities').select('id, name').order('name', { ascending: true }),
+                db_1.supabase.from('barangays').select('id, name, municipality_id').order('name', { ascending: true }),
+                queryRec,
+                queryTime,
+            ]);
             if (statusErr)
                 throw statusErr;
+            if (issueTypeErr)
+                throw issueTypeErr;
+            if (munErr)
+                throw munErr;
+            if (brgyErr)
+                throw brgyErr;
+            if (recErr)
+                throw recErr;
+            if (reportsOverTimeErr)
+                throw reportsOverTimeErr;
             const totalReports = statusCounts.length;
             const reportedIssues = statusCounts.filter(r => r.status === 'In Review').length;
             const completedTasks = statusCounts.filter(r => r.status === 'Completed' || r.status === 'Resolved').length;
-            const { data: reportsWithIssueType, error: issueTypeErr } = await queryIssue;
-            if (issueTypeErr)
-                throw issueTypeErr;
-            const { data: allMunicipalities, error: munErr } = await db_1.supabase
-                .from('municipalities')
-                .select('id, name')
-                .order('name', { ascending: true });
-            if (munErr)
-                throw munErr;
-            const { data: allBarangays, error: brgyErr } = await db_1.supabase
-                .from('barangays')
-                .select('id, name, municipality_id')
-                .order('name', { ascending: true });
-            if (brgyErr)
-                throw brgyErr;
-            const { data: recurringData, error: recErr } = await queryRec;
-            if (recErr)
-                throw recErr;
-            const { data: reportsOverTime, error: reportsOverTimeErr } = await queryTime;
-            if (reportsOverTimeErr)
-                throw reportsOverTimeErr;
             // Format Chart Data & Recurring Data dynamically from SQL grouping instead of JSON!
             const groupedByMun = {};
             const groupedByIssueType = {};
@@ -130,7 +127,7 @@ exports.analyticsController = {
             });
         }
         catch (err) {
-            return res.status(500).json({ error: err.message });
+            return res.status(500).json({ error: (0, errorResponse_1.serverErrorMessage)(err) });
         }
     },
     // ADMIN: Filtered exclusively to a single municipality
@@ -140,6 +137,11 @@ exports.analyticsController = {
             const { barangay_id } = req.query;
             if (!municipality_id) {
                 return res.status(400).json({ error: 'municipality_id is required' });
+            }
+            if (req.user?.role === 'admin') {
+                if (!req.user.municipality_id || req.user.municipality_id !== municipality_id) {
+                    return res.status(403).json({ error: 'You may only view analytics for your own municipality' });
+                }
             }
             let reportsQuery = db_1.supabase
                 .from('reports')
@@ -155,14 +157,16 @@ exports.analyticsController = {
                 reportsQuery = reportsQuery.eq('barangay_id', barangay_id);
             }
             // Fetch barangays for this municipality for the frontend filter
-            const { data: allBarangays, error: brgyErr } = await db_1.supabase
-                .from('barangays')
-                .select('id, name, municipality_id')
-                .eq('municipality_id', municipality_id)
-                .order('name', { ascending: true });
+            const [{ data: allBarangays, error: brgyErr }, { data: reports, error },] = await Promise.all([
+                db_1.supabase
+                    .from('barangays')
+                    .select('id, name, municipality_id')
+                    .eq('municipality_id', municipality_id)
+                    .order('name', { ascending: true }),
+                reportsQuery,
+            ]);
             if (brgyErr)
                 throw brgyErr;
-            const { data: reports, error } = await reportsQuery;
             if (error)
                 throw error;
             const totalReports = reports.length;
@@ -229,7 +233,7 @@ exports.analyticsController = {
             });
         }
         catch (err) {
-            return res.status(500).json({ error: err.message });
+            return res.status(500).json({ error: (0, errorResponse_1.serverErrorMessage)(err) });
         }
     }
 };

@@ -7,37 +7,19 @@ import { ChevronLeft, ChevronRight, Upload, X, Copy, CheckCheck, Tag, Camera, Re
 import { gooeyToast } from 'goey-toast';
 import { useQuery } from '@tanstack/react-query';
 import BackButton from '@/components/navigation/back-button';
+import { useCurrentUser } from '@/hooks/queries/useCurrentUser';
 
 const useAuth = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [user, setUser] = useState<{ id: string; name: string; email: string; phone?: string } | null>(null);
-
-  useEffect(() => {
-    const bootstrapAuth = async () => {
-      if (typeof document === 'undefined') return;
-      const hasToken = document.cookie.split('; ').find(row => row.startsWith('auth-token='));
-      if (!hasToken) return;
-
-      setIsLoggedIn(true);
-
-      try {
-        const { apiClient } = await import('@/lib/api');
-        const profileRes = await apiClient.users.me();
-        if (profileRes?.data?.id) {
-          setUser({
-            id: profileRes.data.id,
-            name: profileRes.data.full_name || '',
-            email: profileRes.data.email || '',
-            phone: profileRes.data.contact_number || '',
-          });
-        }
-      } catch (error) {
-        console.error('Failed to load authenticated client profile:', error);
+  const { data: profileData } = useCurrentUser();
+  const isLoggedIn = !!profileData?.id;
+  const user = isLoggedIn
+    ? {
+        id: profileData.id,
+        name: profileData.full_name || '',
+        email: profileData.email || '',
+        phone: profileData.contact_number || '',
       }
-    };
-
-    void bootstrapAuth();
-  }, []);
+    : null;
 
   return { isLoggedIn, user };
 };
@@ -406,20 +388,7 @@ export default function ReportPage() {
     try {
       setIsSubmitting(true);
       const submissionData = { ...formData };
-      let submittingUser = user;
-
-      if (isLoggedIn && !submittingUser) {
-        const { apiClient } = await import('@/lib/api');
-        const profileRes = await apiClient.users.me();
-        if (profileRes?.data?.id) {
-          submittingUser = {
-            id: profileRes.data.id,
-            name: profileRes.data.full_name || '',
-            email: profileRes.data.email || '',
-            phone: profileRes.data.contact_number || '',
-          };
-        }
-      }
+      const submittingUser = user;
 
       const oversized = formData.photos.find((file) => file.size > MAX_SOURCE_IMAGE_SIZE_BYTES);
       if (oversized) {

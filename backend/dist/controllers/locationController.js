@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.locationController = void 0;
 const db_1 = require("../config/db");
+const errorResponse_1 = require("../utils/errorResponse");
 exports.locationController = {
     async getLocations(req, res) {
         try {
@@ -18,12 +19,12 @@ exports.locationController = {
         `)
                 .order('name');
             if (error) {
-                return res.status(500).json({ error: error.message });
+                return res.status(500).json({ error: (0, errorResponse_1.serverErrorMessage)(error) });
             }
             return res.status(200).json({ data: municipalities });
         }
         catch (err) {
-            return res.status(500).json({ error: err.message });
+            return res.status(500).json({ error: (0, errorResponse_1.serverErrorMessage)(err) });
         }
     }
 };

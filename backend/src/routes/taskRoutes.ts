@@ -12,6 +12,6 @@ router.get('/', withAuth, requireRole(['admin', 'superadmin', 'workforce-admin',
 router.put('/:id', withAuth, requireRole(['admin', 'superadmin', 'workforce-admin', 'workforce']), taskController.updateTaskStatus);
 
 // Complete task with Proof
-router.post('/:id/complete', withAuth, taskController.completeTask);
+router.post('/:id/complete', withAuth, requireRole(['workforce']), taskController.completeTask);
 
 export default router;

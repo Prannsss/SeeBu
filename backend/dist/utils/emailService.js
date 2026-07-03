@@ -1,37 +1,59 @@
 "use strict";
 /**
  * emailService.ts
- * Utilities for sending emails via Resend REST API.
+ * Utilities for sending emails via AWS SES (SMTP) using nodemailer.
  */
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendReportTrackingEmail = exports.sendClientUpdateEmail = exports.sendVerificationEmail = exports.sendWelcomeEmail = void 0;
-const resend_1 = require("resend");
-const resend = new resend_1.Resend(process.env.RESEND_API_KEY);
-const FROM_EMAIL = 'onboarding@resend.dev';
-const FROM_NAME = 'SeeBu Team';
-const sendResendEmail = async (payload) => {
+const nodemailer_1 = __importDefault(require("nodemailer"));
+/** Escape user-controlled values before interpolating into HTML email templates. */
+function escapeHtml(value) {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+const transporter = nodemailer_1.default.createTransport({
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT) || 587,
+    secure: false,
+    auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+    },
+});
+const FROM_EMAIL = process.env.SMTP_FROM_EMAIL;
+const FROM_NAME = process.env.SMTP_FROM_NAME;
+const sendSmtpEmail = async (payload) => {
     const { to, subject, html, text } = payload;
-    const { data, error } = await resend.emails.send({
-        from: `${FROM_NAME} <${FROM_EMAIL}>`,
-        to: [to],
-        subject,
-        html,
-        ...(text ? { text } : {}),
-    });
-    if (error) {
-        console.error('Resend API Error:', error);
-        throw new Error(`Resend API Error: ${error.message}`);
+    try {
+        return await transporter.sendMail({
+            from: `${FROM_NAME} <${FROM_EMAIL}>`,
+            to,
+            subject,
+            html,
+            ...(text ? { text } : {}),
+        });
     }
-    return data;
+    catch (error) {
+        console.error('SMTP Send Error:', error);
+        throw new Error(`SMTP Send Error: ${error.message}`);
+    }
 };
 const sendWelcomeEmail = async (toEmail, toName) => {
-    return sendResendEmail({
+    const safeName = escapeHtml(toName);
+    return sendSmtpEmail({
         to: toEmail,
         subject: `Welcome to SeeBu, ${toName}!`,
         html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
         <h2>Welcome to SeeBu!</h2>
-        <p>Hi ${toName},</p>
+        <p>Hi ${safeName},</p>
         <p>Thank you for signing up to SeeBu. We are excited to have you onboard.</p>
         <p>If you have any questions, feel free to reply to this email.</p>
         <br/>
@@ -42,13 +64,14 @@ const sendWelcomeEmail = async (toEmail, toName) => {
 };
 exports.sendWelcomeEmail = sendWelcomeEmail;
 const sendVerificationEmail = async (toEmail, toName, code) => {
-    return sendResendEmail({
+    const safeName = escapeHtml(toName);
+    return sendSmtpEmail({
         to: toEmail,
         subject: `Your SeeBu Verification Code`,
         html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
         <h2>Verify Your Email</h2>
-        <p>Hi ${toName},</p>
+        <p>Hi ${safeName},</p>
         <p>Your verification code is: <strong>${code}</strong></p>
         <p>Enter this code on the SeeBu platform to verify your account.</p>
         <p><em>Note: This code expires in <strong>15 minutes</strong>. If you did not request this, please ignore this email.</em></p>
@@ -60,15 +83,18 @@ const sendVerificationEmail = async (toEmail, toName, code) => {
 };
 exports.sendVerificationEmail = sendVerificationEmail;
 const sendClientUpdateEmail = async (toEmail, toName, title, message) => {
-    return sendResendEmail({
+    const safeName = escapeHtml(toName);
+    const safeTitle = escapeHtml(title);
+    const safeMessage = escapeHtml(message);
+    return sendSmtpEmail({
         to: toEmail,
         subject: `SeeBu Update: ${title}`,
         text: `Hello ${toName},\n\n${message}\n\nBest,\nSeeBu Team`,
         html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
-        <h2>${title}</h2>
-        <p>Hello ${toName},</p>
-        <p>${message}</p>
+        <h2>${safeTitle}</h2>
+        <p>Hello ${safeName},</p>
+        <p>${safeMessage}</p>
         <br/>
         <p>Best regards,<br/>The SeeBu Team</p>
       </div>
@@ -78,14 +104,16 @@ const sendClientUpdateEmail = async (toEmail, toName, title, message) => {
 exports.sendClientUpdateEmail = sendClientUpdateEmail;
 const sendReportTrackingEmail = async (toEmail, toName, trackingId, reportTitle) => {
     const frontendUrl = process.env.FRONTEND_URL || 'https://seebucommunity.vercel.app';
-    return sendResendEmail({
+    const safeName = escapeHtml(toName || 'Anonymous User');
+    const safeTitle = escapeHtml(reportTitle);
+    return sendSmtpEmail({
         to: toEmail,
         subject: `Your SeeBu Report Tracking ID: ${trackingId}`,
         html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
         <h2>Report Submitted Successfully!</h2>
-        <p>Hi ${toName || 'Anonymous User'},</p>
-        <p>We have received your report <strong>"${reportTitle}"</strong>.</p>
+        <p>Hi ${safeName},</p>
+        <p>We have received your report <strong>"${safeTitle}"</strong>.</p>
         <p>Your tracking number is:</p>
         <div style="background:#f4f4f4;padding:16px;border-radius:8px;font-size:24px;font-weight:bold;text-align:center;margin:20px 0;">
           ${trackingId}

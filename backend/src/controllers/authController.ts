@@ -1,10 +1,51 @@
 import { Request, Response } from 'express';
 import { supabase } from '../config/db';
+import { serverErrorMessage } from '../utils/errorResponse';
 import { sendWelcomeEmail, sendVerificationEmail } from '../utils/emailService';
+import { sendPasswordResetSms } from '../utils/smsService';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
+import { OAuth2Client } from 'google-auth-library';
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID as string;
+const FACEBOOK_APP_ID = process.env.FACEBOOK_APP_ID as string;
+const FACEBOOK_APP_SECRET = process.env.FACEBOOK_APP_SECRET as string;
+
+const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
+
+/** Verify a Google Sign-In ID token server-side and return the verified profile */
+async function verifyGoogleIdToken(idToken: string) {
+  const ticket = await googleClient.verifyIdToken({ idToken, audience: GOOGLE_CLIENT_ID });
+  const payload = ticket.getPayload();
+  if (!payload || !payload.email || !payload.email_verified) {
+    throw new Error('Google account email is not verified');
+  }
+  return { email: payload.email, full_name: payload.name || 'Google User', google_id: payload.sub };
+}
+
+/** Verify a Facebook access token server-side (debug_token) and fetch the verified profile */
+async function verifyFacebookAccessToken(accessToken: string) {
+  const appAccessToken = `${FACEBOOK_APP_ID}|${FACEBOOK_APP_SECRET}`;
+  const debugUrl = `https://graph.facebook.com/debug_token?input_token=${encodeURIComponent(accessToken)}&access_token=${encodeURIComponent(appAccessToken)}`;
+  const debugRes = await fetch(debugUrl);
+  const debugData: any = await debugRes.json();
+
+  if (!debugRes.ok || !debugData?.data?.is_valid || debugData.data.app_id !== FACEBOOK_APP_ID) {
+    throw new Error('Invalid Facebook access token');
+  }
+
+  const profileUrl = `https://graph.facebook.com/me?fields=id,name,email&access_token=${encodeURIComponent(accessToken)}`;
+  const profileRes = await fetch(profileUrl);
+  const profile: any = await profileRes.json();
+
+  if (!profileRes.ok || !profile?.email) {
+    throw new Error('Unable to retrieve verified Facebook profile email');
+  }
+
+  return { email: profile.email, full_name: profile.name || 'Facebook User', facebook_id: profile.id };
+}
 
 // All tables that hold user accounts (used when searching by email)
 const USER_TABLES = [
@@ -17,7 +58,7 @@ const USER_TABLES = [
 
 /** Generate a 6-digit OTP and upsert it into verification_tokens */
 async function issueVerificationToken(email: string, type: 'email_verify' | 'password_reset'): Promise<string> {
-  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const code = crypto.randomInt(100000, 1000000).toString();
   const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
   const { error } = await supabase
@@ -62,7 +103,7 @@ export const authController = {
         .single();
 
       if (error) {
-        return res.status(500).json({ error: error.message });
+        return res.status(500).json({ error: serverErrorMessage(error) });
       }
 
       // Issue OTP and send emails
@@ -81,16 +122,23 @@ export const authController = {
       });
     } catch (err: any) {
       console.error('[registerClient]', err);
-      return res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: serverErrorMessage(err) });
     }
   },
 
   // ── Google OAuth ─────────────────────────────────────────────────────────
   async googleOAuthCallback(req: Request, res: Response) {
     try {
-      const { email, full_name, google_id, action } = req.body;
+      const { credential, action } = req.body;
+      if (!credential) return res.status(400).json({ error: 'Missing Google credential' });
 
-      if (!email) return res.status(400).json({ error: 'Missing OAuth email' });
+      let verified;
+      try {
+        verified = await verifyGoogleIdToken(credential);
+      } catch (verifyErr: any) {
+        return res.status(401).json({ error: 'Invalid Google credential' });
+      }
+      const { email, full_name } = verified;
 
       let { data: existingClient } = await supabase
         .from('clients')
@@ -103,24 +151,26 @@ export const authController = {
           return res.status(401).json({ error: "Invalid. This account doesn't have an account. Sign up first" });
         }
         const token = jwt.sign({ id: existingClient.id, role: 'client' }, JWT_SECRET, { expiresIn: '7d' });
-        return res.status(200).json({ message: 'Login successful', user: { ...existingClient, role: 'client' }, token });
+        const { password_hash, ...safeUser } = existingClient;
+        return res.status(200).json({ message: 'Login successful', user: { ...safeUser, role: 'client' }, token });
       }
 
       // If action is register (or fallback)
       if (existingClient) {
         const token = jwt.sign({ id: existingClient.id, role: 'client' }, JWT_SECRET, { expiresIn: '7d' });
-        return res.status(200).json({ message: 'Login successful', user: { ...existingClient, role: 'client' }, token });
+        const { password_hash, ...safeUser } = existingClient;
+        return res.status(200).json({ message: 'Login successful', user: { ...safeUser, role: 'client' }, token });
       }
 
       const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(Math.random().toString(36).slice(-10), salt);
+      const hashedPassword = await bcrypt.hash(crypto.randomBytes(16).toString('hex'), salt);
 
       const { data: newClient, error } = await supabase
         .from('clients')
         .insert([{
           email,
           password_hash: hashedPassword,
-          full_name: full_name || 'Google User',
+          full_name,
           status: 'Active',
           email_verified: true, // verified by default for OAuth
         }])
@@ -135,22 +185,31 @@ export const authController = {
       // await sendVerificationEmail(email, full_name || 'Google User', verificationCode);
 
       const token = jwt.sign({ id: newClient.id, role: 'client' }, JWT_SECRET, { expiresIn: '7d' });
+      const { password_hash, ...safeNewUser } = newClient;
       return res.status(201).json({
         message: 'Registration successful via Google',
-        user: { ...newClient, role: 'client' },
+        user: { ...safeNewUser, role: 'client' },
         token,
       });
     } catch (err: any) {
       console.error('[googleOAuthCallback]', err);
-      return res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: serverErrorMessage(err) });
     }
   },
 
   // ── Facebook OAuth ───────────────────────────────────────────────────────
   async facebookOAuthCallback(req: Request, res: Response) {
     try {
-      const { email, full_name, action } = req.body;
-      if (!email) return res.status(400).json({ error: 'Missing OAuth email' });
+      const { accessToken, action } = req.body;
+      if (!accessToken) return res.status(400).json({ error: 'Missing Facebook access token' });
+
+      let verified;
+      try {
+        verified = await verifyFacebookAccessToken(accessToken);
+      } catch (verifyErr: any) {
+        return res.status(401).json({ error: 'Invalid Facebook access token' });
+      }
+      const { email, full_name } = verified;
 
       let { data: existingClient } = await supabase.from('clients').select('*').eq('email', email).single();
 
@@ -159,23 +218,25 @@ export const authController = {
           return res.status(401).json({ error: "Invalid. This account doesn't have an account. Sign up first" });
         }
         const token = jwt.sign({ id: existingClient.id, role: 'client' }, JWT_SECRET, { expiresIn: '7d' });
-        return res.status(200).json({ message: 'Login successful', user: { ...existingClient, role: 'client' }, token });
+        const { password_hash, ...safeUser } = existingClient;
+        return res.status(200).json({ message: 'Login successful', user: { ...safeUser, role: 'client' }, token });
       }
 
       if (existingClient) {
         const token = jwt.sign({ id: existingClient.id, role: 'client' }, JWT_SECRET, { expiresIn: '7d' });
-        return res.status(200).json({ message: 'Login successful', user: { ...existingClient, role: 'client' }, token });
+        const { password_hash, ...safeUser } = existingClient;
+        return res.status(200).json({ message: 'Login successful', user: { ...safeUser, role: 'client' }, token });
       }
 
       const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(Math.random().toString(36).slice(-10), salt);
+      const hashedPassword = await bcrypt.hash(crypto.randomBytes(16).toString('hex'), salt);
 
       const { data: newClient, error } = await supabase
         .from('clients')
         .insert([{
           email,
           password_hash: hashedPassword,
-          full_name: full_name || 'Facebook User',
+          full_name,
           status: 'Active',
           email_verified: true, // verified by default for OAuth
         }])
@@ -190,14 +251,15 @@ export const authController = {
       // await sendVerificationEmail(email, full_name || 'Facebook User', verificationCode);
 
       const token = jwt.sign({ id: newClient.id, role: 'client' }, JWT_SECRET, { expiresIn: '7d' });
+      const { password_hash, ...safeNewUser } = newClient;
       return res.status(201).json({
         message: 'Registration successful via Facebook',
-        user: { ...newClient, role: 'client' },
+        user: { ...safeNewUser, role: 'client' },
         token,
       });
     } catch (err: any) {
       console.error('[facebookOAuthCallback]', err);
-      return res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: serverErrorMessage(err) });
     }
   },
 
@@ -244,13 +306,14 @@ export const authController = {
         return res.status(401).json({ error: 'Invalid credentials' });
       }
 
-      user.role = userRole;
+      const { password_hash, ...safeUser } = user;
+      safeUser.role = userRole;
 
       const token = jwt.sign({ id: user.id, role: userRole }, JWT_SECRET, { expiresIn: '7d' });
-      return res.status(200).json({ message: 'Login successful', token, user });
+      return res.status(200).json({ message: 'Login successful', token, user: safeUser });
     } catch (err: any) {
       console.error('[login]', err);
-      return res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: serverErrorMessage(err) });
     }
   },
 
@@ -478,27 +541,35 @@ export const authController = {
       });
     } catch (err: any) {
       console.error('[provision]', err);
-      return res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: serverErrorMessage(err) });
     }
   },
 
   // ── Forgot Password ──────────────────────────────────────────────────────
   async forgotPassword(req: Request, res: Response) {
     try {
-      const { email } = req.body;
+      const { email, contact_number, channel = 'email' } = req.body;
 
-      if (!email) {
+      if (channel !== 'email' && channel !== 'sms') {
+        return res.status(400).json({ error: 'Invalid channel' });
+      }
+
+      if (channel === 'email' && !email) {
         return res.status(400).json({ error: 'Missing email' });
+      }
+
+      if (channel === 'sms' && !contact_number) {
+        return res.status(400).json({ error: 'Missing contact number' });
       }
 
       let user = null;
 
       for (const table of USER_TABLES) {
-        const { data } = await supabase
-          .from(table)
-          .select('id, email, full_name')
-          .eq('email', email)
-          .single();
+        const query = supabase.from(table).select('id, email, full_name, contact_number');
+
+        const { data } = channel === 'sms'
+          ? await query.eq('contact_number', contact_number).single()
+          : await query.eq('email', email).single();
 
         if (data) {
           user = data;
@@ -506,24 +577,32 @@ export const authController = {
         }
       }
 
+      const genericMessage = channel === 'sms'
+        ? 'If an account with that number exists, a verification code has been sent.'
+        : 'If an account with that email exists, a verification code has been sent.';
+
       if (!user) {
-        return res.status(200).json({ found: false, message: 'Account not found.' });
+        return res.status(200).json({ message: genericMessage });
       }
 
       const otp = await issueVerificationToken(user.email, 'password_reset');
 
-      // Fire-and-forget — don't block response on email delivery
-      sendVerificationEmail(user.email, user.full_name || 'SeeBu User', otp).catch((err) =>
-        console.error('[forgotPassword] Email send failed:', err)
-      );
+      if (channel === 'sms') {
+        // Fire-and-forget — don't block response on SMS delivery
+        sendPasswordResetSms(user.contact_number, otp).catch((err) =>
+          console.error('[forgotPassword] SMS send failed:', err)
+        );
+      } else {
+        // Fire-and-forget — don't block response on email delivery
+        sendVerificationEmail(user.email, user.full_name || 'SeeBu User', otp).catch((err) =>
+          console.error('[forgotPassword] Email send failed:', err)
+        );
+      }
 
-      return res.status(200).json({
-        found: true,
-        message: 'A 6-digit verification code has been sent to your email.',
-      });
+      return res.status(200).json({ message: genericMessage });
     } catch (err: any) {
       console.error('[forgotPassword]', err);
-      return res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: serverErrorMessage(err) });
     }
   },
 
@@ -552,7 +631,7 @@ export const authController = {
       return res.status(200).json({ valid: true, message: 'Code is valid. You may now reset your password.' });
     } catch (err: any) {
       console.error('[verifyResetCode]', err);
-      return res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: serverErrorMessage(err) });
     }
   },
 
@@ -608,7 +687,7 @@ export const authController = {
       return res.status(200).json({ message: 'Password reset successfully. You can now log in.' });
     } catch (err: any) {
       console.error('[resetPassword]', err);
-      return res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: serverErrorMessage(err) });
     }
   },
 
@@ -656,7 +735,7 @@ export const authController = {
       return res.status(200).json({ message: 'Email verified successfully', email_verified: true });
     } catch (err: any) {
       console.error('[verifyEmail]', err);
-      return res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: serverErrorMessage(err) });
     }
   },
 
@@ -695,7 +774,7 @@ export const authController = {
       return res.status(200).json({ message: 'Verification code sent to your email' });
     } catch (err: any) {
       console.error('[resendVerification]', err);
-      return res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: serverErrorMessage(err) });
     }
   },
 };

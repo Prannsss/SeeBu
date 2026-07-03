@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.departmentController = void 0;
 const db_1 = require("../config/db");
+const errorResponse_1 = require("../utils/errorResponse");
 async function getAdminMunicipality(adminId) {
     const { data, error } = await db_1.supabase
         .from('admins')
@@ -128,7 +129,7 @@ exports.departmentController = {
             return res.status(200).json({ data });
         }
         catch (err) {
-            return res.status(500).json({ error: err.message });
+            return res.status(500).json({ error: (0, errorResponse_1.serverErrorMessage)(err) });
         }
     },
     async getDepartmentPersonnel(req, res) {
@@ -178,7 +179,7 @@ exports.departmentController = {
             return res.status(200).json({ data: personnel });
         }
         catch (err) {
-            return res.status(500).json({ error: err.message });
+            return res.status(500).json({ error: (0, errorResponse_1.serverErrorMessage)(err) });
         }
     },
 };

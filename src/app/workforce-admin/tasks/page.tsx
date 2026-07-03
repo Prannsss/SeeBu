@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { ReportMediaGallery } from "@/components/reports/report-media-gallery"
+import { useCurrentUser } from "@/hooks/queries/useCurrentUser"
 
 type LinkedReport = {
   id: string;
@@ -32,14 +33,7 @@ export default function WorkforceAdminTasksPage() {
   const [dialogOpen, setDialogOpen] = useState<string | null>(null)
   const [selectedReport, setSelectedReport] = useState<LinkedReport | null>(null)
 
-  const { data: profileData } = useQuery({
-    queryKey: ['workforce-admin-profile'],
-    queryFn: async () => {
-      const { apiClient } = await import('@/lib/api');
-      const res = await apiClient.users.me();
-      return res.data;
-    }
-  })
+  const { data: profileData } = useCurrentUser()
 
   const departmentId = profileData?.department_id ? String(profileData.department_id) : "";
 

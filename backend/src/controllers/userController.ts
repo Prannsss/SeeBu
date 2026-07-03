@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { supabase } from '../config/db';
+import { serverErrorMessage } from '../utils/errorResponse';
 
 export const userController = {
   async getCurrentUser(req: Request, res: Response) {
@@ -36,7 +37,7 @@ export const userController = {
       
       return res.status(200).json({ data: userProfile });
     } catch (err: any) {
-      return res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: serverErrorMessage(err) });
     }
   },
 
@@ -69,12 +70,12 @@ export const userController = {
         .eq('id', userReq.id);
 
       if (error) {
-        return res.status(500).json({ error: error.message });
+        return res.status(500).json({ error: serverErrorMessage(error) });
       }
 
       return res.status(200).json({ message: 'Profile updated successfully' });
     } catch (err: any) {
-      return res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: serverErrorMessage(err) });
     }
   },
 
@@ -133,7 +134,7 @@ export const userController = {
       
       return res.status(200).json({ data: allUsers });
     } catch (err: any) {
-      return res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: serverErrorMessage(err) });
     }
   },
 
@@ -162,12 +163,12 @@ export const userController = {
         .eq('id', userReq.id);
 
       if (error) {
-        return res.status(500).json({ error: error.message });
+        return res.status(500).json({ error: serverErrorMessage(error) });
       }
 
       return res.status(200).json({ message: 'Account deleted successfully' });
     } catch (err: any) {
-      return res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: serverErrorMessage(err) });
     }
   }
 };
