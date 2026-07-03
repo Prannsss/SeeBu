@@ -8,7 +8,7 @@ const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
 // Global Rate limiting
 exports.limiter = (0, express_rate_limit_1.default)({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // limit each IP to 100 requests per windowMs
+    max: 500, // limit each IP to 100 requests per windowMs
     message: {
         error: 'Too many requests from this IP, please try again after 15 minutes'
     },
@@ -18,19 +18,19 @@ exports.limiter = (0, express_rate_limit_1.default)({
 // Stricter limits for auth endpoints
 exports.authLimiter = (0, express_rate_limit_1.default)({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 10, // limit each IP to 10 auth requests per windowMs
+    max: 50, // limit each IP to 10 auth requests per windowMs
     message: {
         error: 'Too many authentication attempts from this IP, please try again after 15 minutes'
     },
     standardHeaders: true,
     legacyHeaders: false,
 });
-// Limit for report creation (includes image uploads)
+// Limit for endpoints that accept photo uploads (report creation, task completion)
 exports.reportLimiter = (0, express_rate_limit_1.default)({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 30, // limit each IP to 30 report creations per windowMs
+    max: 30, // limit each IP to 30 submissions per windowMs
     message: {
-        error: 'Too many reports created from this IP, please try again after 15 minutes'
+        error: 'Too many submissions from this IP, please try again after 15 minutes'
     },
     standardHeaders: true,
     legacyHeaders: false,

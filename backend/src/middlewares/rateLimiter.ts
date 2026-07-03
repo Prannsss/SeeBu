@@ -22,12 +22,12 @@ export const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// Limit for report creation (includes image uploads)
+// Limit for endpoints that accept photo uploads (report creation, task completion)
 export const reportLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 30, // limit each IP to 30 report creations per windowMs
+  max: 30, // limit each IP to 30 submissions per windowMs
   message: {
-    error: 'Too many reports created from this IP, please try again after 15 minutes'
+    error: 'Too many submissions from this IP, please try again after 15 minutes'
   },
   standardHeaders: true,
   legacyHeaders: false,

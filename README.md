@@ -76,8 +76,63 @@ The system aims to improve transparency, efficiency, and citizen engagement by d
 * **Backend API:** Express.js, Supabase, Next.js Server Actions
 * **Authentication:** Next.js Edge Middleware (JWT, Roles), OAuth
 * **AI Integration:** Firebase Genkit, RAG (Retrieval-Augmented Generation)
+* **Privacy:** EgoBlur (Meta) for automatic face/plate redaction
 * **Hosting/Config:** Firebase App Hosting, Render (Backend)
 * **Tools:** VS Code, Git, GitHub
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- **Node.js 20+** (frontend and backend)
+- **Python 3.10–3.12** (for EgoBlur service)
+- **.env files** for both frontend and backend (ask a teammate or see `backend/README.md`)
+
+### Run Locally (Development)
+
+The app runs in three parts. Open separate terminals for each:
+
+**Terminal 1 — EgoBlur Service** (image redaction; optional for dev, skip to test without blurring):
+```bash
+cd egoblur-service
+python -m venv .venv
+.venv\Scripts\activate  # Windows
+# or: source .venv/bin/activate  # macOS/Linux
+pip install -r requirements.txt
+uvicorn main:app --port 8228
+```
+See `egoblur-service/README.md` for model download and full setup.
+
+**Terminal 2 — Backend API** (from repo root):
+```bash
+npm install --prefix backend
+npm run backend:watch
+# Listens on http://localhost:5000
+```
+See `backend/README.md` for env vars and more commands.
+
+**Terminal 3 — Frontend** (from repo root):
+```bash
+npm install
+npm run dev
+# Listens on http://localhost:3000
+```
+
+Visit `http://localhost:3000`, log in, and submit a report with a photo. The image will be blurred before storage (if EgoBlur is running) or stored unblurred (if not).
+
+### Production Builds
+
+```bash
+# Build backend (TypeScript → JavaScript)
+npm run build:backend
+
+# Build frontend (Next.js)
+npm run build
+```
+
+Deployed on Firebase App Hosting (frontend) and Render (backend).
 
 ---
 
@@ -90,7 +145,12 @@ SEEBU/
 │       ├── ai/         # AI integration logic (Genkit, RAG)
 │       ├── controllers/# API route controllers
 │       ├── middlewares/# Express middlewares (Auth, Roles)
-│       └── routes/     # API route definitions
+│       ├── routes/     # API route definitions
+│       └── utils/      # Utilities (email, SMS, image storage with EgoBlur integration)
+├── egoblur-service/    # Python FastAPI sidecar for face/plate redaction
+│   ├── main.py         # EgoBlur inference server
+│   ├── requirements.txt # Python dependencies (fastapi, torch, cv2)
+│   └── .venv/          # Virtual environment (gitignored)
 ├── public/             # Static assets (images, gifs, icons)
 ├── src/                # Next.js Frontend
 │   ├── middleware.ts   # Next.js Edge Middleware for Role-Based Access
@@ -108,7 +168,8 @@ SEEBU/
 │   └── types/          # Global TypeScript typings
 ├── apphosting.yaml     # App Hosting configuration
 ├── next.config.ts      # Next.js configuration
-└── tailwind.config.ts  # Theme configuration
+├── tailwind.config.ts  # Theme configuration
+└── README.md           # This file
 ```
 
 ---
@@ -129,6 +190,7 @@ SEEBU/
 * Authentication and verification are required
 * Compliance with data privacy standards
 * Controlled access for admin and LGU users
+* **Automatic PII redaction:** Faces and license plates in report photos are blurred using EgoBlur before storage, so admins view anonymized images while original (unblurred) copies are archived in a private bucket for legal/evidence purposes.
 
 ---
 
@@ -163,6 +225,24 @@ SEEBU/
 
 ---
 
+## Privacy & Data Protection
+
+This project integrates **EgoBlur** (Meta, Apache-2.0) to automatically redact faces and license plates from user-submitted images before storage, protecting PII in reports and ensuring admin dashboards respect user privacy.
+
+**Citation:** 
+```bibtex
+@misc{raina2023egoblur,
+  title={EgoBlur: Responsible Innovation in Aria},
+  author={Raina, Nikhil and Somasundaram, Guruprasad and Zheng, Kang and Miglani, Sagar and Saarinen, Steve and Meissner, Jeff and Schwesinger, Mark and Pesqueira, Luis and Prasad, Ishita and Miller, Edward and Gupta, Prince and Yan, Mingfei and Newcombe, Richard and Ren, Carl and Parkhi, Omkar M},
+  year={2023},
+  eprint={2308.13093},
+  archivePrefix={arXiv},
+  primaryClass={cs.CV}
+}
+```
+
+---
+
 ## Contributors
 
 * **France Laurence Velarde** (Project Developer)
@@ -173,6 +253,8 @@ SEEBU/
 ## License
 
 This project is developed for academic purposes. Future versions may adopt an open-source license or contribute to this repository.
+
+EgoBlur integration is licensed under Apache 2.0 (see `egoblur-service/README.md`).
 
 ---
 

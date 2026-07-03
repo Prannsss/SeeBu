@@ -44,6 +44,11 @@ next-env.d.ts
 .genkit/*
 .env*
 
+# egoblur models (large, license-gated download from projectaria.com)
+/egoblur-service/models/
+/egoblur-service/__pycache__/
+/egoblur-service/.venv/
+
 # firebase
 firebase-debug.log
 firestore-debug.log

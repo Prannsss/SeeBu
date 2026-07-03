@@ -18,10 +18,13 @@ Express + TypeScript API for the SeeBu platform. Uses Supabase for data storage,
 | `SMTP_FROM_EMAIL` / `SMTP_FROM_NAME` | "From" address/name used on outgoing email |
 | `SMS_SYNERMAXX_API_URL` / `SMS_SYNERMAXX_APP_KEY` / `SMS_SYNERMAXX_ORIGINATOR` | Synermaxx SMS gateway (see `src/utils/smsService.ts`) |
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | Supabase project connection (service role — server-side only) |
+| `SUPABASE_STORAGE_BUCKET` | Public bucket for stored photos (default: `report-photos`) |
+| `SUPABASE_STORAGE_ORIGINALS_BUCKET` | Private bucket for unblurred originals (default: `report-photos-originals`); created manually in Supabase dashboard |
 | `JWT_SECRET` | Signs/verifies auth JWTs. Required — the server refuses to start without it |
 | `FRONTEND_URL` | Used to build links in emails (e.g. report tracking link) |
+| `EGOBLUR_SERVICE_URL` | *Optional.* EgoBlur sidecar URL for blurring faces/plates (e.g. `http://localhost:8228`). If unset, images are stored unblurred. See `egoblur-service/README.md` for setup. |
 
-## Running the server
+## Running the Server
 
 The backend is part of the root npm workspace — run these commands from the **repository root**, not from inside `backend/`. `app.ts` loads env vars relative to `process.cwd()` (`.env.local` and `backend/.env`), so it must be started from the repo root for those paths to resolve.
 
@@ -43,6 +46,26 @@ npm run start:backend
 ```
 
 The server listens on `process.env.PORT` or `5000` by default. Health checks: `GET /health` and `GET /api/v1/health`.
+
+### With EgoBlur Image Blurring (Dev)
+
+To blur faces and license plates in submitted photos:
+
+**Terminal 1 — EgoBlur Service** (see `egoblur-service/README.md` for first-time setup):
+```bash
+cd egoblur-service
+.venv\Scripts\uvicorn main:app --port 8228  # Windows
+# or: source .venv/bin/activate && uvicorn main:app --port 8228  # macOS/Linux
+```
+
+**Terminal 2 — Backend API** (from repo root):
+```bash
+npm run backend:watch
+```
+
+Ensure `EGOBLUR_SERVICE_URL=http://localhost:8228` is set in `backend/.env` (default). When you submit a report photo, it will be blurred before storage.
+
+**Without the service**: Backend works normally but stores images unblurred (fail-open design).
 
 ## Project structure
 
