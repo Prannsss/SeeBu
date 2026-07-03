@@ -10,6 +10,7 @@ router.get('/', withAuth, requireRole(['admin', 'superadmin', 'workforce-admin',
 
 // Update status (Assigned -> Accepted)
 router.put('/:id', withAuth, requireRole(['admin', 'superadmin', 'workforce-admin', 'workforce']), taskController.updateTaskStatus);
+router.patch('/:id', withAuth, requireRole(['admin', 'superadmin', 'workforce-admin', 'workforce']), taskController.updateTaskStatus);
 
 // Complete task with Proof
 router.post('/:id/complete', withAuth, requireRole(['workforce']), taskController.completeTask);

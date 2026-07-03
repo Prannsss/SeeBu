@@ -65,7 +65,7 @@ export function useUpdateTaskStatus() {
   return useMutation({
     mutationFn: async ({ taskId, status }: { taskId: string, status: string }) => {
       return apiFetchClient(`/api/v1/tasks/${taskId}`, {
-        method: "PATCH",
+        method: "PUT",
         body: JSON.stringify({ status }),
       });
     },
@@ -108,7 +108,7 @@ export function useUpdateTask() {
       if (assigned_to) payload.assigned_to = assigned_to;
       
       return apiFetchClient(`/api/v1/tasks/${taskId}`, {
-        method: "PATCH",
+        method: "PUT",
         body: JSON.stringify(payload),
       });
     },
