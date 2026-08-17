@@ -75,8 +75,9 @@ export async function apiFetch<T = any>(
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: "Unknown error" }));
-    throw new Error(error.error || `HTTP ${response.status}: ${response.statusText}`);
+    const error = await response.json().catch(() => null);
+    const message = error?.error || error?.message || `HTTP ${response.status}: ${response.statusText}`;
+    throw new Error(message);
   }
 
   return response.json();
@@ -114,8 +115,9 @@ export async function apiFetchClient<T = any>(
   }
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: "Unknown error" }));
-    throw new Error(error.error || `HTTP ${response.status}: ${response.statusText}`);
+    const error = await response.json().catch(() => null);
+    const message = error?.error || error?.message || `HTTP ${response.status}: ${response.statusText}`;
+    throw new Error(message);
   }
 
   return response.json();
