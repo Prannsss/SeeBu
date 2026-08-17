@@ -20,7 +20,7 @@ function trustedStorageHost(): string | null {
 }
 
 const reportSchema = z.object({
-  reporter_id: z.string().uuid().optional().nullable(),
+  reporter_id: z.string().uuid().optional().nullable().or(z.literal('')),
   issue_type: z.string().min(1).max(100),
   other_type_specification: z.string().max(255).optional().nullable(),
   title: z.string().min(1).max(255),
@@ -29,7 +29,10 @@ const reportSchema = z.object({
   barangay_id: z.union([z.string(), z.number()]),
   location: z.string().min(1).max(500),
   landmark: z.string().max(255).optional().nullable(),
-  urgency: z.enum(['Low', 'Medium', 'High', 'Critical']).optional().default('Medium'),
+  urgency: z.preprocess(
+    (val) => (typeof val === 'string' && val.trim() ? val.charAt(0).toUpperCase() + val.slice(1).toLowerCase() : val),
+    z.enum(['Low', 'Medium', 'High', 'Critical']).optional().default('Medium')
+  ),
   is_anonymous: z.boolean().optional().default(false),
   reporter_name: z.string().max(255).optional().nullable(),
   reporter_email: z.string().email().optional().nullable().or(z.literal('')),

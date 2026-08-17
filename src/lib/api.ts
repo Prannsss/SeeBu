@@ -47,6 +47,18 @@ interface FetchOptions extends RequestInit {
   requireAuth?: boolean;
 }
 
+function extractErrorMessage(error: any, response: Response): string {
+  if (!error) return `HTTP ${response.status}: ${response.statusText}`;
+  let baseMsg = error.error || error.message || `HTTP ${response.status}: ${response.statusText}`;
+  if (error.details && typeof error.details === 'object') {
+    const detailKeys = Object.keys(error.details).filter(k => k !== '_errors');
+    if (detailKeys.length > 0) {
+      baseMsg += ` (${detailKeys.join(', ')})`;
+    }
+  }
+  return baseMsg;
+}
+
 /**
  * Server-side API fetch with automatic auth
  */
@@ -76,8 +88,7 @@ export async function apiFetch<T = any>(
 
   if (!response.ok) {
     const error = await response.json().catch(() => null);
-    const message = error?.error || error?.message || `HTTP ${response.status}: ${response.statusText}`;
-    throw new Error(message);
+    throw new Error(extractErrorMessage(error, response));
   }
 
   return response.json();
@@ -116,8 +127,7 @@ export async function apiFetchClient<T = any>(
 
   if (!response.ok) {
     const error = await response.json().catch(() => null);
-    const message = error?.error || error?.message || `HTTP ${response.status}: ${response.statusText}`;
-    throw new Error(message);
+    throw new Error(extractErrorMessage(error, response));
   }
 
   return response.json();

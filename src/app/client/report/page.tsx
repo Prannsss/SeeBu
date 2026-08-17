@@ -81,7 +81,13 @@ export default function ReportPage() {
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   const { isLoggedIn, user } = useAuth();
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   const [currentStep, setCurrentStep] = useState(1);
   const [showCamera, setShowCamera] = useState(false);
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
@@ -218,8 +224,8 @@ export default function ReportPage() {
     };
   }, [trackingNumber]);
 
-  // If user is logged in, skip step 4 (contact info)
-  const totalSteps = isLoggedIn ? 3 : 4;
+  // If user is logged in (after mounting), skip step 4 (contact info)
+  const totalSteps = (isMounted && isLoggedIn) ? 3 : 4;
 
   const getProgressWidthClass = () => {
     if (totalSteps === 3) {
@@ -408,6 +414,10 @@ export default function ReportPage() {
         submissionData.reporterPhone = submittingUser.phone || submissionData.reporterPhone;
       }
 
+      const normalizedUrgency = formData.urgency 
+        ? formData.urgency.charAt(0).toUpperCase() + formData.urgency.slice(1).toLowerCase() 
+        : 'Medium';
+
       // Convert formData to backend format
       const payload = {
         reporter_id: isLoggedIn ? submittingUser?.id || null : null,
@@ -419,7 +429,7 @@ export default function ReportPage() {
         barangay_id: formData.barangay,
         location: formData.location,
         landmark: formData.landmark,
-        urgency: formData.urgency,
+        urgency: normalizedUrgency,
         is_anonymous: formData.anonymous,
         reporter_name: submissionData.reporterName,
         reporter_email: submissionData.reporterEmail,
