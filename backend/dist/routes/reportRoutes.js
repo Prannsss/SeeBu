@@ -12,6 +12,8 @@ router.get('/', reportController_1.reportController.getReports);
 router.get('/:id', reportController_1.reportController.getReportById);
 // Create a new report
 router.post('/', rateLimiter_1.reportLimiter, reportController_1.reportController.createReport);
+// Scan image for sensitive data
+router.post('/scan-image', rateLimiter_1.reportLimiter, reportController_1.reportController.scanImage);
 // Update a specific report (Status change)
 router.put('/:id', withAuth_1.withAuth, (0, requireRole_1.requireRole)(['admin', 'superadmin']), reportController_1.reportController.updateReportStatus);
 exports.default = router;

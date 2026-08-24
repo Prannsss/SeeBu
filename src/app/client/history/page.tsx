@@ -9,6 +9,7 @@ import { useState, useEffect } from "react"
 import { useQuery } from '@tanstack/react-query'
 import { gooeyToast } from "goey-toast"
 import { useCurrentUser } from "@/hooks/queries/useCurrentUser"
+import { useRealtimeReports } from "@/hooks/useRealtimeReports"
 
 function truncate(str: string, length = 60) {
   if (!str) return '';
@@ -16,6 +17,7 @@ function truncate(str: string, length = 60) {
 }
 
 export default function ClientHistoryPage() {
+  useRealtimeReports({ enableToasts: false, userRole: "client" });
   const [activeTab, setActiveTab] = useState("all");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isMounted, setIsMounted] = useState(false);
@@ -51,7 +53,8 @@ export default function ClientHistoryPage() {
       });
       return json.data || [];
     },
-    enabled: !!userId || !!userEmail
+    enabled: !!userId || !!userEmail,
+    refetchInterval: 10000,
   });
 
   const items = reportData || [];

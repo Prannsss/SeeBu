@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { supabase } from '../config/db';
 import { serverErrorMessage } from '../utils/errorResponse';
 import { persistImageInputs } from '../utils/mediaStorage';
+import { moderateImage } from '../utils/imageModeration';
 import { sendReportTrackingEmail } from '../utils/emailService';
 import { sendReportTrackingSms } from '../utils/smsService';
 import jwt from 'jsonwebtoken';
@@ -163,6 +164,20 @@ export const reportController = {
       const validation = reportSchema.safeParse(req.body);
       if (!validation.success) {
         return res.status(400).json({ error: 'Validation failed', details: validation.error.format() });
+      }
+
+      // Check photos for sensitive data (people/faces, license plates, sensitive docs)
+      if (photos && Array.isArray(photos) && photos.length > 0) {
+        for (let i = 0; i < photos.length; i++) {
+          const modResult = await moderateImage(photos[i]);
+          if (!modResult.safe) {
+            return res.status(422).json({
+              error: modResult.reason || 'Image might contain sensitive data/information please retake the image',
+              details: modResult.details,
+              flaggedPhotoIndex: i,
+            });
+          }
+        }
       }
 
       const locationsValid = await municipalityAndBarangayExist(municipality_id, barangay_id);
@@ -674,6 +689,26 @@ export const reportController = {
       return res.status(200).json({ message: 'Report updated', data });
     } catch (err: any) {
       return res.status(500).json({ error: serverErrorMessage(err) });
+    }
+  },
+
+  // SCAN IMAGE FOR SENSITIVE DATA
+  async scanImage(req: Request, res: Response) {
+    try {
+      const { photo } = req.body;
+      if (!photo) {
+        return res.status(400).json({ error: 'Photo is required' });
+      }
+
+      const result = await moderateImage(photo);
+      return res.status(200).json(result);
+    } catch (err: any) {
+      console.error('Error in scanImage:', err);
+      return res.status(200).json({
+        safe: true,
+        reason: null,
+        details: { hasPerson: false, hasPlateNumber: false, hasSensitiveData: false }
+      });
     }
   }
 };

@@ -25,7 +25,9 @@ if (!process.env.JWT_SECRET) {
 }
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 5000;
-app.use((0, helmet_1.default)());
+app.use((0, helmet_1.default)({
+    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" }
+}));
 // Apply rate limiting to all requests
 app.use(rateLimiter_1.limiter);
 const allowedOrigins = [
@@ -45,11 +47,10 @@ app.use((0, cors_1.default)({
     },
     credentials: true
 }));
-// Small default body limit; reports/tasks accept base64 photo payloads and get a
-// larger, route-scoped limit applied ahead of their routers below.
-app.use(express_1.default.json({ limit: '100kb' }));
-app.use(express_1.default.urlencoded({ extended: true, limit: '100kb' }));
-const imageUploadBodyLimit = express_1.default.json({ limit: '10mb' });
+// Body limits: Allow up to 50MB payloads for base64 image uploads (reports/tasks)
+app.use(express_1.default.json({ limit: '50mb' }));
+app.use(express_1.default.urlencoded({ extended: true, limit: '50mb' }));
+const imageUploadBodyLimit = express_1.default.json({ limit: '50mb' });
 // Health check endpoint for Render/Root URL
 app.get('/health', (req, res) => {
     res.status(200).json({

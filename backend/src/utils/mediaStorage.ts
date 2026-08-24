@@ -4,6 +4,9 @@ import { supabase } from '../config/db';
 const DEFAULT_BUCKET = process.env.SUPABASE_STORAGE_BUCKET || 'report-photos';
 const ORIGINALS_BUCKET = process.env.SUPABASE_STORAGE_ORIGINALS_BUCKET || 'report-photos-originals';
 
+// Suppress repeated EgoBlur "unavailable" log noise — warn once per process start.
+let egoBlurUnavailableLogged = false;
+
 type UploadResult = {
   original: string;
   storedUrl: string;
@@ -50,7 +53,10 @@ async function blurImage(buffer: Buffer, mimeType: string): Promise<Buffer | nul
     }
     return Buffer.from(await response.arrayBuffer());
   } catch (error) {
-    console.warn('EgoBlur unavailable, storing image unblurred:', error);
+    if (!egoBlurUnavailableLogged) {
+      egoBlurUnavailableLogged = true;
+      console.warn('[mediaStorage] EgoBlur sidecar unavailable — storing images unblurred. Set EGOBLUR_SERVICE_URL to enable blurring.');
+    }
     return null;
   }
 }

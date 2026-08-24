@@ -49,6 +49,7 @@
     "@tanstack/react-query-devtools": "^5.100.11",
     "@tanstack/react-query-persist-client": "^5.100.11",
     "@types/bcryptjs": "^2.4.6",
+    "@vladmandic/face-api": "^1.7.15",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",

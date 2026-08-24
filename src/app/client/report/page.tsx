@@ -3,11 +3,14 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ChevronLeft, ChevronRight, Upload, X, Copy, CheckCheck, Tag, Camera, RefreshCcw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Upload, X, Copy, CheckCheck, Tag, Camera, RefreshCcw, AlertTriangle, Loader2 } from 'lucide-react';
 import { gooeyToast } from 'goey-toast';
 import { useQuery } from '@tanstack/react-query';
 import BackButton from '@/components/navigation/back-button';
 import { useCurrentUser } from '@/hooks/queries/useCurrentUser';
+import { CameraPrivacyNoticeModal } from '@/components/reports/camera-privacy-notice-modal';
+import { ReportPrivacyAgreementModal } from '@/components/reports/report-privacy-agreement-modal';
+import { scanImageForSensitiveData } from '@/lib/sensitiveDataDetector';
 
 const useAuth = () => {
   const { data: profileData } = useCurrentUser();
@@ -81,15 +84,13 @@ export default function ReportPage() {
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
   const { isLoggedIn, user } = useAuth();
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
   const [currentStep, setCurrentStep] = useState(1);
+  const [showCameraNotice, setShowCameraNotice] = useState(false);
+  const [showAgreementModal, setShowAgreementModal] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
+  const [isScanningPhotos, setIsScanningPhotos] = useState(false);
+  const [flaggedPhotoIndices, setFlaggedPhotoIndices] = useState<Set<number>>(new Set());
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const [flash, setFlash] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -112,7 +113,9 @@ export default function ReportPage() {
           }
         } catch (err) {
           console.error("Error accessing camera:", err);
-          gooeyToast.error("Camera access denied.");
+          gooeyToast.error("Camera Access Denied", {
+            description: "Please allow camera access in your browser settings to take photos."
+          });
           setShowCamera(false);
         }
       };
@@ -125,6 +128,58 @@ export default function ReportPage() {
       }
     };
   }, [showCamera, facingMode]);
+
+  const scanCache = useRef<WeakMap<File, boolean>>(new WeakMap());
+
+  const scanSinglePhoto = async (file: File): Promise<boolean> => {
+    if (scanCache.current.has(file)) {
+      return scanCache.current.get(file)!;
+    }
+    const result = await scanImageForSensitiveData(file);
+    scanCache.current.set(file, result.safe);
+    return result.safe;
+  };
+
+  const scanPhotos = async (photos: File[], options?: { isNewAddition?: boolean; newFiles?: File[] }) => {
+    if (photos.length === 0) {
+      setFlaggedPhotoIndices(new Set());
+      return true;
+    }
+    setIsScanningPhotos(true);
+    const flagged = new Set<number>();
+    let newlyFlaggedCount = 0;
+
+    for (let i = 0; i < photos.length; i++) {
+      const isSafe = await scanSinglePhoto(photos[i]);
+      if (!isSafe) {
+        flagged.add(i);
+        if (options?.newFiles && options.newFiles.includes(photos[i])) {
+          newlyFlaggedCount++;
+        }
+      }
+    }
+    setFlaggedPhotoIndices(flagged);
+    setIsScanningPhotos(false);
+
+    // If triggered by adding a new photo, only notify if the newly added photo is sensitive
+    if (options?.isNewAddition) {
+      if (newlyFlaggedCount > 0) {
+        gooeyToast.error("Sensitive Data Detected", {
+          description: "The captured photo contains sensitive information (e.g. people or license plates). Please retake the photo."
+        });
+        return false;
+      }
+      return flagged.size === 0;
+    }
+
+    if (flagged.size > 0) {
+      gooeyToast.error("Sensitive Data Detected", {
+        description: "Please remove or retake the flagged photos before proceeding."
+      });
+      return false;
+    }
+    return true;
+  };
 
   const capturePhoto = () => {
     if (videoRef.current && canvasRef.current) {
@@ -175,6 +230,7 @@ export default function ReportPage() {
               if (newPhotos.length >= 5) {
                 setTimeout(() => setShowCamera(false), 300);
               }
+              scanPhotos(newPhotos, { isNewAddition: true, newFiles: [file] });
             }
           }
         }, 'image/jpeg', 0.8);
@@ -183,6 +239,7 @@ export default function ReportPage() {
   };
 
   const [trackingNumber, setTrackingNumber] = useState<string | null>(null);
+  const [submittedEmail, setSubmittedEmail] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     issueType: '',
@@ -200,6 +257,68 @@ export default function ReportPage() {
     reporterPhone: '',
     anonymous: false,
   });
+
+  const DRAFT_STORAGE_KEY = 'seebu_report_draft';
+
+  // Restore draft on mount
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(DRAFT_STORAGE_KEY);
+      if (!saved) return;
+      const parsed = JSON.parse(saved);
+      if (parsed?.formData) {
+        setFormData(prev => ({
+          ...prev,
+          issueType: parsed.formData.issueType || '',
+          otherSpecify: parsed.formData.otherSpecify || '',
+          municipality: parsed.formData.municipality || '',
+          barangay: parsed.formData.barangay || '',
+          location: parsed.formData.location || '',
+          landmark: parsed.formData.landmark || '',
+          title: parsed.formData.title || '',
+          description: parsed.formData.description || '',
+          urgency: parsed.formData.urgency || 'medium',
+          reporterName: parsed.formData.reporterName || '',
+          reporterEmail: parsed.formData.reporterEmail || '',
+          reporterPhone: parsed.formData.reporterPhone || '',
+          anonymous: Boolean(parsed.formData.anonymous),
+        }));
+      }
+      if (parsed?.currentStep && typeof parsed.currentStep === 'number' && parsed.currentStep >= 1 && parsed.currentStep <= 4) {
+        setCurrentStep(parsed.currentStep);
+      }
+    } catch (e) {
+      console.warn('Failed to restore report draft:', e);
+    }
+  }, []);
+
+  // Persist draft on changes
+  useEffect(() => {
+    try {
+      if (trackingNumber) return;
+      const draft = {
+        currentStep,
+        formData: {
+          issueType: formData.issueType,
+          otherSpecify: formData.otherSpecify,
+          municipality: formData.municipality,
+          barangay: formData.barangay,
+          location: formData.location,
+          landmark: formData.landmark,
+          title: formData.title,
+          description: formData.description,
+          urgency: formData.urgency,
+          reporterName: formData.reporterName,
+          reporterEmail: formData.reporterEmail,
+          reporterPhone: formData.reporterPhone,
+          anonymous: formData.anonymous,
+        }
+      };
+      sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+    } catch (e) {
+      // Ignore quota exceptions
+    }
+  }, [formData, currentStep, trackingNumber]);
 
   useEffect(() => {
     if (!trackingNumber || typeof document === 'undefined') {
@@ -224,20 +343,33 @@ export default function ReportPage() {
     };
   }, [trackingNumber]);
 
-  // If user is logged in (after mounting), skip step 4 (contact info)
-  const totalSteps = (isMounted && isLoggedIn) ? 3 : 4;
+  // If user is logged in, skip step 4 (contact info)
+  const totalSteps = isLoggedIn ? 3 : 4;
+
+  const getProgressPercentage = () => {
+    if (totalSteps === 3) {
+      if (currentStep === 1) return 33;
+      if (currentStep === 2) return 66;
+      return 90;
+    }
+
+    if (currentStep === 1) return 25;
+    if (currentStep === 2) return 50;
+    if (currentStep === 3) return 75;
+    return 90;
+  };
 
   const getProgressWidthClass = () => {
     if (totalSteps === 3) {
       if (currentStep === 1) return 'w-1/3';
       if (currentStep === 2) return 'w-2/3';
-      return 'w-full';
+      return 'w-[90%]';
     }
 
     if (currentStep === 1) return 'w-1/4';
     if (currentStep === 2) return 'w-1/2';
     if (currentStep === 3) return 'w-3/4';
-    return 'w-full';
+    return 'w-[90%]';
   };
 
   // Phone number formatter for Philippine format
@@ -281,17 +413,28 @@ export default function ReportPage() {
     });
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const newFiles = Array.from(e.target.files);
       const totalFiles = [...formData.photos, ...newFiles].slice(0, 5);
+      const addedFiles = totalFiles.slice(formData.photos.length);
       updateFormData('photos', totalFiles);
+      e.target.value = '';
+      await scanPhotos(totalFiles, { isNewAddition: true, newFiles: addedFiles });
     }
   };
 
   const removePhoto = (index: number) => {
     const newPhotos = formData.photos.filter((_, i) => i !== index);
     updateFormData('photos', newPhotos);
+    setFlaggedPhotoIndices(prev => {
+      const updated = new Set<number>();
+      Array.from(prev).forEach(idx => {
+        if (idx < index) updated.add(idx);
+        else if (idx > index) updated.add(idx - 1);
+      });
+      return updated;
+    });
   };
 
   const fileToDataUrl = (file: Blob): Promise<string> => {
@@ -312,9 +455,10 @@ export default function ReportPage() {
   const loadImageElement = (file: File): Promise<HTMLImageElement> => {
     return new Promise((resolve, reject) => {
       const img = new window.Image();
-      img.onload = () => resolve(img);
-      img.onerror = () => reject(new Error(`Could not process image \"${file.name}\".`));
-      img.src = URL.createObjectURL(file);
+      const url = URL.createObjectURL(file);
+      img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error(`Could not process image "${file.name}".`)); };
+      img.src = url;
     });
   };
 
@@ -364,7 +508,40 @@ export default function ReportPage() {
     return bestBlob || file;
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
+    // Step 1 guard
+    if (currentStep === 1) {
+      if (!formData.issueType || (formData.issueType === 'other' && !formData.otherSpecify.trim())) {
+        gooeyToast.error("Incomplete Selection", { description: "Please select an issue type." });
+        return;
+      }
+    }
+    // Step 2 guard
+    if (currentStep === 2) {
+      if (!formData.municipality || !formData.barangay || !formData.location.trim()) {
+        gooeyToast.error("Missing Location", { description: "Please fill in all required location fields." });
+        return;
+      }
+    }
+    // Step 3 guard
+    if (currentStep === 3) {
+      if (!formData.title.trim() || !formData.description.trim()) {
+        gooeyToast.error("Missing Details", { description: "Please provide a title and description." });
+        return;
+      }
+      if (formData.photos.length === 0) {
+        gooeyToast.error("Photo Required", { description: "Please upload at least one photo." });
+        return;
+      }
+      if (flaggedPhotoIndices.size > 0) {
+        gooeyToast.error("Sensitive Data Detected", {
+          description: "Please remove or retake the flagged photos before proceeding."
+        });
+        return;
+      }
+      const isSafe = await scanPhotos(formData.photos);
+      if (!isSafe) return;
+    }
     if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1);
     }
@@ -389,7 +566,47 @@ export default function ReportPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleSubmit = async () => {
+  const handleInitiateSubmit = async () => {
+    // Guard required fields
+    if (!formData.issueType) {
+      gooeyToast.error("Incomplete Selection", { description: "Please select an issue type." });
+      return;
+    }
+    if (!formData.municipality || !formData.barangay || !formData.location.trim()) {
+      gooeyToast.error("Missing Location", { description: "Please fill in all required location fields." });
+      return;
+    }
+    if (!formData.title.trim() || !formData.description.trim()) {
+      gooeyToast.error("Missing Details", { description: "Please provide a title and description." });
+      return;
+    }
+    if (formData.photos.length === 0) {
+      gooeyToast.error("Photo Required", { description: "Please upload at least one photo." });
+      return;
+    }
+    if (!isLoggedIn && !formData.anonymous && (!formData.reporterName.trim() || !formData.reporterEmail.trim())) {
+      gooeyToast.error("Contact Info Required", { description: "Please provide your name and email address." });
+      return;
+    }
+    if (!isLoggedIn && formData.anonymous && !formData.reporterEmail.trim()) {
+      gooeyToast.error("Email Required", { description: "Please provide an email address to receive your tracking ID." });
+      return;
+    }
+
+    if (flaggedPhotoIndices.size > 0) {
+      gooeyToast.error("Sensitive Data Detected", {
+        description: "Please remove or retake the flagged photos before submitting."
+      });
+      return;
+    }
+
+    const isSafe = await scanPhotos(formData.photos);
+    if (!isSafe) return;
+
+    setShowAgreementModal(true);
+  };
+
+  const executeSubmit = async () => {
     try {
       setIsSubmitting(true);
       const submissionData = { ...formData };
@@ -397,7 +614,7 @@ export default function ReportPage() {
 
       const oversized = formData.photos.find((file) => file.size > MAX_SOURCE_IMAGE_SIZE_BYTES);
       if (oversized) {
-        throw new Error(`Photo \"${oversized.name}\" is too large. Max allowed source size is 20MB.`);
+        throw new Error(`Photo "${oversized.name}" is too large. Max allowed source size is 20MB.`);
       }
 
       const photoDataUrls = await Promise.all(
@@ -414,11 +631,7 @@ export default function ReportPage() {
         submissionData.reporterPhone = submittingUser.phone || submissionData.reporterPhone;
       }
 
-      const normalizedUrgency = formData.urgency 
-        ? formData.urgency.charAt(0).toUpperCase() + formData.urgency.slice(1).toLowerCase() 
-        : 'Medium';
-
-      // Convert formData to backend format
+      // Use formData directly so anonymous user's email is not lost
       const payload = {
         reporter_id: isLoggedIn ? submittingUser?.id || null : null,
         issue_type: formData.issueType,
@@ -429,27 +642,38 @@ export default function ReportPage() {
         barangay_id: formData.barangay,
         location: formData.location,
         landmark: formData.landmark,
-        urgency: normalizedUrgency,
+        urgency: formData.urgency,
         is_anonymous: formData.anonymous,
-        reporter_name: submissionData.reporterName,
-        reporter_email: submissionData.reporterEmail,
-        reporter_phone: submissionData.reporterPhone,
+        reporter_name: formData.anonymous ? null : (submissionData.reporterName || submittingUser?.name || null),
+        reporter_email: formData.anonymous ? formData.reporterEmail : submissionData.reporterEmail,
+        reporter_phone: formData.anonymous ? formData.reporterPhone : submissionData.reporterPhone,
         photos: photoDataUrls
       };
 
       const { apiClient } = await import('@/lib/api');
-      const { data } = await apiClient.reports.create(payload);
-      console.log('Form submitted successfully:', data);
+      const result = await apiClient.reports.create(payload);
+      const reportData = result.data;
+      console.log('Form submitted successfully:', reportData);
+
+      setShowAgreementModal(false);
+
+      // Use actual email status from backend
+      const emailUsed = result.email_used || null;
+      setSubmittedEmail(result.email_sent ? emailUsed : null);
 
       // Show tracking number modal
-      setTrackingNumber(data.id);
-      setCurrentStep(5);
-      gooeyToast.success("Report Submitted", {
-        description: `Your tracking ID is ${data.id}`
+      setTrackingNumber(reportData.id);
+      try {
+        sessionStorage.removeItem(DRAFT_STORAGE_KEY);
+      } catch {}
+      gooeyToast.success("Report submitted!", {
+        description: result.email_sent
+          ? `Your tracking ID has been sent to ${emailUsed}.`
+          : "Use your tracking ID to check your report status anytime."
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "We could not submit your report. Please review the details and try again.";
-      gooeyToast.error("Submission Failed", {
+      gooeyToast.error("Report submission failed", {
         description: errorMessage,
       });
       console.error('Report submission error:', error);
@@ -555,7 +779,7 @@ export default function ReportPage() {
                 Step {currentStep} of {totalSteps}
               </span>
               <span className="text-sm text-gray-500 dark:text-gray-400">
-                {Math.round((currentStep / totalSteps) * 100)}% Complete
+                {getProgressPercentage()}% Complete
               </span>
             </div>
             <div className="h-2 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
@@ -801,7 +1025,7 @@ export default function ReportPage() {
                           </label>
                           <button
                             type="button"
-                            onClick={() => setShowCamera(true)}
+                            onClick={() => setShowCameraNotice(true)}
                             className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg cursor-pointer bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-primary"
                           >
                             <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center">
@@ -817,23 +1041,39 @@ export default function ReportPage() {
 
                       {/* Photo Previews */}
                       {formData.photos.length > 0 && (
-                        <div className="grid grid-cols-3 gap-2">
-                          {formData.photos.map((file, index) => (
-                            <div key={index} className="relative group">
-                              <img
-                                src={URL.createObjectURL(file)}
-                                alt={`Preview ${index + 1}`}
-                                className="w-full h-24 object-cover rounded-lg"
-                              />
-                              <button
-                                onClick={() => removePhoto(index)}
-                                title="Remove photo"
-                                className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                              >
-                                <X size={16} />
-                              </button>
+                        <div className="space-y-3">
+                          {flaggedPhotoIndices.size > 0 && (
+                            <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-xl text-red-700 dark:text-red-300 text-xs flex items-start gap-2">
+                              <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                              <span>Some images might contain sensitive data/information please retake or upload another image</span>
                             </div>
-                          ))}
+                          )}
+                          <div className="grid grid-cols-3 gap-2">
+                            {formData.photos.map((file, index) => {
+                              const isFlagged = flaggedPhotoIndices.has(index);
+                              return (
+                                <div key={index} className={`relative group rounded-lg overflow-hidden ${isFlagged ? 'ring-2 ring-red-500 ring-offset-2 dark:ring-offset-gray-900' : ''}`}>
+                                  <img
+                                    src={URL.createObjectURL(file)}
+                                    alt={`Preview ${index + 1}`}
+                                    className="w-full h-24 object-cover rounded-lg"
+                                  />
+                                  {isFlagged && (
+                                    <div className="absolute inset-x-0 bottom-0 bg-red-600/90 text-white text-[10px] py-0.5 px-1 text-center font-medium truncate">
+                                      Sensitive Data
+                                    </div>
+                                  )}
+                                  <button
+                                    onClick={() => removePhoto(index)}
+                                    title="Remove photo"
+                                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  >
+                                    <X size={16} />
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -847,10 +1087,10 @@ export default function ReportPage() {
               <div className="space-y-6 animate-fade-in">
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                    Choose how to submit
+                    Contact Information
                   </h2>
                   <p className="text-gray-600 dark:text-gray-400">
-                    Report anonymously or provide your contact info for better tracking.
+                    Provide your contact info to receive updates, or submit anonymously.
                   </p>
                 </div>
 
@@ -891,17 +1131,23 @@ export default function ReportPage() {
                         <span className="material-symbols-outlined input-icon">person</span>
                       </div>
 
-                      <div className="floating-input">
-                        <input
-                          id="reporterEmail"
-                          type="email"
-                          value={formData.reporterEmail}
-                          onChange={(e) => updateFormData('reporterEmail', e.target.value)}
-                          placeholder=" "
-                          required
-                        />
-                        <label htmlFor="reporterEmail">Email Address *</label>
-                        <span className="material-symbols-outlined input-icon">mail</span>
+                      <div>
+                        <div className="floating-input">
+                          <input
+                            id="reporterEmail"
+                            type="email"
+                            value={formData.reporterEmail}
+                            onChange={(e) => updateFormData('reporterEmail', e.target.value)}
+                            placeholder=" "
+                            required
+                          />
+                          <label htmlFor="reporterEmail">Email Address *</label>
+                          <span className="material-symbols-outlined input-icon">mail</span>
+                        </div>
+                        <p className="text-xs text-primary dark:text-blue-400 flex items-center gap-1 mt-1.5 ml-1">
+                          <span className="material-symbols-outlined text-[14px]">info</span>
+                          We will send you the tracking ID using your email.
+                        </p>
                       </div>
 
                       <div className="floating-input">
@@ -922,51 +1168,45 @@ export default function ReportPage() {
                     </div>
                   )}
 
-                  {/* Anonymous: phone only */}
+                  {/* Anonymous: email (required to send tracking) + optional phone */}
                   {formData.anonymous && (
-                    <div className="floating-input animate-fade-in">
-                      <input
-                        id="reporterPhone"
-                        type="tel"
-                        value={formData.reporterPhone}
-                        onChange={(e) => {
-                          const formatted = formatPhoneNumber(e.target.value);
-                          updateFormData('reporterPhone', formatted);
-                        }}
-                        placeholder=" "
-                        maxLength={13}
-                      />
-                      <label htmlFor="reporterPhone">Contact Number (Optional)</label>
-                      <span className="material-symbols-outlined input-icon">phone</span>
-                    </div>
-                  )}
-
-                  {/* Register Account Section */}
-                  <div className="p-4 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg space-y-3">
-                    <div className="flex items-start gap-2">
-                      <span className="material-symbols-outlined text-primary text-xl">account_circle</span>
-                      <div className="flex-1">
-                        <Link 
-                          href="/auth/register"
-                          className="font-semibold text-primary hover:text-primary/80 transition-colors"
-                        >
-                          Register an account
-                        </Link>
-                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                          This helps us review and validate your report.
+                    <div className="space-y-4 animate-fade-in">
+                      <div>
+                        <div className="floating-input">
+                          <input
+                            id="reporterEmail"
+                            type="email"
+                            value={formData.reporterEmail}
+                            onChange={(e) => updateFormData('reporterEmail', e.target.value)}
+                            placeholder=" "
+                            required
+                          />
+                          <label htmlFor="reporterEmail">Email Address *</label>
+                          <span className="material-symbols-outlined input-icon">mail</span>
+                        </div>
+                        <p className="text-xs text-primary dark:text-blue-400 flex items-center gap-1 mt-1.5 ml-1">
+                          <span className="material-symbols-outlined text-[14px]">info</span>
+                          We will send you the tracking ID using your email.
                         </p>
                       </div>
+
+                      <div className="floating-input">
+                        <input
+                          id="reporterPhone"
+                          type="tel"
+                          value={formData.reporterPhone}
+                          onChange={(e) => {
+                            const formatted = formatPhoneNumber(e.target.value);
+                            updateFormData('reporterPhone', formatted);
+                          }}
+                          placeholder=" "
+                          maxLength={13}
+                        />
+                        <label htmlFor="reporterPhone">Contact Number (Optional)</label>
+                        <span className="material-symbols-outlined input-icon">phone</span>
+                      </div>
                     </div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
-                      Already have an account?{' '}
-                      <Link 
-                        href="/auth/login"
-                        className="font-medium text-primary hover:text-primary/80 transition-colors"
-                      >
-                        Log in
-                      </Link>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
             )}
@@ -991,27 +1231,50 @@ export default function ReportPage() {
               <button
                 onClick={handleNext}
                 disabled={
+                  isScanningPhotos ||
                   (currentStep === 1 && (!formData.issueType || (formData.issueType === 'other' && !formData.otherSpecify))) ||
                   (currentStep === 2 && (!formData.municipality || !formData.barangay || !formData.location)) ||
-                  (currentStep === 3 && (!formData.title || !formData.description || formData.photos.length === 0))
+                  (currentStep === 3 && (!formData.title || !formData.description || formData.photos.length === 0 || flaggedPhotoIndices.size > 0))
                 }
                 className="flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-primary text-white font-medium hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Next
-                <ChevronRight size={20} />
+                {isScanningPhotos ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Checking Photos...
+                  </>
+                ) : (
+                  <>
+                    Next
+                    <ChevronRight size={20} />
+                  </>
+                )}
               </button>
             ) : (
               <button
-                onClick={handleSubmit}
+                onClick={handleInitiateSubmit}
                 disabled={
                   isSubmitting ||
-                  (currentStep === 3 && (!formData.title || !formData.description || formData.photos.length === 0)) ||
-                  (currentStep === 4 && !formData.anonymous && (!formData.reporterName.trim() || !formData.reporterEmail.trim())) ||
-                  (currentStep === 4 && formData.anonymous && !formData.reporterEmail.trim())
+                  isScanningPhotos ||
+                  flaggedPhotoIndices.size > 0 ||
+                  !formData.title.trim() ||
+                  !formData.description.trim() ||
+                  formData.photos.length === 0 ||
+                  (!isLoggedIn && !formData.anonymous && (!formData.reporterName.trim() || !formData.reporterEmail.trim())) ||
+                  (!isLoggedIn && formData.anonymous && !formData.reporterEmail.trim())
                 }
-                className="flex-1 px-6 py-3 rounded-lg bg-secondary text-white font-medium hover:bg-secondary-dark transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-6 py-3 rounded-lg bg-secondary text-white font-medium hover:bg-secondary-dark transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {isSubmitting ? 'Submitting...' : 'Submit Report'}
+                {isScanningPhotos ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Checking Photos...
+                  </>
+                ) : isSubmitting ? (
+                  'Submitting...'
+                ) : (
+                  'Submit Report'
+                )}
               </button>
             )}
           </div>
@@ -1032,9 +1295,22 @@ export default function ReportPage() {
         </div>
       </div>
     </div>
-    <div className="md:hidden block">
 
-    </div>
+
+    {/* Camera Privacy Notice Modal */}
+    <CameraPrivacyNoticeModal
+      isOpen={showCameraNotice}
+      onClose={() => setShowCameraNotice(false)}
+      onProceed={() => setShowCamera(true)}
+    />
+
+    {/* Report Privacy Agreement Modal */}
+    <ReportPrivacyAgreementModal
+      isOpen={showAgreementModal}
+      onClose={() => setShowAgreementModal(false)}
+      onConfirm={executeSubmit}
+      isSubmitting={isSubmitting}
+    />
 
     {/* Camera Modal */}
     {showCamera && (
@@ -1042,7 +1318,6 @@ export default function ReportPage() {
         <div className="p-4 flex justify-between items-center bg-black/50 text-white absolute top-0 left-0 right-0 z-20">
           <span className="font-medium">{formData.photos.length} / 5 Photos</span>
           <button
-            type="button"
             onClick={() => setShowCamera(false)}
             title="Close camera"
             aria-label="Close camera"
@@ -1067,7 +1342,6 @@ export default function ReportPage() {
 
         <div className="p-6 pb-12 bg-black flex justify-between items-center z-20">
           <button
-            type="button"
             onClick={() => setFacingMode(prev => prev === 'environment' ? 'user' : 'environment')}
             title="Switch camera"
             aria-label="Switch camera"
@@ -1076,7 +1350,6 @@ export default function ReportPage() {
             <RefreshCcw size={24} />
           </button>
           <button 
-            type="button"
             onClick={capturePhoto} 
             disabled={formData.photos.length >= 5}
             title="Capture photo"
@@ -1098,7 +1371,7 @@ export default function ReportPage() {
     {/* Tracking Number Success Modal */}
     {trackingNumber && (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-sm w-full p-8 flex flex-col items-center gap-5 border border-gray-100 dark:border-gray-800">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md p-8 flex flex-col items-center gap-5 border border-gray-100 dark:border-gray-800">
           {/* Success icon */}
           <div className="flex items-center justify-center w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/40">
             <span className="material-symbols-outlined text-4xl text-green-600 dark:text-green-400">check_circle</span>
@@ -1109,6 +1382,12 @@ export default function ReportPage() {
             <p className="text-sm text-gray-500 dark:text-gray-400">
               Your report has been received. Use the tracking number below to monitor its status.
             </p>
+            {submittedEmail && (
+              <p className="text-xs text-primary dark:text-blue-400 flex items-center justify-center gap-1 pt-1">
+                <span className="material-symbols-outlined text-[14px]">mail</span>
+                Tracking ID sent to <strong className="break-all ml-0.5">{submittedEmail}</strong>
+              </p>
+            )}
           </div>
 
           {/* Tracking Number Display */}
@@ -1117,7 +1396,7 @@ export default function ReportPage() {
               <Tag size={12} />
               Tracking Number
             </div>
-            <div className="text-3xl font-black text-primary tracking-widest">{trackingNumber}</div>
+            <div className="text-2xl sm:text-3xl font-black text-primary tracking-widest break-all text-center w-full">{trackingNumber}</div>
             <button
               onClick={handleCopyTracking}
               className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-primary transition-colors mt-1"

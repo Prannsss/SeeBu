@@ -34,13 +34,8 @@ export function useReports(filters?: { municipality_id?: string; status?: string
       // 2. Find the most recent updated_at timestamp across existing reports
       let lastSyncAt = "";
       if (existingData && existingData.length > 0) {
-        const latest = existingData.reduce((latestDate, current) => {
-          const currentUpdate = new Date(current.updated_at).getTime();
-          return currentUpdate > latestDate ? currentUpdate : latestDate;
-        }, 0);
-        if (latest > 0) {
-          lastSyncAt = new Date(latest).toISOString();
-        }
+        const latest = Math.max(...existingData.map(r => new Date(r.updated_at).getTime()));
+        if (latest > 0) lastSyncAt = new Date(latest).toISOString();
       }
 
       // 3. Build query params
@@ -94,7 +89,7 @@ export function useCreateReport() {
 
       queryClient.setQueryData(["reports", {}], (old: any) => {
         const optimisticReport = {
-          id: Math.random().toString(), // fake ID
+          id: `optimistic-${crypto.randomUUID()}`,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           status: 'PENDING',

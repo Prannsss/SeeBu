@@ -75,6 +75,36 @@ def health() -> dict:
     return {"ok": True, "models_loaded": len(detectors)}
 
 
+@app.post("/detect")
+async def detect(request: Request) -> dict:
+    data = await request.body()
+    image = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
+    if image is None:
+        raise HTTPException(status_code=422, detail="Could not decode image")
+
+    image_tensor = torch.from_numpy(np.transpose(image, (2, 0, 1)))
+    face_boxes: list[list[float]] = []
+    lp_boxes: list[list[float]] = []
+
+    if len(detectors) > 0:
+        face_boxes = get_detections(detectors[0], image_tensor)
+    if len(detectors) > 1:
+        lp_boxes = get_detections(detectors[1], image_tensor)
+
+    has_person = len(face_boxes) > 0
+    has_license_plate = len(lp_boxes) > 0
+
+    return {
+        "safe": not (has_person or has_license_plate),
+        "has_person": has_person,
+        "has_license_plate": has_license_plate,
+        "face_count": len(face_boxes),
+        "lp_count": len(lp_boxes),
+        "total_detections": len(face_boxes) + len(lp_boxes),
+        "reason": "Image might contain sensitive data/information please retake the image" if (has_person or has_license_plate) else None,
+    }
+
+
 @app.post("/blur")
 async def blur(request: Request) -> Response:
     data = await request.body()

@@ -134,329 +134,134 @@ export async function apiFetchClient<T = any>(
 }
 
 // ============================================================================
+// Shared API object factory
+// Eliminates the duplication between `api` (server) and `apiClient` (browser).
+// Both objects expose identical method signatures — only the underlying fetcher differs.
+// ============================================================================
+
+type ApiFetcher = <T = any>(path: string, options?: FetchOptions) => Promise<T>;
+
+/** Build a URLSearchParams string from a flat record, skipping undefined/empty values. */
+function buildQuery(params: Record<string, string | undefined>): string {
+  const qs = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== '') qs.append(key, value);
+  }
+  return qs.toString();
+}
+
+function buildApiObject(fetcher: ApiFetcher) {
+  return {
+    // Auth
+    auth: {
+      login: (email: string, password: string, role: string) =>
+        fetcher("/api/v1/auth/login", { method: "POST", body: JSON.stringify({ email, password, role }), requireAuth: false }),
+      register: (data: any) =>
+        fetcher("/api/v1/auth/register", { method: "POST", body: JSON.stringify(data), requireAuth: false }),
+      provision: (data: any) =>
+        fetcher("/api/v1/auth/provision", { method: "POST", body: JSON.stringify(data), requireAuth: true }),
+      google: (data: any) =>
+        fetcher("/api/v1/auth/google", { method: "POST", body: JSON.stringify(data), requireAuth: false }),
+      facebook: (data: any) =>
+        fetcher("/api/v1/auth/facebook", { method: "POST", body: JSON.stringify(data), requireAuth: false }),
+      forgotPassword: (identifier: { email: string; channel?: "email" } | { contact_number: string; channel: "sms" }) =>
+        fetcher("/api/v1/auth/forgot-password", { method: "POST", body: JSON.stringify(identifier), requireAuth: false }),
+      verifyEmail: (email: string, code: string) =>
+        fetcher("/api/v1/auth/verify-email", { method: "POST", body: JSON.stringify({ email, code }), requireAuth: false }),
+      resendVerification: (email: string) =>
+        fetcher("/api/v1/auth/resend-verification", { method: "POST", body: JSON.stringify({ email }), requireAuth: false }),
+      verifyResetCode: (email: string, code: string) =>
+        fetcher("/api/v1/auth/verify-reset-code", { method: "POST", body: JSON.stringify({ email, code }), requireAuth: false }),
+      resetPassword: (email: string, code: string, new_password: string) =>
+        fetcher("/api/v1/auth/reset-password", { method: "POST", body: JSON.stringify({ email, code, new_password }), requireAuth: false }),
+    },
+
+    // Users
+    users: {
+      me: () => fetcher("/api/v1/users/me"),
+      updateMe: (data: any) =>
+        fetcher("/api/v1/users/me", { method: "PATCH", body: JSON.stringify(data) }),
+      getAll: () => fetcher("/api/v1/users"),
+    },
+
+    // Reports
+    reports: {
+      getAll: (params?: { municipality_id?: string; status?: string; reporter_id?: string; reporter_email?: string }) => {
+        const query = buildQuery({
+          municipality_id: params?.municipality_id,
+          status: params?.status,
+          reporter_id: params?.reporter_id,
+          reporter_email: params?.reporter_email,
+        });
+        return fetcher(`/api/v1/reports${query ? `?${query}` : ""}`);
+      },
+      getById: (id: string) => fetcher(`/api/v1/reports/${id}`),
+      getByIdPublic: (id: string) => fetcher(`/api/v1/reports/${id}`, { requireAuth: false }),
+      create: (data: any) =>
+        fetcher("/api/v1/reports", { method: "POST", body: JSON.stringify(data), requireAuth: false }),
+      scanImage: (data: { photo: string }) =>
+        fetcher("/api/v1/reports/scan-image", { method: "POST", body: JSON.stringify(data), requireAuth: false }),
+      update: (id: string, data: any) =>
+        fetcher(`/api/v1/reports/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    },
+
+    // Departments — include_personnel is boolean so it cannot use buildQuery directly
+    departments: {
+      getAll: (params?: { municipality_id?: string; include_personnel?: boolean }) => {
+        const qs = new URLSearchParams();
+        if (params?.municipality_id) qs.append("municipality_id", params.municipality_id);
+        if (params?.include_personnel) qs.append("include_personnel", "true");
+        const query = qs.toString();
+        return fetcher(`/api/v1/departments${query ? `?${query}` : ""}`);
+      },
+      getPersonnel: (departmentId: string) => fetcher(`/api/v1/departments/${departmentId}/personnel`),
+    },
+
+    // Tasks
+    tasks: {
+      getAll: (params?: { assigned_to?: string; delegated_to?: string; status?: string }) => {
+        const query = buildQuery({
+          assigned_to: params?.assigned_to,
+          delegated_to: params?.delegated_to,
+          status: params?.status,
+        });
+        return fetcher(`/api/v1/tasks${query ? `?${query}` : ""}`);
+      },
+      update: (id: string, data: any) =>
+        fetcher(`/api/v1/tasks/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+      complete: (id: string, data: { photo_urls?: string[]; photo_url?: string }) =>
+        fetcher(`/api/v1/tasks/${id}/complete`, { method: "POST", body: JSON.stringify(data) }),
+    },
+
+    // Locations
+    locations: {
+      getAll: () => fetcher("/api/v1/locations"),
+    },
+
+    // Analytics — uses 'all' sentinel check, so buildQuery is not used here
+    analytics: {
+      superadmin: (municipalityId?: string, barangayId?: string) => {
+        const params = new URLSearchParams();
+        if (municipalityId && municipalityId !== 'all') params.append('municipality_id', municipalityId);
+        if (barangayId && barangayId !== 'all') params.append('barangay_id', barangayId);
+        return fetcher(`/api/v1/analytics/superadmin?${params.toString()}`);
+      },
+      admin: (municipalityId: string, barangayId?: string) => {
+        const params = new URLSearchParams();
+        if (barangayId && barangayId !== 'all') params.append('barangay_id', barangayId);
+        return fetcher(`/api/v1/analytics/admin/${municipalityId}?${params.toString()}`);
+      },
+    },
+  };
+}
+
+// ============================================================================
 // Pre-configured API endpoints
 // ============================================================================
 
-export const api = {
-  // Auth
-  auth: {
-    login: (email: string, password: string, role: string) =>
-      apiFetch("/api/v1/auth/login", {
-        method: "POST",
-        body: JSON.stringify({ email, password, role }),
-        requireAuth: false,
-      }),
-    register: (data: any) =>
-      apiFetch("/api/v1/auth/register", {
-        method: "POST",
-        body: JSON.stringify(data),
-        requireAuth: false,
-      }),
-    provision: (data: any) =>
-      apiFetch("/api/v1/auth/provision", {
-        method: "POST",
-        body: JSON.stringify(data),
-        requireAuth: true,
-      }),
-    google: (data: any) =>
-      apiFetch("/api/v1/auth/google", {
-        method: "POST",
-        body: JSON.stringify(data),
-        requireAuth: false,
-      }),
-    facebook: (data: any) =>
-      apiFetch("/api/v1/auth/facebook", {
-        method: "POST",
-        body: JSON.stringify(data),
-        requireAuth: false,
-      }),
-    forgotPassword: (identifier: { email: string; channel?: "email" } | { contact_number: string; channel: "sms" }) =>
-      apiFetch("/api/v1/auth/forgot-password", {
-        method: "POST",
-        body: JSON.stringify(identifier),
-        requireAuth: false,
-      }),
-    verifyEmail: (email: string, code: string) =>
-      apiFetch("/api/v1/auth/verify-email", {
-        method: "POST",
-        body: JSON.stringify({ email, code }),
-        requireAuth: false,
-      }),
-    resendVerification: (email: string) =>
-      apiFetch("/api/v1/auth/resend-verification", {
-        method: "POST",
-        body: JSON.stringify({ email }),
-        requireAuth: false,
-      }),
-    verifyResetCode: (email: string, code: string) =>
-      apiFetch("/api/v1/auth/verify-reset-code", {
-        method: "POST",
-        body: JSON.stringify({ email, code }),
-        requireAuth: false,
-      }),
-    resetPassword: (email: string, code: string, new_password: string) =>
-      apiFetch("/api/v1/auth/reset-password", {
-        method: "POST",
-        body: JSON.stringify({ email, code, new_password }),
-        requireAuth: false,
-      }),
-  },
+/** Server-side API object (uses apiFetch — reads httpOnly cookies via next/headers) */
+export const api = buildApiObject(apiFetch);
 
-  // Users
-  users: {
-    me: () => apiFetch("/api/v1/users/me"),
-    updateMe: (data: any) =>
-      apiFetch("/api/v1/users/me", {
-        method: "PATCH",
-        body: JSON.stringify(data),
-      }),
-    getAll: () => apiFetch("/api/v1/users"),
-  },
+/** Client-side API object (uses apiFetchClient — routes auth through /api/proxy) */
+export const apiClient = buildApiObject(apiFetchClient);
 
-  // Reports
-  reports: {
-    getAll: (params?: { municipality_id?: string; status?: string; reporter_id?: string; reporter_email?: string }) => {
-      const queryParams = new URLSearchParams();
-      if (params?.municipality_id) queryParams.append("municipality_id", params.municipality_id);
-      if (params?.status) queryParams.append("status", params.status);
-      if (params?.reporter_id) queryParams.append("reporter_id", params.reporter_id);
-      if (params?.reporter_email) queryParams.append("reporter_email", params.reporter_email);
-      const query = queryParams.toString();
-      return apiFetch(`/api/v1/reports${query ? `?${query}` : ""}`);
-    },
-    getById: (id: string) => apiFetch(`/api/v1/reports/${id}`),
-    getByIdPublic: (id: string) =>
-      apiFetch(`/api/v1/reports/${id}`, {
-        requireAuth: false,
-      }),
-    create: (data: any) =>
-      apiFetch("/api/v1/reports", {
-        method: "POST",
-        body: JSON.stringify(data),
-        requireAuth: false,
-      }),
-    update: (id: string, data: any) =>
-      apiFetch(`/api/v1/reports/${id}`, {
-        method: "PUT",
-        body: JSON.stringify(data),
-      }),
-  },
-
-  // Departments
-  departments: {
-    getAll: (params?: { municipality_id?: string; include_personnel?: boolean }) => {
-      const queryParams = new URLSearchParams();
-      if (params?.municipality_id) queryParams.append("municipality_id", params.municipality_id);
-      if (params?.include_personnel) queryParams.append("include_personnel", "true");
-      const query = queryParams.toString();
-      return apiFetch(`/api/v1/departments${query ? `?${query}` : ""}`);
-    },
-    getPersonnel: (departmentId: string) => apiFetch(`/api/v1/departments/${departmentId}/personnel`),
-  },
-
-  // Tasks
-  tasks: {
-    getAll: (params?: { assigned_to?: string; delegated_to?: string; status?: string }) => {
-      const queryParams = new URLSearchParams();
-      if (params?.assigned_to) queryParams.append("assigned_to", params.assigned_to);
-      if (params?.delegated_to) queryParams.append("delegated_to", params.delegated_to);
-      if (params?.status) queryParams.append("status", params.status);
-      const query = queryParams.toString();
-      return apiFetch(`/api/v1/tasks${query ? `?${query}` : ""}`);
-    },
-    update: (id: string, data: any) =>
-      apiFetch(`/api/v1/tasks/${id}`, {
-        method: "PUT",
-        body: JSON.stringify(data),
-      }),
-    complete: (id: string, data: { photo_urls?: string[]; photo_url?: string }) =>
-      apiFetch(`/api/v1/tasks/${id}/complete`, {
-        method: "POST",
-        body: JSON.stringify(data),
-      }),
-  },
-
-  // Locations
-  locations: {
-    getAll: () => apiFetch("/api/v1/locations"),
-  },
-
-  // Analytics
-  analytics: {
-    superadmin: (municipalityId?: string, barangayId?: string) => {
-      const params = new URLSearchParams();
-      if (municipalityId && municipalityId !== 'all') params.append('municipality_id', municipalityId);
-      if (barangayId && barangayId !== 'all') params.append('barangay_id', barangayId);
-      return apiFetch(`/api/v1/analytics/superadmin?${params.toString()}`);
-    },
-    admin: (municipalityId: string, barangayId?: string) => {
-      const params = new URLSearchParams();
-      if (barangayId && barangayId !== 'all') params.append('barangay_id', barangayId);
-      return apiFetch(`/api/v1/analytics/admin/${municipalityId}?${params.toString()}`);
-    },
-  },
-};
-
-// ============================================================================
-// Client-side API (for use in "use client" components)
-// ============================================================================
-
-export const apiClient = {
-  // Auth
-  auth: {
-    login: (email: string, password: string, role: string) =>
-      apiFetchClient("/api/v1/auth/login", {
-        method: "POST",
-        body: JSON.stringify({ email, password, role }),
-        requireAuth: false,
-      }),
-    register: (data: any) =>
-      apiFetchClient("/api/v1/auth/register", {
-        method: "POST",
-        body: JSON.stringify(data),
-        requireAuth: false,
-      }),
-    provision: (data: any) =>
-      apiFetchClient("/api/v1/auth/provision", {
-        method: "POST",
-        body: JSON.stringify(data),
-        requireAuth: true,
-      }),
-    google: (data: any) =>
-      apiFetchClient("/api/v1/auth/google", {
-        method: "POST",
-        body: JSON.stringify(data),
-        requireAuth: false,
-      }),
-    facebook: (data: any) =>
-      apiFetchClient("/api/v1/auth/facebook", {
-        method: "POST",
-        body: JSON.stringify(data),
-        requireAuth: false,
-      }),
-    forgotPassword: (identifier: { email: string; channel?: "email" } | { contact_number: string; channel: "sms" }) =>
-      apiFetchClient("/api/v1/auth/forgot-password", {
-        method: "POST",
-        body: JSON.stringify(identifier),
-        requireAuth: false,
-      }),
-    verifyEmail: (email: string, code: string) =>
-      apiFetchClient("/api/v1/auth/verify-email", {
-        method: "POST",
-        body: JSON.stringify({ email, code }),
-        requireAuth: false,
-      }),
-    resendVerification: (email: string) =>
-      apiFetchClient("/api/v1/auth/resend-verification", {
-        method: "POST",
-        body: JSON.stringify({ email }),
-        requireAuth: false,
-      }),
-    verifyResetCode: (email: string, code: string) =>
-      apiFetchClient("/api/v1/auth/verify-reset-code", {
-        method: "POST",
-        body: JSON.stringify({ email, code }),
-        requireAuth: false,
-      }),
-    resetPassword: (email: string, code: string, new_password: string) =>
-      apiFetchClient("/api/v1/auth/reset-password", {
-        method: "POST",
-        body: JSON.stringify({ email, code, new_password }),
-        requireAuth: false,
-      }),
-  },
-
-  // Users
-  users: {
-    me: () => apiFetchClient("/api/v1/users/me"),
-    updateMe: (data: any) =>
-      apiFetchClient("/api/v1/users/me", {
-        method: "PATCH",
-        body: JSON.stringify(data),
-      }),
-    getAll: () => apiFetchClient("/api/v1/users"),
-  },
-
-  // Reports
-  reports: {
-    getAll: (params?: { municipality_id?: string; status?: string; reporter_id?: string; reporter_email?: string }) => {
-      const queryParams = new URLSearchParams();
-      if (params?.municipality_id) queryParams.append("municipality_id", params.municipality_id);
-      if (params?.status) queryParams.append("status", params.status);
-      if (params?.reporter_id) queryParams.append("reporter_id", params.reporter_id);
-      if (params?.reporter_email) queryParams.append("reporter_email", params.reporter_email);
-      const query = queryParams.toString();
-      return apiFetchClient(`/api/v1/reports${query ? `?${query}` : ""}`);
-    },
-    getById: (id: string) => apiFetchClient(`/api/v1/reports/${id}`),
-    getByIdPublic: (id: string) =>
-      apiFetchClient(`/api/v1/reports/${id}`, {
-        requireAuth: false,
-      }),
-    create: (data: any) =>
-      apiFetchClient("/api/v1/reports", {
-        method: "POST",
-        body: JSON.stringify(data),
-        requireAuth: false,
-      }),
-    update: (id: string, data: any) =>
-      apiFetchClient(`/api/v1/reports/${id}`, {
-        method: "PUT",
-        body: JSON.stringify(data),
-      }),
-  },
-
-  // Departments
-  departments: {
-    getAll: (params?: { municipality_id?: string; include_personnel?: boolean }) => {
-      const queryParams = new URLSearchParams();
-      if (params?.municipality_id) queryParams.append("municipality_id", params.municipality_id);
-      if (params?.include_personnel) queryParams.append("include_personnel", "true");
-      const query = queryParams.toString();
-      return apiFetchClient(`/api/v1/departments${query ? `?${query}` : ""}`);
-    },
-    getPersonnel: (departmentId: string) => apiFetchClient(`/api/v1/departments/${departmentId}/personnel`),
-  },
-
-  // Tasks
-  tasks: {
-    getAll: (params?: { assigned_to?: string; delegated_to?: string; status?: string }) => {
-      const queryParams = new URLSearchParams();
-      if (params?.assigned_to) queryParams.append("assigned_to", params.assigned_to);
-      if (params?.delegated_to) queryParams.append("delegated_to", params.delegated_to);
-      if (params?.status) queryParams.append("status", params.status);
-      const query = queryParams.toString();
-      return apiFetchClient(`/api/v1/tasks${query ? `?${query}` : ""}`);
-    },
-    update: (id: string, data: any) =>
-      apiFetchClient(`/api/v1/tasks/${id}`, {
-        method: "PUT",
-        body: JSON.stringify(data),
-      }),
-    complete: (id: string, data: { photo_urls?: string[]; photo_url?: string }) =>
-      apiFetchClient(`/api/v1/tasks/${id}/complete`, {
-        method: "POST",
-        body: JSON.stringify(data),
-      }),
-  },
-
-  // Locations
-  locations: {
-    getAll: () => apiFetchClient("/api/v1/locations"),
-  },
-
-  // Analytics
-  analytics: {
-    superadmin: (municipalityId?: string, barangayId?: string) => {
-      const params = new URLSearchParams();
-      if (municipalityId && municipalityId !== 'all') params.append('municipality_id', municipalityId);
-      if (barangayId && barangayId !== 'all') params.append('barangay_id', barangayId);
-      return apiFetchClient(`/api/v1/analytics/superadmin?${params.toString()}`);
-    },
-    admin: (municipalityId: string, barangayId?: string) => {
-      const params = new URLSearchParams();
-      if (barangayId && barangayId !== 'all') params.append('barangay_id', barangayId);
-      return apiFetchClient(`/api/v1/analytics/admin/${municipalityId}?${params.toString()}`);
-    },
-  },
-};

@@ -15,6 +15,9 @@ router.get('/:id', reportController.getReportById);
 // Create a new report
 router.post('/', reportLimiter, reportController.createReport);
 
+// Scan image for sensitive data
+router.post('/scan-image', reportLimiter, reportController.scanImage);
+
 // Update a specific report (Status change)
 router.put('/:id', withAuth, requireRole(['admin', 'superadmin']), reportController.updateReportStatus);
 

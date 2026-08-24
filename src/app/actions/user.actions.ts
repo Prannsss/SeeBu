@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { cookies, headers } from "next/headers";
+import { resolveApiBaseUrl } from "@/lib/api";
 
 // ============================================================================
 // 1. Zod Validation Schemas
@@ -57,7 +58,7 @@ async function verifyAuthAndGetSession() {
 export async function getUserProfile() {
   try {
     const session = await verifyAuthAndGetSession();
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'development' ? "http://localhost:5000" : "https://seebu.onrender.com");
+    const apiUrl = resolveApiBaseUrl();
     
     const response = await fetch(`${apiUrl}/api/v1/users/me`, {
       method: "GET",
@@ -92,7 +93,7 @@ export async function logoutUser() {
 export async function deleteAccount() {
   try {
     const session = await verifyAuthAndGetSession();
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'development' ? "http://localhost:5000" : "https://seebu.onrender.com");
+    const apiUrl = resolveApiBaseUrl();
 
     const response = await fetch(`${apiUrl}/api/v1/users/me`, {
       method: "DELETE",
@@ -145,7 +146,7 @@ export async function updateUserProfile(
 
     // 2. Business Logic / Database Transaction (Separation of concerns: delegate to Service layer usually)
     // We send a request to backend to update user
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'development' ? "http://localhost:5000" : "https://seebu.onrender.com");
+    const apiUrl = resolveApiBaseUrl();
     const response = await fetch(`${apiUrl}/api/v1/users/me`, {
       method: "PATCH",
       headers: {

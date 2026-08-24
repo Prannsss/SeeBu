@@ -6,79 +6,73 @@
 
 ## Overview
 
-**SEEBU** is a Progressive Web Application (PWA) designed to streamline communication between Cebu City residents and local government units (LGUs). It allows users to report community issues, request services, and track resolutions in real time — all in one centralized platform.
+**SEEBU** is a Progressive Web Application (PWA) designed to streamline communication between Cebu City residents and local government units (LGUs). It allows citizens to report community issues, request civic services, and track resolutions in real time — all within a centralized, transparent platform.
 
-The system aims to improve transparency, efficiency, and citizen engagement by digitizing and simplifying public service interactions.
-
----
-
-## Features
-
-### Complaint Reporting
-
-* Submit issues (e.g., garbage, potholes, streetlights)
-* Attach images and location (GPS/manual)
-* Categorized reporting system
-
-### Real-Time Tracking
-
-* Track complaint status (Pending, In Progress, Resolved)
-* Receive updates and notifications
-
-### LGU Integration
-
-* Direct routing of reports to appropriate departments
-* Centralized complaint management system
-
-### Data Insights (Admin Side)
-
-* Analytics dashboard for complaints
-* Identify recurring issues and trends
-
-### User Authentication
-
-* Secure login and registration
-* OTP/email verification
-* Password recovery system
-
-### Progressive Web App (PWA)
-
-* Works on mobile and desktop
-* Installable without app stores
-* Fast and lightweight
+The system aims to improve transparency, efficiency, and citizen engagement by digitizing public service interactions and enabling fast, accountable task delegation across government departments.
 
 ---
 
-## Objectives
+## Key Features
 
-* Improve accessibility to public services
-* Reduce response time of LGU departments
-* Promote transparency and accountability
-* Encourage citizen participation in governance
-* Provide data-driven insights for decision-making
+### 1. Citizen Complaint & Issue Reporting
+
+- **Categorized Issue Submission:** Submit civic issues (e.g., potholes, garbage disposal, broken streetlights, water leaks, traffic hazards).
+- **Location & Geotagging:** GPS auto-detection, interactive map picker, and manual street/landmark entry.
+- **Photo Uploads:** Multi-photo attachment with automated client-side face detection and privacy safeguards.
+- **Real-Time Tracking:** Track reports from submission to completion (`Pending`, `In Review`, `Action Taken` / `Assigned`, `Resolved`, `Rejected`).
+- **Anonymity & Privacy Control:** Option to submit anonymously with automated redaction of personal details.
+
+### 2. Privacy & Data Protection Safeguards
+
+- **Client-Side Face Detection:** Uses lightweight `face-api.js` (SSD MobileNet V1) to scan images locally before upload, prompting a Privacy Agreement modal when human faces or sensitive info are detected.
+- **Camera Privacy Notice Modal:** Interactive guidelines educating users on data privacy, avoiding capturing bystanders, identification documents, and sensitive PII.
+- **Sensitive Data Detection:** Automated heuristics for detecting sensitive strings (TIN, SSS numbers, contact info, credit card patterns).
+- **EgoBlur Automated Redaction:** Backend integration with Meta's **EgoBlur** service to redact human faces and vehicle license plates before public or administrative storage.
+- **Dual-Tier Storage Architecture:** Anonymized/redacted photos are placed in accessible storage buckets for daily operational dashboards, while unredacted copies are archived in secure, access-controlled buckets for legal and audit compliance.
+
+### 3. Administrator Operations & Report Management
+
+- **Centralized Triage Dashboard:** Filter by municipality, urgency level (`High`, `Medium`, `Low`), and status.
+- **Approve & Delegate Workflow:** Directly assign validated reports to specific LGU departments and workforce administrators.
+- **Rejection Reason Auditing:** Rejection modal with standardized reason categories (_Spam_, _Duplicate_, _Insufficient Details_, _No Image_, _Other_ with custom description).
+- **Proof Verification:** Review before-and-after photo galleries and completion timestamps submitted by field workforce officers.
+
+### 4. Workforce Administration & Delegation
+
+- **Department Task Queue:** Manage incoming department assignments filtered by status.
+- **"Accept and Delegate" Modal:** Workforce administrators can review linked citizen reports and assign field operations directly to active workforce officers in a streamlined modal.
+- **Real-time Synchronization:** Instant updates across administrative boards using Supabase Realtime subscriptions.
+
+### 5. Field Workforce Task Execution
+
+- **Mobile-Optimized Task Hub:** On-ground officers view assigned tasks with location, priority, and linked citizen report details.
+- **Task Acceptance Confirmation:** Safeguard modal (_"Are you sure you want to accept this task?"_) before changing task status to in-progress.
+- **Proof of Completion Submission:** Officers capture and upload up to 5 on-site completion proof photos with status transition to `Completed`.
 
 ---
 
 ## Target Users & Roles
 
-* **Clients (Residents)** – Report and track community issues.
-* **Workforce** – On-ground personnel assigned to resolve specific tasks.
-* **Workforce Admins** – Manage workforce personnel and allocation.
-* **Administrators** – Monitor LGU system performance and analytics.
-* **Superadmins** – Platform-wide oversight and management of administrators.
+| Role                    | Responsibilities                                                                     |
+| :---------------------- | :----------------------------------------------------------------------------------- |
+| **Clients (Residents)** | Report civic issues, review status timeline, and view resolution proofs.             |
+| **Workforce Officers**  | On-ground personnel accepting tasks and submitting photographic proof of resolution. |
+| **Workforce Admins**    | Manage department task queues and assign tasks to active workforce officers.         |
+| **Administrators**      | Triage city-wide reports, delegate to departments, approve or reject submissions.    |
+| **Superadmins**         | Platform-wide governance, system metrics, and administrator management.              |
 
 ---
 
 ## Tech Stack
 
-* **Framework:** Next.js (App Router), React, TypeScript
-* **Styling & UI:** Tailwind CSS, shadcn/ui
-* **Backend API:** Express.js, Supabase, Next.js Server Actions
-* **Authentication:** Next.js Edge Middleware (JWT, Roles), OAuth
-* **AI Integration:** Firebase Genkit, RAG (Retrieval-Augmented Generation)
-* **Privacy:** EgoBlur (Meta) for automatic face/plate redaction
-* **Hosting/Config:** Firebase App Hosting, Render (Backend)
-* **Tools:** VS Code, Git, GitHub
+- **Frontend:** Next.js 15 (App Router), React 19, TypeScript
+- **State & Data Fetching:** TanStack React Query v5, Supabase Realtime
+- **Styling & UI:** Tailwind CSS, shadcn/ui, Lucide Icons, Goey Toast
+- **Client-Side AI/ML:** `face-api.js` (TensorFlow.js SSD MobileNet V1)
+- **Backend API:** Express.js, TypeScript, Next.js Server Actions
+- **Database & Storage:** Supabase (PostgreSQL, Row-Level Security, Supabase Storage)
+- **Image Redaction Sidecar:** FastAPI, Python, PyTorch, Meta EgoBlur
+- **Hosting:** Vercel (Frontend), Render (Backend), Supabase (Database)
 
 ---
 
@@ -86,53 +80,66 @@ The system aims to improve transparency, efficiency, and citizen engagement by d
 
 ### Prerequisites
 
-- **Node.js 20+** (frontend and backend)
-- **Python 3.10–3.12** (for EgoBlur service)
-- **.env files** for both frontend and backend (ask a teammate or see `backend/README.md`)
+- **Node.js 20+**
+- **npm** or **pnpm**
+- **Python 3.10–3.12** (optional, for EgoBlur redaction service)
+- **Supabase Account & Project**
 
-### Run Locally (Development)
+### Environment Configuration
 
-The app runs in three parts. Open separate terminals for each:
+Create a `.env.local` file in the root directory for the Next.js frontend:
 
-**Terminal 1 — EgoBlur Service** (image redaction; optional for dev, skip to test without blurring):
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+NEXT_PUBLIC_API_URL=http://localhost:5000
+```
+
+Create a `backend/.env` file for the Express backend API:
+
+```env
+PORT=5000
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+EGOBLUR_SERVICE_URL=http://localhost:8228
+```
+
+> **Security Note:** Never commit `.env*` files or service role credentials to source control. They are safeguarded in `.gitignore`.
+
+---
+
+### Running Locally (Development)
+
+Open separate terminals for each service:
+
+#### Terminal 1 — EgoBlur Redaction Service (Optional for local testing)
+
 ```bash
 cd egoblur-service
 python -m venv .venv
-.venv\Scripts\activate  # Windows
-# or: source .venv/bin/activate  # macOS/Linux
+# Windows:
+.venv\Scripts\activate
+# macOS / Linux:
+# source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn main:app --port 8228
 ```
-See `egoblur-service/README.md` for model download and full setup.
 
-**Terminal 2 — Backend API** (from repo root):
+#### Terminal 2 — Backend API
+
 ```bash
 npm install --prefix backend
 npm run backend:watch
-# Listens on http://localhost:5000
+# Server running at http://localhost:5000
 ```
-See `backend/README.md` for env vars and more commands.
 
-**Terminal 3 — Frontend** (from repo root):
+#### Terminal 3 — Next.js Frontend
+
 ```bash
 npm install
 npm run dev
-# Listens on http://localhost:3000
+# Application running at http://localhost:3000
 ```
-
-Visit `http://localhost:3000`, log in, and submit a report with a photo. The image will be blurred before storage (if EgoBlur is running) or stored unblurred (if not).
-
-### Production Builds
-
-```bash
-# Build backend (TypeScript → JavaScript)
-npm run build:backend
-
-# Build frontend (Next.js)
-npm run build
-```
-
-Deployed on Firebase App Hosting (frontend) and Render (backend).
 
 ---
 
@@ -140,122 +147,52 @@ Deployed on Firebase App Hosting (frontend) and Render (backend).
 
 ```text
 SEEBU/
-├── backend/            # Express backend API & Genkit AI logic
+├── backend/                  # Express.js REST API & storage controllers
+│   ├── database/             # Database migrations and SQL schemas
 │   └── src/
-│       ├── ai/         # AI integration logic (Genkit, RAG)
-│       ├── controllers/# API route controllers
-│       ├── middlewares/# Express middlewares (Auth, Roles)
-│       ├── routes/     # API route definitions
-│       └── utils/      # Utilities (email, SMS, image storage with EgoBlur integration)
-├── egoblur-service/    # Python FastAPI sidecar for face/plate redaction
-│   ├── main.py         # EgoBlur inference server
-│   ├── requirements.txt # Python dependencies (fastapi, torch, cv2)
-│   └── .venv/          # Virtual environment (gitignored)
-├── public/             # Static assets (images, gifs, icons)
-├── src/                # Next.js Frontend
-│   ├── middleware.ts   # Next.js Edge Middleware for Role-Based Access
-│   ├── app/            # Next.js App Router endpoints & layouts
-│   │   ├── actions/    # Server Actions for API communication
-│   │   ├── admin/      # Admin dashboard functionalities
-│   │   ├── auth/       # Login, Registration, Verification & OAuth
-│   │   ├── client/     # Resident reporting portal
-│   │   ├── superadmin/ # Super admin dashboard & controls 
-│   │   ├── workforce/  # Workforce task management
-│   │   └── workforce-admin/ # Workforce management panel
-│   ├── components/     # UI components (shadcn/ui), navigation docks
-│   ├── hooks/          # React hooks for animations/counters
-│   ├── lib/            # Utility functions & API clients
-│   └── types/          # Global TypeScript typings
-├── apphosting.yaml     # App Hosting configuration
-├── next.config.ts      # Next.js configuration
-├── tailwind.config.ts  # Theme configuration
-└── README.md           # This file
+│       ├── controllers/      # Report, Task, and Department route controllers
+│       ├── middlewares/      # Authentication, JWT, and role-based guards
+│       ├── routes/           # REST endpoints
+│       └── utils/            # Image moderation, media storage & EgoBlur client
+├── egoblur-service/          # Python FastAPI sidecar for EgoBlur AI redaction
+│   ├── main.py               # Face and license plate detection server
+│   └── requirements.txt      # Python dependencies (torch, torchvision, opencv)
+├── public/                   # Static assets, PWA icons, and face-api weights
+│   └── models/face-api/      # Pretrained SSD MobileNet V1 models
+├── src/                      # Next.js Frontend (App Router)
+│   ├── app/
+│   │   ├── actions/          # Server actions for mutations
+│   │   ├── admin/            # LGU administrator dashboard & reports review
+│   │   ├── auth/             # Login, register, and verification workflows
+│   │   ├── client/           # Citizen reporting portal and tracking
+│   │   ├── workforce/        # Field workforce officer tasks hub
+│   │   └── workforce-admin/  # Workforce department admin panel
+│   ├── components/           # UI components, modals, and media galleries
+│   │   ├── reports/          # Privacy notice, camera, and gallery modals
+│   │   └── ui/               # Reusable primitives (shadcn/ui)
+│   ├── hooks/                # React Query hooks & Supabase realtime listeners
+│   └── lib/                  # API client, Supabase config, and PII detectors
+├── .gitignore                # Comprehensive secrets and build ignore rules
+├── next.config.ts            # Next.js configuration
+├── tailwind.config.ts        # Design tokens and styling theme
+└── README.md                 # Project documentation
 ```
 
 ---
 
-## System Workflow
+## Security & Privacy Compliance
 
-1. User submits a complaint/service request
-2. System validates and stores the data
-3. Complaint is routed to the appropriate LGU department
-4. LGU updates the status of the request
-5. User receives real-time updates and notifications
-
----
-
-## Security & Privacy
-
-* User data is securely stored and protected
-* Authentication and verification are required
-* Compliance with data privacy standards
-* Controlled access for admin and LGU users
-* **Automatic PII redaction:** Faces and license plates in report photos are blurred using EgoBlur before storage, so admins view anonymized images while original (unblurred) copies are archived in a private bucket for legal/evidence purposes.
+- **Data Privacy Act Compliance:** Minimizes retention of unnecessary personal information and anonymizes public displays.
+- **Encrypted Transmission:** All network traffic is encrypted via HTTPS/TLS.
+- **Row-Level Security (RLS):** Supabase database tables enforce role-based access policies.
+- **Automated Redaction:** EgoBlur AI automatically blurs identifiable faces and vehicle plates prior to public publication.
+- **Confidential Storage:** Original unblurred images are isolated in secured storage buckets with strict access logging.
 
 ---
 
-## Testing & Validation
+## License & Attribution
 
-* Functional testing for all features
-* Usability testing with real users
-* Performance testing for responsiveness
-* Feedback collection for improvements
-
----
-
-## Expected Outputs
-
-* Fully functional PWA system
-* User and admin interfaces
-* Technical documentation
-* Research paper (Capstone)
-* Presentation and system demo
-
----
-
-## Recommendations for Future Enhancements
-
-* Deeper AI-based issue categorization (building upon current Genkit/RAG logic)
-* AI-generated uploads detection and validation
-* Chatbot for instant assistance
-* Direct integration with emergency response services
-* Mobile push notifications
-* Community feed
-* Upvoting system for issue prioritization
-
----
-
-## Privacy & Data Protection
-
-This project integrates **EgoBlur** (Meta, Apache-2.0) to automatically redact faces and license plates from user-submitted images before storage, protecting PII in reports and ensuring admin dashboards respect user privacy.
-
-**Citation:** 
-```bibtex
-@misc{raina2023egoblur,
-  title={EgoBlur: Responsible Innovation in Aria},
-  author={Raina, Nikhil and Somasundaram, Guruprasad and Zheng, Kang and Miglani, Sagar and Saarinen, Steve and Meissner, Jeff and Schwesinger, Mark and Pesqueira, Luis and Prasad, Ishita and Miller, Edward and Gupta, Prince and Yan, Mingfei and Newcombe, Richard and Ren, Carl and Parkhi, Omkar M},
-  year={2023},
-  eprint={2308.13093},
-  archivePrefix={arXiv},
-  primaryClass={cs.CV}
-}
-```
-
----
-
-## Contributors
-
-* **France Laurence Velarde** (Project Developer)
-* **John Norman Curato** (Project Finance Manager)
-
----
-
-## License
-
-This project is developed for academic purposes. Future versions may adopt an open-source license or contribute to this repository.
-
-EgoBlur integration is licensed under Apache 2.0 (see `egoblur-service/README.md`).
-
----
+- This project is developed for academic and civic innovation purposes.
+- **EgoBlur** integration is licensed under **Apache 2.0** by Meta.
 
 **SEEBU — Report. Connect. Resolve.** 🚀

@@ -7,6 +7,7 @@ exports.reportController = void 0;
 const db_1 = require("../config/db");
 const errorResponse_1 = require("../utils/errorResponse");
 const mediaStorage_1 = require("../utils/mediaStorage");
+const imageModeration_1 = require("../utils/imageModeration");
 const emailService_1 = require("../utils/emailService");
 const smsService_1 = require("../utils/smsService");
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
@@ -23,7 +24,7 @@ function trustedStorageHost() {
     }
 }
 const reportSchema = zod_1.z.object({
-    reporter_id: zod_1.z.string().uuid().optional().nullable(),
+    reporter_id: zod_1.z.string().uuid().optional().nullable().or(zod_1.z.literal('')),
     issue_type: zod_1.z.string().min(1).max(100),
     other_type_specification: zod_1.z.string().max(255).optional().nullable(),
     title: zod_1.z.string().min(1).max(255),
@@ -32,7 +33,7 @@ const reportSchema = zod_1.z.object({
     barangay_id: zod_1.z.union([zod_1.z.string(), zod_1.z.number()]),
     location: zod_1.z.string().min(1).max(500),
     landmark: zod_1.z.string().max(255).optional().nullable(),
-    urgency: zod_1.z.enum(['Low', 'Medium', 'High', 'Critical']).optional().default('Medium'),
+    urgency: zod_1.z.preprocess((val) => (typeof val === 'string' && val.trim() ? val.charAt(0).toUpperCase() + val.slice(1).toLowerCase() : val), zod_1.z.enum(['Low', 'Medium', 'High', 'Critical']).optional().default('Medium')),
     is_anonymous: zod_1.z.boolean().optional().default(false),
     reporter_name: zod_1.z.string().max(255).optional().nullable(),
     reporter_email: zod_1.z.string().email().optional().nullable().or(zod_1.z.literal('')),
@@ -144,6 +145,19 @@ exports.reportController = {
             const validation = reportSchema.safeParse(req.body);
             if (!validation.success) {
                 return res.status(400).json({ error: 'Validation failed', details: validation.error.format() });
+            }
+            // Check photos for sensitive data (people/faces, license plates, sensitive docs)
+            if (photos && Array.isArray(photos) && photos.length > 0) {
+                for (let i = 0; i < photos.length; i++) {
+                    const modResult = await (0, imageModeration_1.moderateImage)(photos[i]);
+                    if (!modResult.safe) {
+                        return res.status(422).json({
+                            error: modResult.reason || 'Image might contain sensitive data/information please retake the image',
+                            details: modResult.details,
+                            flaggedPhotoIndex: i,
+                        });
+                    }
+                }
             }
             const locationsValid = await municipalityAndBarangayExist(municipality_id, barangay_id);
             if (!locationsValid) {
@@ -591,6 +605,25 @@ exports.reportController = {
         }
         catch (err) {
             return res.status(500).json({ error: (0, errorResponse_1.serverErrorMessage)(err) });
+        }
+    },
+    // SCAN IMAGE FOR SENSITIVE DATA
+    async scanImage(req, res) {
+        try {
+            const { photo } = req.body;
+            if (!photo) {
+                return res.status(400).json({ error: 'Photo is required' });
+            }
+            const result = await (0, imageModeration_1.moderateImage)(photo);
+            return res.status(200).json(result);
+        }
+        catch (err) {
+            console.error('Error in scanImage:', err);
+            return res.status(200).json({
+                safe: true,
+                reason: null,
+                details: { hasPerson: false, hasPlateNumber: false, hasSensitiveData: false }
+            });
         }
     }
 };

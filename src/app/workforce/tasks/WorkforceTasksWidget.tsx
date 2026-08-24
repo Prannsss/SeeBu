@@ -3,14 +3,15 @@
 import { useState, type ChangeEvent } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Clock, MapPin, AlertTriangle, Link2, Camera } from "lucide-react";
+import { Clock, MapPin, AlertTriangle, Link2, Camera, CheckCircle2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { gooeyToast } from "goey-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTasks, useUpdateTaskStatus, useCompleteTask } from "@/hooks/queries/useTasks";
 import { ReportMediaGallery } from "@/components/reports/report-media-gallery";
+import { useRealtimeReports } from "@/hooks/useRealtimeReports";
 
 type LinkedReport = {
   id: string;
@@ -25,28 +26,44 @@ type LinkedReport = {
   completionPhotos: string[];
 };
 
+type TaskItem = {
+  id: string;
+  title: string;
+  location: string;
+  priority: string;
+  status: string;
+  time: string;
+  date: string;
+  related_report_id?: string;
+  completed_at: string | null;
+  related_report: LinkedReport | null;
+};
+
 export function WorkforceTasksWidget({ userId }: { userId: string }) {
+  useRealtimeReports({ enableToasts: true, userRole: "workforce" });
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("Assigned");
 
   // Modal states
+  const [confirmAcceptTask, setConfirmAcceptTask] = useState<TaskItem | null>(null);
   const [completionModalOpen, setCompletionModalOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [completionPhotoUrls, setCompletionPhotoUrls] = useState<string[]>([]);
   const [proofFileNames, setProofFileNames] = useState<string[]>([]);
-  const [selectedReport, setSelectedReport] = useState<LinkedReport | null>(null);
+  const [selectedTaskForReport, setSelectedTaskForReport] = useState<TaskItem | null>(null);
 
   const { data: tasksData, isLoading } = useTasks({ assigned_to: userId });
-  const { mutate: mutateTaskStatus } = useUpdateTaskStatus();
+  const { mutate: mutateTaskStatus, isPending: isUpdatingStatus } = useUpdateTaskStatus();
   const { mutate: completeTaskMutation, isPending: isCompletingTask } = useCompleteTask();
 
-  const tasksList = Array.isArray(tasksData) ? tasksData.map((t: any) => ({
+  const tasksList: TaskItem[] = Array.isArray(tasksData) ? tasksData.map((t: any) => ({
     id: t.id,
     title: t.title,
-    location: t.location,
-    priority: t.priority,
+    location: t.location || "N/A",
+    priority: t.priority || "Medium",
     status: t.status,
-    time: `Created ${new Date(t.created_at).toLocaleDateString()}`,
+    time: `Logged: ${new Date(t.created_at).toLocaleDateString()}`,
+    date: new Date(t.created_at).toLocaleDateString(),
     related_report_id: t.related_report_id,
     completed_at: t.completed_at ? new Date(t.completed_at).toLocaleString() : null,
     related_report: t.related_report ? {
@@ -63,7 +80,7 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
     } : null,
   })) : [];
 
-  const filteredTasks = tasksList.filter((task: any) => task.status === activeTab);
+  const filteredTasks = tasksList.filter((task: TaskItem) => task.status === activeTab);
 
   const handleAcceptTask = (taskId: string) => {
     mutateTaskStatus({ taskId, status: 'Accepted' }, {
@@ -121,12 +138,12 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
     }
   };
 
-  const handleViewLinkedReport = (task: any) => {
+  const handleViewLinkedReport = (task: TaskItem) => {
     if (!task.related_report) {
       gooeyToast.error("No linked report details available yet.");
       return;
     }
-    setSelectedReport(task.related_report);
+    setSelectedTaskForReport(task);
   };
 
   const handleConfirmComplete = () => {
@@ -150,88 +167,106 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
     });
   };
 
-  const getButtonText = (status: string) => {
-    switch(status) {
-      case "Assigned": return "Accept Task";
-      case "Accepted": return "Upload and Mark as Complete";
-      case "Completed": return "View Details";
-      default: return "";
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "Assigned": return "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400";
+      case "Accepted": return "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400";
+      case "Completed": return "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400";
+      default: return "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300";
     }
-  }
-
-  const handleButtonClick = (task: any) => {
-    if (task.status === "Assigned") handleAcceptTask(task.id);
-    else if (task.status === "Accepted") handleOpenCompleteModal(task.id);
-    else gooeyToast.info("Task Details", { description: `${task.title} was completed on ${task.completed_at ?? 'N/A'}.` });
   };
 
   return (
-    <div className="min-h-screen bg-white pb-32 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
-      <div className="container mx-auto max-w-6xl px-4 py-10">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight">My Tasks</h1>
-          <p className="text-muted-foreground mt-1">Manage and update your operational tasks.</p>
+    <div className="min-h-screen bg-slate-50 pb-32 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+      <div className="container mx-auto max-w-5xl px-4 py-8">
+        <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">My Tasks</h1>
+            <p className="text-muted-foreground mt-1">Manage and update your assigned operational tasks.</p>
+          </div>
         </div>
 
-        <Tabs defaultValue="Assigned" onValueChange={setActiveTab} className="w-full">
-          <TabsList className="flex w-full h-auto mb-6 bg-transparent border-b rounded-none p-0 overflow-x-auto no-scrollbar">
-            <TabsTrigger value="Assigned" className="flex-1 text-sm md:text-base py-3 px-4 sm:px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-blue-700 font-medium transition-all duration-300 ease-in-out whitespace-nowrap">Assigned</TabsTrigger>
-            <TabsTrigger value="Accepted" className="flex-1 text-sm md:text-base py-3 px-4 sm:px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-blue-700 font-medium transition-all duration-300 ease-in-out whitespace-nowrap">Accepted</TabsTrigger>
-            <TabsTrigger value="Completed" className="flex-1 text-sm md:text-base py-3 px-4 sm:px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-blue-700 font-medium transition-all duration-300 ease-in-out whitespace-nowrap">Completed</TabsTrigger>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="mb-6 flex h-auto w-full bg-white dark:bg-slate-900 border rounded-lg p-1">
+            <TabsTrigger value="Assigned" className="flex-1 rounded-md py-2.5 data-[state=active]:bg-amber-50 data-[state=active]:text-amber-700 dark:data-[state=active]:bg-amber-900/30 dark:data-[state=active]:text-amber-400 font-medium">Assigned Tasks</TabsTrigger>
+            <TabsTrigger value="Accepted" className="flex-1 rounded-md py-2.5 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 dark:data-[state=active]:bg-blue-900/30 dark:data-[state=active]:text-blue-400 font-medium">In Progress</TabsTrigger>
+            <TabsTrigger value="Completed" className="flex-1 rounded-md py-2.5 data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-700 dark:data-[state=active]:bg-emerald-900/30 dark:data-[state=active]:text-emerald-400 font-medium">Completed Tasks</TabsTrigger>
           </TabsList>
 
           <TabsContent value={activeTab} className="m-0 focus-visible:outline-none">
             <div className="grid gap-4">
               {filteredTasks.length === 0 ? (
-                <div className="text-center py-10 col-span-full text-muted-foreground bg-slate-50 dark:bg-slate-900 rounded-xl border border-dashed border-slate-300 dark:border-slate-800">
+                <div className="text-center py-12 text-slate-500 bg-white dark:bg-slate-900 rounded-xl border border-dashed">
                   No tasks found for this status.
                 </div>
               ) : (
-                filteredTasks.map((task: any) => (
-                  <Card key={task.id} className="overflow-hidden">
+                filteredTasks.map((task: TaskItem) => (
+                  <Card key={task.id} className="overflow-hidden hover:shadow-md transition-shadow dark:bg-slate-900">
                     <div className="flex flex-col md:flex-row">
                       <div className="flex-1 p-6">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium text-muted-foreground">{task.id}</span>
-                          <Badge variant={task.status === "Completed" ? "default" : task.status === "Accepted" ? "secondary" : "outline"} className={task.status === "Completed" ? "bg-emerald-500 hover:bg-emerald-600" : task.status === "Accepted" ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300" : ""}>
-                            {task.status}
+                        <div className="flex items-center justify-between mb-3">
+                          <Badge variant="outline" className="font-mono text-xs">{task.id}</Badge>
+                          <Badge variant="secondary" className={getStatusColor(task.status)}>
+                            {task.status === "Accepted" ? "In Progress" : task.status}
                           </Badge>
                         </div>
-                        <h3 className="text-xl font-semibold mb-4">{task.title}</h3>
+                        <h3 className="text-xl font-semibold">{task.title}</h3>
+                        <p className="text-slate-600 dark:text-slate-400 mt-2 text-sm">{task.location}</p>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
-                          <div className="flex items-center text-muted-foreground"><MapPin className="mr-2 h-4 w-4" /> {task.location}</div>
-                          <div className="flex items-center text-muted-foreground"><Clock className="mr-2 h-4 w-4" /> {task.time}</div>
-                          <div className="flex items-center text-muted-foreground"><AlertTriangle className="mr-2 h-4 w-4" /> Priority: {task.priority}</div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6 border-t pt-4 text-sm">
+                          <div className="flex items-center text-slate-500">
+                            <Clock className="w-4 h-4 mr-2" /> Logged: {task.date}
+                          </div>
+                          {task.related_report_id && (
+                            <div className="flex items-center text-slate-500">
+                              <Link2 className="w-4 h-4 mr-2" /> Report: <span className="font-medium text-blue-600 ml-1">{task.related_report_id}</span>
+                            </div>
+                          )}
+                          {(task.related_report?.urgency || task.priority) && (
+                            <div className="flex items-center text-slate-500">
+                              <AlertTriangle className="w-4 h-4 mr-2" /> Priority: <span className={`ml-1 font-medium ${
+                                (task.related_report?.urgency || task.priority) === 'High' ? 'text-red-600 dark:text-red-400' :
+                                (task.related_report?.urgency || task.priority) === 'Medium' ? 'text-amber-600 dark:text-amber-400' :
+                                'text-green-600 dark:text-green-400'
+                              }`}>{task.related_report?.urgency || task.priority}</span>
+                            </div>
+                          )}
+                          {task.status === "Completed" && task.completed_at && (
+                            <div className="flex items-center text-slate-500">
+                              <CheckCircle2 className="w-4 h-4 mr-2 text-emerald-500" /> Completed: <span className="font-medium text-emerald-600 ml-1">{task.completed_at}</span>
+                            </div>
+                          )}
                         </div>
+                      </div>
+
+                      <div className="bg-slate-50 dark:bg-slate-950 p-6 border-t md:border-t-0 md:border-l flex flex-col justify-center gap-3 min-w-[240px]">
+                        {task.status === "Assigned" && (
+                          <Button
+                            className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-sm font-medium"
+                            onClick={() => setConfirmAcceptTask(task)}
+                          >
+                            Accept Task
+                          </Button>
+                        )}
+
+                        {task.status === "Accepted" && (
+                          <Button
+                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm font-medium"
+                            onClick={() => handleOpenCompleteModal(task.id)}
+                          >
+                            Upload &amp; Mark as Complete
+                          </Button>
+                        )}
 
                         {task.related_report_id && (
-                          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border">
-                            <Link2 className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                            <span className="text-xs text-muted-foreground">Linked Report:</span>
-                            <span className="text-xs font-mono font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/50 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800">{task.related_report_id}</span>
-                          </div>
+                          <Button
+                            variant="outline"
+                            className="w-full"
+                            onClick={() => handleViewLinkedReport(task)}
+                          >
+                            View Linked Report
+                          </Button>
                         )}
-
-                        {task.status === "Completed" && task.completed_at && (
-                          <div className="flex items-center gap-2 mt-2">
-                            <Clock className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-                            <span className="text-xs text-muted-foreground">Completed:</span>
-                            <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">{task.completed_at}</span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="bg-muted/50 px-6 py-4 flex items-center justify-center border-t md:border-t-0 md:border-l border-border md:w-48">
-                        <div className="w-full space-y-2">
-                          <button onClick={() => handleButtonClick(task)} className={`w-full rounded-md px-4 py-2 text-sm font-medium text-white shadow transition-colors ${task.status === 'Completed' ? 'bg-emerald-500 hover:bg-emerald-600' : task.status === 'Accepted' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-primary hover:bg-primary/90'}`}>
-                            {getButtonText(task.status)}
-                          </button>
-                          {task.related_report_id ? (
-                            <Button variant="outline" className="w-full" onClick={() => handleViewLinkedReport(task)}>
-                              View Linked Report
-                            </Button>
-                          ) : null}
-                        </div>
                       </div>
                     </div>
                   </Card>
@@ -241,18 +276,88 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
           </TabsContent>
         </Tabs>
 
-        {/* Proof of Completion Modal */}
-        <Dialog open={completionModalOpen} onOpenChange={setCompletionModalOpen}>
-          <DialogContent className="sm:max-w-md rounded-lg w-[calc(100%-2rem)]">
+        {/* Confirmation Modal for Accepting Task */}
+        <Dialog open={Boolean(confirmAcceptTask)} onOpenChange={(open) => !open && setConfirmAcceptTask(null)}>
+          <DialogContent className="w-[calc(100%-2rem)] sm:max-w-md rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-5 sm:p-6">
             <DialogHeader>
-              <DialogTitle>Submit Proof of Completion</DialogTitle>
-              <DialogDescription>
-                Please provide details and photographic proof that the task has been resolved.
+              <DialogTitle className="text-xl">Accept Task</DialogTitle>
+              <DialogDescription className="text-sm text-slate-600 dark:text-slate-400">
+                Are you sure you want to accept this task?
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
+
+            {confirmAcceptTask && (
+              <div className="py-2">
+                <div className="rounded-lg bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 p-3.5">
+                  <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                    <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800">
+                      {confirmAcceptTask.id}
+                    </span>
+                    {(confirmAcceptTask.related_report?.urgency || confirmAcceptTask.priority) && (
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${
+                        (confirmAcceptTask.related_report?.urgency || confirmAcceptTask.priority) === 'High'
+                          ? 'text-red-600 bg-red-50 border-red-200 dark:bg-red-950/50 dark:border-red-800'
+                          : (confirmAcceptTask.related_report?.urgency || confirmAcceptTask.priority) === 'Medium'
+                            ? 'text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-950/50 dark:border-amber-800'
+                            : 'text-green-600 bg-green-50 border-green-200 dark:bg-green-950/50 dark:border-green-800'
+                      }`}>
+                        {confirmAcceptTask.related_report?.urgency || confirmAcceptTask.priority} Priority
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
+                    {confirmAcceptTask.title}
+                  </div>
+                  {confirmAcceptTask.location && (
+                    <div className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1 truncate">
+                      <MapPin className="h-3 w-3 shrink-0" />
+                      <span>{confirmAcceptTask.location}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-2 sm:gap-3 mt-4">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => setConfirmAcceptTask(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                disabled={isUpdatingStatus}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-sm"
+                onClick={() => {
+                  if (confirmAcceptTask) {
+                    handleAcceptTask(confirmAcceptTask.id);
+                    setConfirmAcceptTask(null);
+                  }
+                }}
+              >
+                {isUpdatingStatus ? "Accepting..." : "Yes, Accept Task"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Proof of Completion Modal */}
+        <Dialog open={completionModalOpen} onOpenChange={setCompletionModalOpen}>
+          <DialogContent className="w-[calc(100%-2rem)] sm:max-w-md rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-5 sm:p-6">
+            <DialogHeader>
+              <DialogTitle className="text-xl">Submit Proof of Completion</DialogTitle>
+              <DialogDescription className="text-sm text-slate-600 dark:text-slate-400">
+                Please provide photographic proof that the field task has been resolved.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-3">
               <div className="space-y-2">
-                <label htmlFor="proof-photo-upload" className="text-sm font-medium flex items-center gap-2"><Camera className="w-4 h-4 text-slate-500" /> Upload Proof Photos (up to 5)</label>
+                <label htmlFor="proof-photo-upload" className="text-sm font-medium flex items-center gap-2">
+                  <Camera className="w-4 h-4 text-slate-500" /> Upload Proof Photos (up to 5)
+                </label>
                 <input
                   id="proof-photo-upload"
                   type="file"
@@ -260,7 +365,7 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
                   multiple
                   onChange={handleProofFileChange}
                   title="Upload proof photos"
-                  className="block w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-blue-600 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-blue-700"
+                  className="block w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-blue-600 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-blue-700"
                 />
                 {proofFileNames.length > 0 ? (
                   <p className="text-xs text-muted-foreground">Selected: {proofFileNames.length} image(s)</p>
@@ -268,13 +373,13 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
                   <p className="text-xs text-muted-foreground">Choose up to 5 images to submit as completion proof.</p>
                 )}
                 {completionPhotoUrls.length > 0 ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
                     {completionPhotoUrls.map((url, index) => (
-                      <div key={`${url}-${index}`} className="overflow-hidden rounded-lg border border-slate-200">
+                      <div key={`${url}-${index}`} className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
                         <img
                           src={url}
                           alt={`Completion proof preview ${index + 1}`}
-                          className="h-24 w-full object-cover bg-slate-50"
+                          className="h-24 w-full object-cover bg-slate-50 dark:bg-slate-900"
                         />
                       </div>
                     ))}
@@ -282,21 +387,28 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
                 ) : null}
               </div>
             </div>
-            <DialogFooter className="flex-col sm:flex-row gap-2 mt-2">
-              <Button className="bg-[#13b6ec] hover:bg-[#0fa6d8] text-white" onClick={() => setCompletionModalOpen(false)}>Cancel</Button>
-              <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleConfirmComplete} disabled={isCompletingTask || completionPhotoUrls.length === 0}>
-                {isCompletingTask ? "Submitting..." : "Submit"}
+            <div className="grid grid-cols-2 gap-2 sm:gap-3 mt-2">
+              <Button variant="outline" className="w-full" onClick={() => setCompletionModalOpen(false)}>
+                Cancel
               </Button>
-            </DialogFooter>
+              <Button
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                onClick={handleConfirmComplete}
+                disabled={isCompletingTask || completionPhotoUrls.length === 0}
+              >
+                {isCompletingTask ? "Submitting..." : "Submit Proof"}
+              </Button>
+            </div>
           </DialogContent>
         </Dialog>
 
-        <Dialog open={Boolean(selectedReport)} onOpenChange={(open) => !open && setSelectedReport(null)}>
+        {/* Linked Report Modal */}
+        <Dialog open={Boolean(selectedTaskForReport)} onOpenChange={(open) => !open && setSelectedTaskForReport(null)}>
           <DialogContent className="w-[calc(100%-2rem)] sm:max-w-5xl rounded-xl max-h-[88vh] overflow-y-auto p-5 sm:p-7">
             <DialogHeader>
-              <DialogTitle>{selectedReport?.title || "Linked Report"}</DialogTitle>
+              <DialogTitle>{selectedTaskForReport?.related_report?.title || selectedTaskForReport?.title || "Linked Report"}</DialogTitle>
               <DialogDescription>
-                Report ID: {selectedReport?.id || "N/A"}
+                Task ID: {selectedTaskForReport?.id || "N/A"}{selectedTaskForReport?.related_report_id ? ` • Report ID: ${selectedTaskForReport.related_report_id}` : ''}
               </DialogDescription>
             </DialogHeader>
 
@@ -308,36 +420,36 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
                     <div className="flex justify-between border-b pb-2 gap-4">
                       <span className="text-slate-500">Urgency Level:</span>
                       <span className={`font-medium text-right ${
-                        selectedReport?.urgency === "High"
+                        selectedTaskForReport?.related_report?.urgency === "High"
                           ? "text-red-600 dark:text-red-400"
-                          : selectedReport?.urgency === "Medium"
+                          : selectedTaskForReport?.related_report?.urgency === "Medium"
                             ? "text-yellow-600 dark:text-yellow-400"
                             : "text-green-600 dark:text-green-400"
-                      }`}>{selectedReport?.urgency || "Low"}</span>
+                      }`}>{selectedTaskForReport?.related_report?.urgency || "Low"}</span>
                     </div>
                     <div className="flex justify-between border-b pb-2 gap-4">
                       <span className="text-slate-500">Title:</span>
-                      <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{selectedReport?.title || "N/A"}</span>
+                      <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{selectedTaskForReport?.related_report?.title || selectedTaskForReport?.title || "N/A"}</span>
                     </div>
                     <div className="grid border-b pb-2 gap-1">
                       <span className="text-slate-500">Description:</span>
-                      <span className="font-medium text-slate-700 dark:text-slate-300 leading-relaxed">{selectedReport?.description || "No report description available."}</span>
+                      <span className="font-medium text-slate-700 dark:text-slate-300 leading-relaxed">{selectedTaskForReport?.related_report?.description || "No report description available."}</span>
                     </div>
                     <div className="flex justify-between border-b pb-2 gap-4">
                       <span className="text-slate-500">Municipality/City:</span>
-                      <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{selectedReport?.municipality || "Unknown"}</span>
+                      <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{selectedTaskForReport?.related_report?.municipality || "Unknown"}</span>
                     </div>
                     <div className="flex justify-between border-b pb-2 gap-4">
                       <span className="text-slate-500">Barangay:</span>
-                      <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{selectedReport?.barangay || "Unknown"}</span>
+                      <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{selectedTaskForReport?.related_report?.barangay || "Unknown"}</span>
                     </div>
                     <div className="grid border-b pb-2 gap-1">
                       <span className="text-slate-500">Street Address:</span>
-                      <span className="font-medium text-slate-700 dark:text-slate-300">{selectedReport?.streetAddress || "N/A"}</span>
+                      <span className="font-medium text-slate-700 dark:text-slate-300">{selectedTaskForReport?.related_report?.streetAddress || "N/A"}</span>
                     </div>
                     <div className="grid gap-1">
                       <span className="text-slate-500">Landmark:</span>
-                      <span className="font-medium text-slate-700 dark:text-slate-300">{selectedReport?.landmark || "N/A"}</span>
+                      <span className="font-medium text-slate-700 dark:text-slate-300">{selectedTaskForReport?.related_report?.landmark || "N/A"}</span>
                     </div>
                   </div>
                 </div>
@@ -352,7 +464,7 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
                     <TabsContent value="reporter" className="mt-3">
                       <ReportMediaGallery
                         title="Reporter Uploaded Images"
-                        images={(selectedReport?.reporterPhotos || []).map((url, index) => ({
+                        images={(selectedTaskForReport?.related_report?.reporterPhotos || []).map((url, index) => ({
                           url,
                           alt: `Reporter image ${index + 1}`,
                         }))}
@@ -363,7 +475,7 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
                     <TabsContent value="completion" className="mt-3">
                       <ReportMediaGallery
                         title="Completion Proof Images"
-                        images={(selectedReport?.completionPhotos || []).map((url, index) => ({
+                        images={(selectedTaskForReport?.related_report?.completionPhotos || []).map((url, index) => ({
                           url,
                           alt: `Completion proof ${index + 1}`,
                         }))}
@@ -374,9 +486,45 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
                 </div>
               </div>
             </div>
+
+            <div className="grid grid-cols-2 gap-2 sm:gap-3 mt-4">
+              {selectedTaskForReport?.status === "Assigned" ? (
+                <Button
+                  type="button"
+                  className="col-span-full w-full bg-blue-600 hover:bg-blue-700 text-white"
+                  onClick={() => {
+                    const task = selectedTaskForReport;
+                    setSelectedTaskForReport(null);
+                    setConfirmAcceptTask(task);
+                  }}
+                >
+                  Accept Task
+                </Button>
+              ) : selectedTaskForReport?.status === "Accepted" ? (
+                <Button
+                  type="button"
+                  className="col-span-full w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                  onClick={() => {
+                    const task = selectedTaskForReport;
+                    setSelectedTaskForReport(null);
+                    handleOpenCompleteModal(task.id);
+                  }}
+                >
+                  Upload Proof
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="col-span-full w-full"
+                  onClick={() => setSelectedTaskForReport(null)}
+                >
+                  Close
+                </Button>
+              )}
+            </div>
           </DialogContent>
         </Dialog>
-
       </div>
     </div>
   );

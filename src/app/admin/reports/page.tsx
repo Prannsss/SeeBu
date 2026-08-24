@@ -13,8 +13,10 @@ import { Textarea } from "@/components/ui/textarea"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { ReportMediaGallery } from "@/components/reports/report-media-gallery"
 import { useCurrentUser } from "@/hooks/queries/useCurrentUser"
+import { useRealtimeReports } from "@/hooks/useRealtimeReports"
 
 export default function AdminReportsPage() {
+  useRealtimeReports({ enableToasts: true, userRole: "admin" });
   const queryClient = useQueryClient();
   const { data: currentUser } = useCurrentUser();
   const [activeTab, setActiveTab] = useState("In Review");
@@ -22,11 +24,36 @@ export default function AdminReportsPage() {
   const [delegationOpen, setDelegationOpen] = useState<string | null>(null);    
   const [reviewOpen, setReviewOpen] = useState<string | null>(null);
   const [rejectMode, setRejectMode] = useState(false);
+  const [delegateMode, setDelegateMode] = useState(false);
   const [rejectReasonType, setRejectReasonType] = useState("");
   const [rejectReasonOther, setRejectReasonOther] = useState("");
   const [resolvedOpen, setResolvedOpen] = useState<string | null>(null);
   const [delegateDepartmentId, setDelegateDepartmentId] = useState("");
   const [delegateAssignee, setDelegateAssignee] = useState("");
+
+  const maskName = (name: string) => {
+    if (!name || name === "Anonymous Reporter" || name === "N/A") return name;
+    return name.split(" ").map((part) => {
+      if (part.length <= 2) return part;
+      return part[0] + "*".repeat(part.length - 2) + part[part.length - 1];
+    }).join(" ");
+  };
+
+  const maskEmail = (email: string) => {
+    if (!email || email === "Hidden (Anonymous)" || email === "N/A") return email;
+    const [local, domain] = email.split("@");
+    if (!domain) return email;
+    const maskedLocal = local.length <= 2 ? "*".repeat(local.length) : local[0] + local[1] + "*".repeat(local.length - 2);
+    return `${maskedLocal}@${domain}`;
+  };
+
+  const maskPhone = (phone: string) => {
+    if (!phone || phone === "Hidden (Anonymous)" || phone === "N/A") return phone;
+    if (phone.length <= 4) return phone;
+    const visible = phone.slice(-4);
+    const prefix = phone.slice(0, phone.length - 7);
+    return `${prefix}${'*'.repeat(phone.length - prefix.length - 4)}${visible}`;
+  };
 
   const { data: reportsData, isLoading } = useQuery({
     queryKey: ['admin-reports', currentUser?.municipality_id],
@@ -37,7 +64,8 @@ export default function AdminReportsPage() {
         ? await apiClient.reports.getAll({ municipality_id: municipalityId })
         : await apiClient.reports.getAll();
       return json.data;
-    }
+    },
+    refetchInterval: 10000,
   });
 
   const updateStatusMutation = useMutation({
@@ -333,6 +361,7 @@ export default function AdminReportsPage() {
                             onClick={() => {
                               setReviewOpen(item.id)
                               setRejectMode(false)
+                              setDelegateMode(false)
                               setRejectReasonType("")
                               setRejectReasonOther("")
                               setDelegateDepartmentId("")
@@ -368,188 +397,295 @@ export default function AdminReportsPage() {
                       if (!open) {
                         setReviewOpen(null);
                         setRejectMode(false);
+                        setDelegateMode(false);
                         setRejectReasonType("");
                         setRejectReasonOther("");
                         setDelegateDepartmentId("");
                         setDelegateAssignee("");
                       }
                     }}>
-                      <DialogContent className="w-[calc(100%-2rem)] sm:max-w-5xl rounded-xl max-h-[88vh] overflow-y-auto p-5 sm:p-7">
+                      <DialogContent className={`w-[calc(100%-2rem)] ${rejectMode || delegateMode ? 'sm:max-w-xl' : 'sm:max-w-5xl'} rounded-xl max-h-[88vh] overflow-y-auto p-5 sm:p-7 transition-all duration-200`}>
                         <DialogHeader>
-                          <DialogTitle>Review Report</DialogTitle>
+                          <DialogTitle>
+                            {rejectMode ? "Reject Report" : delegateMode ? "Approve & Delegate Report" : "Review Report"}
+                          </DialogTitle>
                           <DialogDescription>
-                            Assess the report details below before taking action.
+                            {rejectMode 
+                              ? `Specify the reason for rejecting report ${item.id}.` 
+                              : delegateMode 
+                              ? `Select the department and workforce admin to delegate report ${item.id}.` 
+                              : "Assess the report details below before taking action."}
                           </DialogDescription>
                         </DialogHeader>
                         
-                        <div className="grid gap-5 py-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
-                          <div className="space-y-4">
-                            <div className="rounded-lg bg-slate-50 dark:bg-slate-900 border p-4 h-fit">
-                              <div className="flex items-center justify-between mb-3">
-                                <div className="font-semibold text-base text-slate-900 dark:text-slate-100">Review Report Details</div>
-                                <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950 px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-800">{item.id}</span>
+                        {rejectMode ? (
+                          <div className="py-4 space-y-4 animate-in fade-in duration-200">
+                            {/* Compact Report Summary Banner */}
+                            <div className="rounded-lg bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 p-3.5">
+                              <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                                <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800">
+                                  {item.id}
+                                </span>
+                                <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${
+                                  item.urgency === 'High'
+                                    ? 'text-red-600 bg-red-50 border-red-200 dark:bg-red-950/50 dark:border-red-800'
+                                    : item.urgency === 'Medium'
+                                      ? 'text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-950/50 dark:border-amber-800'
+                                      : 'text-green-600 bg-green-50 border-green-200 dark:bg-green-950/50 dark:border-green-800'
+                                }`}>
+                                  {item.urgency} Urgency
+                                </span>
                               </div>
-                              <div className="space-y-4">
-                                <div>
-                                  <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2">Reporter Details</h4>
-                                  <div className="text-sm text-muted-foreground mt-2 grid gap-2">
-                                    <div className="flex justify-between border-b pb-2 gap-4">
-                                      <span className="text-slate-500">Name:</span>
-                                      <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{item.reporterName}</span>
-                                    </div>
-                                    <div className="flex justify-between border-b pb-2 gap-4">
-                                      <span className="text-slate-500">Email:</span>
-                                      <span className="font-medium text-slate-700 dark:text-slate-300 text-right break-all">{item.reporterEmail}</span>
-                                    </div>
-                                    <div className="flex justify-between pb-1 gap-4">
-                                      <span className="text-slate-500">Contact Number:</span>
-                                      <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{item.reporterPhone}</span>
+                              <div className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
+                                {item.title}
+                              </div>
+                              <div className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1 truncate">
+                                <MapPin className="h-3 w-3 shrink-0" />
+                                <span>{item.barangay}, {item.municipality}</span>
+                              </div>
+                            </div>
+
+                            <div className="space-y-3 rounded-lg border border-red-200 bg-red-50/50 dark:bg-red-950/20 p-4">
+                              <label className="text-sm font-medium text-red-600 flex items-center gap-1.5">
+                                <AlertCircle className="w-4 h-4"/> Reason for Rejection *
+                              </label>
+                              <Select value={rejectReasonType} onValueChange={(v) => { setRejectReasonType(v); setRejectReasonOther(""); }}>
+                                <SelectTrigger className="bg-white dark:bg-slate-900 border-red-200 focus:ring-red-500">
+                                  <SelectValue placeholder="Select a reason..." />
+                                </SelectTrigger>
+                                <SelectContent className="bg-white dark:bg-slate-900 z-[100]">
+                                  <SelectItem value="Spam report">Spam report</SelectItem>
+                                  <SelectItem value="Duplicate report">Duplicate report</SelectItem>
+                                  <SelectItem value="Insufficient report details">Insufficient report details</SelectItem>
+                                  <SelectItem value="No Uploaded Image">No Uploaded Image</SelectItem>
+                                  <SelectItem value="Other">Other</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              {rejectReasonType === "Other" && (
+                                <Textarea
+                                  placeholder="Describe the reason for rejection..."
+                                  value={rejectReasonOther}
+                                  onChange={(e) => setRejectReasonOther(e.target.value)}
+                                  className="min-h-[90px] border-red-200 focus-visible:ring-red-500 bg-white dark:bg-slate-900 animate-in fade-in duration-150"
+                                />
+                              )}
+                            </div>
+                          </div>
+                        ) : delegateMode ? (
+                          <div className="py-4 space-y-4 animate-in fade-in duration-200">
+                            {/* Compact Report Summary Banner */}
+                            <div className="rounded-lg bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 p-3.5">
+                              <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                                <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800">
+                                  {item.id}
+                                </span>
+                                <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${
+                                  item.urgency === 'High'
+                                    ? 'text-red-600 bg-red-50 border-red-200 dark:bg-red-950/50 dark:border-red-800'
+                                    : item.urgency === 'Medium'
+                                      ? 'text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-950/50 dark:border-amber-800'
+                                      : 'text-green-600 bg-green-50 border-green-200 dark:bg-green-950/50 dark:border-green-800'
+                                }`}>
+                                  {item.urgency} Urgency
+                                </span>
+                              </div>
+                              <div className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
+                                {item.title}
+                              </div>
+                              <div className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1 truncate">
+                                <MapPin className="h-3 w-3 shrink-0" />
+                                <span>{item.barangay}, {item.municipality}</span>
+                              </div>
+                            </div>
+
+                            <div className="space-y-4 rounded-lg border border-blue-200 bg-blue-50/60 dark:bg-blue-950/30 p-4">
+                              <div className="space-y-2">
+                                <label htmlFor="approve-department" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                  Delegate To Department *
+                                </label>
+                                <Select value={delegateDepartmentId} onValueChange={(value) => {
+                                  setDelegateDepartmentId(value);
+                                  setDelegateAssignee("");
+                                }}>
+                                  <SelectTrigger id="approve-department" className="bg-white dark:bg-slate-900 border-slate-200">
+                                    <SelectValue placeholder="Select department for task action" />
+                                  </SelectTrigger>
+                                  <SelectContent className="bg-white dark:bg-slate-900 z-[100]">
+                                    {departments.map((department: any) => (
+                                      <SelectItem key={department.id} value={String(department.id)}>{department.name}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              <div className="space-y-2">
+                                <label htmlFor="approve-assignee" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                  Assign To Workforce Admin *
+                                </label>
+                                <Select value={delegateAssignee} onValueChange={setDelegateAssignee} disabled={!delegateDepartmentId}>
+                                  <SelectTrigger id="approve-assignee" className="bg-white dark:bg-slate-900 border-slate-200">
+                                    <SelectValue placeholder={delegateDepartmentId ? "Select assignee" : "Select department first"} />
+                                  </SelectTrigger>
+                                  <SelectContent className="bg-white dark:bg-slate-900 z-[100]">
+                                    {selectedDepartmentPersonnel
+                                      .filter((person: any) => person.role === 'workforce-admin')
+                                      .map((person: any) => (
+                                        <SelectItem key={`${person.role}-${person.id}`} value={`${person.role}:${person.id}`}>
+                                          {person.full_name} (Workforce Admin)
+                                        </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="grid gap-5 py-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
+                            <div className="space-y-4">
+                              <div className="rounded-lg bg-slate-50 dark:bg-slate-900 border p-4 h-fit">
+                                <div className="flex items-center justify-between mb-3">
+                                  <div className="font-semibold text-base text-slate-900 dark:text-slate-100">Review Report Details</div>
+                                  <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950 px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-800">{item.id}</span>
+                                </div>
+                                <div className="space-y-4">
+                                  <div>
+                                    <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2">Reporter Details</h4>
+                                    <div className="text-sm text-muted-foreground mt-2 grid gap-2">
+                                      <div className="flex justify-between border-b pb-2 gap-4">
+                                        <span className="text-slate-500">Name:</span>
+                                        <span className="font-medium text-slate-700 dark:text-slate-300 text-right font-mono tracking-wide">{maskName(item.reporterName)}</span>
+                                      </div>
+                                      <div className="flex justify-between border-b pb-2 gap-4">
+                                        <span className="text-slate-500">Email:</span>
+                                        <span className="font-medium text-slate-700 dark:text-slate-300 text-right break-all font-mono tracking-wide">{maskEmail(item.reporterEmail)}</span>
+                                      </div>
+                                      <div className="flex justify-between pb-1 gap-4">
+                                        <span className="text-slate-500">Contact Number:</span>
+                                        <span className="font-medium text-slate-700 dark:text-slate-300 text-right font-mono tracking-wide">{maskPhone(item.reporterPhone)}</span>
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
 
-                                <div>
-                                  <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2">Report Details</h4>
-                                  <div className="text-sm text-muted-foreground mt-2 grid gap-2">
-                                    <div className="flex justify-between border-b pb-2 gap-4">
-                                      <span className="text-slate-500">Urgency Level:</span>
-                                      <span className={`font-medium text-right ${
-                                        item.urgency === 'High'
-                                          ? 'text-red-600 dark:text-red-400'
-                                          : item.urgency === 'Medium'
-                                            ? 'text-yellow-600 dark:text-yellow-400'
-                                            : 'text-green-600 dark:text-green-400'
-                                      }`}>{item.urgency}</span>
-                                    </div>
-                                    <div className="flex justify-between border-b pb-2 gap-4">
-                                      <span className="text-slate-500">Title:</span>
-                                      <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{item.title}</span>
-                                    </div>
-                                    <div className="grid border-b pb-2 gap-1">
-                                      <span className="text-slate-500">Description:</span>
-                                      <span className="font-medium text-slate-700 dark:text-slate-300 leading-relaxed">{item.description}</span>
-                                    </div>
-                                    <div className="flex justify-between border-b pb-2 gap-4">
-                                      <span className="text-slate-500">Municipality/City:</span>
-                                      <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{item.municipality}</span>
-                                    </div>
-                                    <div className="flex justify-between border-b pb-2 gap-4">
-                                      <span className="text-slate-500">Barangay:</span>
-                                      <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{item.barangay}</span>
-                                    </div>
-                                    <div className="grid border-b pb-2 gap-1">
-                                      <span className="text-slate-500">Street Address:</span>
-                                      <span className="font-medium text-slate-700 dark:text-slate-300">{item.streetAddress}</span>
-                                    </div>
-                                    <div className="grid pb-1 gap-1">
-                                      <span className="text-slate-500">Landmark:</span>
-                                      <span className="font-medium text-slate-700 dark:text-slate-300">{item.landmark}</span>
+                                  <div>
+                                    <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2">Report Details</h4>
+                                    <div className="text-sm text-muted-foreground mt-2 grid gap-2">
+                                      <div className="flex justify-between border-b pb-2 gap-4">
+                                        <span className="text-slate-500">Urgency Level:</span>
+                                        <span className={`font-medium text-right ${
+                                          item.urgency === 'High'
+                                            ? 'text-red-600 dark:text-red-400'
+                                            : item.urgency === 'Medium'
+                                              ? 'text-yellow-600 dark:text-yellow-400'
+                                              : 'text-green-600 dark:text-green-400'
+                                        }`}>{item.urgency}</span>
+                                      </div>
+                                      <div className="flex justify-between border-b pb-2 gap-4">
+                                        <span className="text-slate-500">Title:</span>
+                                        <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{item.title}</span>
+                                      </div>
+                                      <div className="grid border-b pb-2 gap-1">
+                                        <span className="text-slate-500">Description:</span>
+                                        <span className="font-medium text-slate-700 dark:text-slate-300 leading-relaxed">{item.description}</span>
+                                      </div>
+                                      <div className="flex justify-between border-b pb-2 gap-4">
+                                        <span className="text-slate-500">Municipality/City:</span>
+                                        <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{item.municipality}</span>
+                                      </div>
+                                      <div className="flex justify-between border-b pb-2 gap-4">
+                                        <span className="text-slate-500">Barangay:</span>
+                                        <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{item.barangay}</span>
+                                      </div>
+                                      <div className="grid border-b pb-2 gap-1">
+                                        <span className="text-slate-500">Street Address:</span>
+                                        <span className="font-medium text-slate-700 dark:text-slate-300">{item.streetAddress}</span>
+                                      </div>
+                                      <div className="grid pb-1 gap-1">
+                                        <span className="text-slate-500">Landmark:</span>
+                                        <span className="font-medium text-slate-700 dark:text-slate-300">{item.landmark}</span>
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
                               </div>
                             </div>
 
-                            {!rejectMode ? (
-                              <div className="space-y-3 rounded-lg border bg-slate-50/70 dark:bg-slate-900/60 p-3">
-                                <div className="space-y-2">
-                                  <label htmlFor="approve-department" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                                    Delegate To Department *
-                                  </label>
-                                  <Select value={delegateDepartmentId} onValueChange={(value) => {
-                                    setDelegateDepartmentId(value);
-                                    setDelegateAssignee("");
-                                  }}>
-                                    <SelectTrigger id="approve-department" className="bg-white dark:bg-slate-900 border-slate-200">
-                                      <SelectValue placeholder="Select department for task action" />
-                                    </SelectTrigger>
-                                    <SelectContent className="bg-white dark:bg-slate-900 z-[100]">
-                                      {departments.map((department: any) => (
-                                        <SelectItem key={department.id} value={String(department.id)}>{department.name}</SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-
-                                <div className="space-y-2">
-                                  <label htmlFor="approve-assignee" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                                    Assign To Workforce Admin*
-                                  </label>
-                                  <Select value={delegateAssignee} onValueChange={setDelegateAssignee} disabled={!delegateDepartmentId}>
-                                    <SelectTrigger id="approve-assignee" className="bg-white dark:bg-slate-900 border-slate-200">
-                                      <SelectValue placeholder={delegateDepartmentId ? "Select assignee" : "Select department first"} />
-                                    </SelectTrigger>
-                                    <SelectContent className="bg-white dark:bg-slate-900 z-[100]">
-                                      {selectedDepartmentPersonnel
-                                        .filter((person: any) => person.role === 'workforce-admin')
-                                        .map((person: any) => (
-                                          <SelectItem key={`${person.role}-${person.id}`} value={`${person.role}:${person.id}`}>
-                                            {person.full_name} (Workforce Admin)
-                                          </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                              </div>
-                            ) : null}
-
-                            {rejectMode ? (
-                              <div className="space-y-3 animate-in fade-in zoom-in duration-200">
-                                <label className="text-sm font-medium text-red-600 flex items-center gap-1.5">
-                                  <AlertCircle className="w-4 h-4"/> Reason for Rejection *
-                                </label>
-                                <Select value={rejectReasonType} onValueChange={(v) => { setRejectReasonType(v); setRejectReasonOther(""); }}>
-                                  <SelectTrigger className="bg-white dark:bg-slate-900 border-red-200 focus:ring-red-500">
-                                    <SelectValue placeholder="Select a reason..." />
-                                  </SelectTrigger>
-                                  <SelectContent className="bg-white dark:bg-slate-900 z-[100]">
-                                    <SelectItem value="Spam report">Spam report</SelectItem>
-                                    <SelectItem value="Duplicate report">Duplicate report</SelectItem>
-                                    <SelectItem value="Insufficient report details">Insufficient report details</SelectItem>
-                                    <SelectItem value="Other">Other</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                                {rejectReasonType === "Other" && (
-                                  <Textarea
-                                    placeholder="Describe the reason for rejection..."
-                                    value={rejectReasonOther}
-                                    onChange={(e) => setRejectReasonOther(e.target.value)}
-                                    className="min-h-[90px] border-red-200 focus-visible:ring-red-500 bg-red-50/30 animate-in fade-in duration-150"
-                                  />
-                                )}
-                              </div>
-                            ) : null}
+                            <div className="space-y-3">
+                              <div className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-1">Reporter Uploaded Images</div>
+                              <ReportMediaGallery
+                                title="Reporter Uploaded Images"
+                                images={(item.reporterPhotos || []).map((url: string, index: number) => ({
+                                  url,
+                                  alt: `${item.title} reporter image ${index + 1}`
+                                }))}
+                                emptyText="No reporter images available for this report yet."
+                              />
+                            </div>
                           </div>
-
-                          <div className="space-y-3">
-                                <div className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-1">Reporter Uploaded Images</div>
-                                <ReportMediaGallery
-                                  title="Reporter Uploaded Images"
-                                  images={(item.reporterPhotos || []).map((url: string, index: number) => ({
-                                    url,
-                                    alt: `${item.title} reporter image ${index + 1}`
-                                  }))}
-                                  emptyText="No reporter images available for this report yet."
-                                />
-                              </div>
-
-                          </div>
+                        )}
                         
-                        <div className="grid grid-cols-3 gap-2 sm:gap-3 mt-2">
-                          <Button className="w-full bg-slate-600 hover:bg-slate-700 text-white" onClick={() => {
-                            setReviewOpen(null);
-                            setRejectMode(false);
-                          }}>Close</Button>
-                          
+                        <div className="grid grid-cols-2 gap-2 sm:gap-3 mt-2">
                           {rejectMode ? (
                             <>
-                              <Button className="w-full bg-amber-600 hover:bg-amber-700 text-white" onClick={() => setRejectMode(false)}>Back</Button>
-                              <Button className="w-full bg-red-600 hover:bg-red-700 text-white" onClick={() => handleReject(item.id)} variant="destructive">Confirm Rejection</Button>
+                              <Button 
+                                type="button"
+                                variant="outline"
+                                className="w-full" 
+                                onClick={() => { 
+                                  setRejectMode(false); 
+                                  setRejectReasonType("");
+                                  setRejectReasonOther("");
+                                }}
+                              >
+                                Back
+                              </Button>
+                              <Button 
+                                type="button"
+                                className="w-full bg-red-600 hover:bg-red-700 text-white" 
+                                onClick={() => handleReject(item.id)} 
+                                disabled={updateStatusMutation.isPending}
+                              >
+                                {updateStatusMutation.isPending ? "Rejecting..." : "Confirm Rejection"}
+                              </Button>
+                            </>
+                          ) : delegateMode ? (
+                            <>
+                              <Button 
+                                type="button"
+                                variant="outline"
+                                className="w-full" 
+                                onClick={() => { 
+                                  setDelegateMode(false); 
+                                  setDelegateDepartmentId(""); 
+                                  setDelegateAssignee(""); 
+                                }}
+                              >
+                                Back
+                              </Button>
+                              <Button 
+                                type="button"
+                                onClick={() => handleApprove(item.id)} 
+                                disabled={!delegateDepartmentId || !delegateAssignee || updateStatusMutation.isPending}
+                                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                              >
+                                {updateStatusMutation.isPending ? "Delegating..." : "Confirm & Delegate"}
+                              </Button>
                             </>
                           ) : (
                             <>
-                              <Button onClick={() => setRejectMode(true)} className="w-full bg-red-600 hover:bg-red-700 text-white">Reject</Button>
-                              <Button onClick={() => handleApprove(item.id)} className="w-full bg-blue-600 hover:bg-blue-700 text-white">Approve &amp; Delegate</Button>
+                              <Button 
+                                type="button"
+                                onClick={() => { setRejectMode(true); setDelegateMode(false); }} 
+                                className="w-full bg-red-600 hover:bg-red-700 text-white"
+                              >
+                                Reject
+                              </Button>
+                              <Button 
+                                type="button"
+                                onClick={() => { setDelegateMode(true); setRejectMode(false); }} 
+                                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                              >
+                                Approve &amp; Delegate
+                              </Button>
                             </>
                           )}
                         </div>
@@ -580,15 +716,15 @@ export default function AdminReportsPage() {
                                   <div className="text-sm text-muted-foreground grid gap-2">
                                     <div className="flex justify-between border-b pb-2 gap-4">
                                       <span className="text-slate-500">Name:</span>
-                                      <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{item.reporterName}</span>
+                                      <span className="font-medium text-slate-700 dark:text-slate-300 text-right font-mono tracking-wide">{maskName(item.reporterName)}</span>
                                     </div>
                                     <div className="flex justify-between border-b pb-2 gap-4">
                                       <span className="text-slate-500">Email:</span>
-                                      <span className="font-medium text-slate-700 dark:text-slate-300 text-right break-all">{item.reporterEmail}</span>
+                                      <span className="font-medium text-slate-700 dark:text-slate-300 text-right break-all font-mono tracking-wide">{maskEmail(item.reporterEmail)}</span>
                                     </div>
                                     <div className="flex justify-between pb-1 gap-4">
                                       <span className="text-slate-500">Phone:</span>
-                                      <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{item.reporterPhone}</span>
+                                      <span className="font-medium text-slate-700 dark:text-slate-300 text-right font-mono tracking-wide">{maskPhone(item.reporterPhone)}</span>
                                     </div>
                                   </div>
                                 </div>
