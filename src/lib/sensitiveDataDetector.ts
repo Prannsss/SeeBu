@@ -10,8 +10,6 @@
  * Model weights (~2MB) are served from /models/face-api/ and cached by the browser.
  */
 
-import * as faceapi from '@vladmandic/face-api';
-
 export interface SensitiveDetectionResult {
   safe: boolean;
   reason: string | null;
@@ -22,16 +20,32 @@ export interface SensitiveDetectionResult {
 const SENSITIVE_REASON = 'Image contains sensitive information (e.g. identifiable people or license plates). Please retake or upload another image.';
 const MODEL_URL = '/models/face-api';
 
-// Load the model exactly once per page session.
+// Dynamic face-api instance and model load promise
+let faceapiInstance: typeof import('@vladmandic/face-api') | null = null;
 let modelLoadPromise: Promise<void> | null = null;
 
+async function getFaceApi(): Promise<typeof import('@vladmandic/face-api') | null> {
+  if (typeof window === 'undefined') return null;
+  if (!faceapiInstance) {
+    faceapiInstance = await import('@vladmandic/face-api');
+  }
+  return faceapiInstance;
+}
+
 async function ensureModelLoaded(): Promise<void> {
+  if (typeof window === 'undefined') return;
   if (modelLoadPromise) return modelLoadPromise;
-  modelLoadPromise = faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL).catch((err) => {
+
+  modelLoadPromise = (async () => {
+    const faceapi = await getFaceApi();
+    if (!faceapi) return;
+    await faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL);
+  })().catch((err) => {
     // Reset so the next call retries if it failed (e.g. network hiccup).
     modelLoadPromise = null;
     throw err;
   });
+
   return modelLoadPromise;
 }
 
@@ -93,6 +107,10 @@ function detectPlatePatterns(canvas: HTMLCanvasElement): boolean {
 export async function scanImageForSensitiveData(
   imageSource: File | Blob | string
 ): Promise<SensitiveDetectionResult> {
+  if (typeof window === 'undefined') {
+    return { safe: true, reason: null, hasPerson: false, hasPlateNumber: false };
+  }
+
   try {
     let imageElement: HTMLImageElement;
     let dataUrl: string | null = null;
@@ -114,12 +132,15 @@ export async function scanImageForSensitiveData(
     // ------------------------------------------------------------------
     try {
       await ensureModelLoaded();
-      const detections = await faceapi.detectAllFaces(
-        imageElement,
-        new faceapi.SsdMobilenetv1Options({ minConfidence: 0.4 })
-      );
-      if (detections.length > 0) {
-        return { safe: false, reason: SENSITIVE_REASON, hasPerson: true, hasPlateNumber: false };
+      const faceapi = await getFaceApi();
+      if (faceapi) {
+        const detections = await faceapi.detectAllFaces(
+          imageElement,
+          new faceapi.SsdMobilenetv1Options({ minConfidence: 0.4 })
+        );
+        if (detections.length > 0) {
+          return { safe: false, reason: SENSITIVE_REASON, hasPerson: true, hasPlateNumber: false };
+        }
       }
     } catch (faceErr) {
       // Model failed to load or inference error — continue to other checks.
