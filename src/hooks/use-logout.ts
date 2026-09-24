@@ -29,7 +29,19 @@ export function useLogout() {
     // 4. Server-side logout (clears HTTP-only cookies)
     await logoutUser();
 
-    // 5. Hard redirect to home to flush all state
+    // 5. Purge service-worker runtime caches so stale auth redirects
+    //    (e.g., an old "302 → /auth/login" for /client/report) don't survive
+    //    into the next user's session on mobile PWA.
+    if (typeof window !== "undefined" && "caches" in window) {
+      try {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map((name) => caches.delete(name)));
+      } catch {
+        // Non-critical — ignore if the Caches API is unavailable
+      }
+    }
+
+    // 6. Hard redirect to home to flush all state
     window.location.href = "/";
   };
 

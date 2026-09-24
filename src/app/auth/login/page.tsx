@@ -8,15 +8,20 @@ import Image from "next/image";
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { gooeyToast } from "goey-toast";
-import { useRouter } from "next/navigation";
 import { GoogleLogin, CredentialResponse } from "@react-oauth/google";
 import FacebookLogin from "react-facebook-login/dist/facebook-login-render-props";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
+
+  const clearSession = async () => {
+    // Evict any stale session cookie before establishing the new one.
+    // This prevents a leftover user-role from causing a /forbidden or /auth/login
+    // redirect in the middleware immediately after login.
+    await fetch('/api/session', { method: 'DELETE' }).catch(() => {});
+  };
 
   const establishSession = async (token: string, role: string) => {
     const res = await fetch('/api/session', {
@@ -39,11 +44,15 @@ export default function LoginPage() {
     if (!res.ok) throw new Error(data.error || 'OAuth Login failed');
 
     if (!data.user?.role) throw new Error('OAuth login response missing user role');
+    await clearSession();
     await establishSession(data.token, data.user.role);
     localStorage.setItem('user-profile', JSON.stringify(data.user));
 
     gooeyToast.success("Welcome back!", { description: `Logged in via ${provider}` });
-    router.push('/client'); // OAuth strictly assigns client
+    // Hard redirect so the browser makes a fresh server request with the new cookies.
+    // router.push() uses client-side RSC navigation which can serve from the router
+    // cache before the middleware re-evaluates the fresh cookies → /forbidden.
+    window.location.href = '/client';
   };
 
   const handleGoogleSuccess = async (credentialResponse: CredentialResponse) => {
@@ -106,7 +115,9 @@ export default function LoginPage() {
         throw new Error('Login response missing user role');
       }
 
-      // Establish an httpOnly session cookie (read by Next.js Middleware server-side)
+      // Evict old session then establish new one so the middleware always sees
+      // the correct user-role cookie from the very first request after login.
+      await clearSession();
       await establishSession(data.token, data.user.role);
       localStorage.setItem('user-profile', JSON.stringify(data.user));
 
@@ -117,16 +128,15 @@ export default function LoginPage() {
       else if (data.user?.role === 'workforce') redirectPath = '/workforce';
       else if (data.user?.role === 'workforce-admin') redirectPath = '/workforce-admin';
 
-      // Start navigation immediately — React will suspend and show the destination's loading.tsx
-      router.push(redirectPath);
+      gooeyToast.success("Welcome back!", {
+        description: "You've been logged in successfully.",
+      });
 
-      // Show toast after navigation starts (toast renders in a portal, won't block React)
-      // Use a small delay to ensure React has started the transition
-      setTimeout(() => {
-        gooeyToast.success("Welcome back!", {
-          description: "You've been logged in successfully.",
-        });
-      }, 50);
+      // Hard redirect — forces a full round-trip HTTP request so the middleware
+      // evaluates the fresh auth-token / user-role cookies immediately.
+      // router.push() is a client-side navigation that may be served from Next.js’s
+      // router prefetch cache (computed before cookies were set) → forbidden/login.
+      window.location.href = redirectPath;
     } catch (err: any) {
       gooeyToast.error("Login Failed", {
         description: err.message || "Invalid email or password. Please try again.",

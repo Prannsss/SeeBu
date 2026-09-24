@@ -18,6 +18,11 @@ export default function RegisterPage() {
   const [contactNumber, setContactNumber] = useState("+63");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const clearSession = async () => {
+    // Evict any stale session cookie before establishing the new one.
+    await fetch('/api/session', { method: 'DELETE' }).catch(() => {});
+  };
+
   const establishSession = async (token: string, role: string) => {
     const res = await fetch('/api/session', {
       method: 'POST',
@@ -39,10 +44,13 @@ export default function RegisterPage() {
     if (!res.ok) throw new Error(data.error || 'OAuth Registration failed');
     if (!data.user?.role) throw new Error('OAuth registration response missing user role');
 
+    await clearSession();
     await establishSession(data.token, data.user.role);
 
     gooeyToast.success('Registration via OAuth successful!', { description: `Logged in via ${provider}` });
-    router.push('/client');
+    // Hard redirect — forces a full round-trip so the middleware evaluates the
+    // fresh cookies immediately instead of serving a cached client-side response.
+    window.location.href = '/client';
   };
 
   const handleGoogleSuccess = async (credentialResponse: CredentialResponse) => {

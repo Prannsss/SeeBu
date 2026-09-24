@@ -19,6 +19,15 @@ const serwist = new Serwist({
   clientsClaim: true,
   navigationPreload: true,
   runtimeCaching: [
+    // Navigation requests (HTML page loads / RSC route transitions) MUST always
+    // go to the network so the Next.js middleware can enforce auth/role redirects
+    // with the latest cookies. If we let the SW cache these, a stale
+    // "302 → /auth/login" or "302 → /forbidden" from a previous unauthenticated
+    // visit gets served to a freshly-logged-in user on mobile.
+    {
+      matcher: ({ request }) => request.mode === "navigate",
+      handler: new NetworkOnly(),
+    },
     ...defaultCache,
     // Add custom offline fallback or image cache logic
     {

@@ -19,6 +19,12 @@ export async function POST(request: NextRequest) {
     maxAge: MAX_AGE,
   };
 
+  // Evict any stale session cookies before writing new credentials.
+  // A leftover user-role from a previous user / partial logout causes the middleware
+  // to see the wrong role → /forbidden redirect immediately after login.
+  cookieStore.delete("auth-token");
+  cookieStore.delete("user-role");
+
   cookieStore.set("auth-token", token, cookieOptions);
   // user-role is read by middleware.ts for route gating only, not sensitive on its own,
   // but there's no reason for page JS to read it either — keep it httpOnly too.
