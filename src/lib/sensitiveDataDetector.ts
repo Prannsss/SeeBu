@@ -1,10 +1,13 @@
 /**
- * Client-Side Sensitive Data Detector
+ * Client-Side Face / Person Sensitive Data Detector
  *
  * Detection pipeline:
  * 1. face-api.js (SSD MobileNet, runs fully in-browser) — detects faces/people.
- * 2. Canvas edge-density heuristic — detects vehicle license plates.
- * 3. Backend /scan-image endpoint — secondary check (EgoBlur or AI if configured).
+ * 2. Backend /scan-image endpoint — secondary check (EgoBlur or AI if configured).
+ *
+ * NOTE: License plate detection is handled by a completely separate module:
+ * `plateRedactor.ts` (stackblur-canvas heuristic pipeline). The two modules
+ * are intentionally decoupled so their responsibilities never overlap.
  *
  * No API key or external service required for face detection.
  * Model weights (~2MB) are served from /models/face-api/ and cached by the browser.
@@ -63,45 +66,6 @@ function loadImageFromBlob(blob: Blob): Promise<HTMLImageElement> {
 }
 
 /**
- * Detects vehicle license plate patterns via canvas edge-density heuristics.
- * License plates have dense, evenly-spaced high-contrast transitions in a horizontal band.
- */
-function detectPlatePatterns(canvas: HTMLCanvasElement): boolean {
-  try {
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    if (!ctx) return false;
-
-    const { width, height } = canvas;
-    if (width < 50 || height < 30) return false;
-
-    const imageData = ctx.getImageData(0, 0, width, height);
-    const data = imageData.data;
-    let consecutiveSpikes = 0;
-    const sampleStep = Math.max(1, Math.floor(height / 40));
-
-    for (let y = 10; y < height - 10; y += sampleStep) {
-      let edges = 0;
-      let prevLum = 0;
-      for (let x = 10; x < width - 10; x += 4) {
-        const idx = (y * width + x) * 4;
-        const lum = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
-        if (x > 10 && Math.abs(lum - prevLum) > 65) edges++;
-        prevLum = lum;
-      }
-      const ratio = edges / (width / 4);
-      if (ratio > 0.35 && ratio < 0.85) {
-        if (++consecutiveSpikes >= 3) return true;
-      } else {
-        consecutiveSpikes = 0;
-      }
-    }
-  } catch {
-    // Fallback silently
-  }
-  return false;
-}
-
-/**
  * Scans a single image (File, Blob, or base64 data URL) for faces and license plates.
  */
 export async function scanImageForSensitiveData(
@@ -148,7 +112,7 @@ export async function scanImageForSensitiveData(
     }
 
     // ------------------------------------------------------------------
-    // 2. Prepare downscaled canvas for heuristic + backend scan
+    // 2. Prepare downscaled canvas for backend scan
     // ------------------------------------------------------------------
     const canvas = document.createElement('canvas');
     const maxDim = 640;
@@ -162,13 +126,6 @@ export async function scanImageForSensitiveData(
     if (ctx) {
       ctx.drawImage(imageElement, 0, 0, canvas.width, canvas.height);
       if (!dataUrl) dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-
-      // ----------------------------------------------------------------
-      // 2a. License plate heuristic
-      // ----------------------------------------------------------------
-      if (detectPlatePatterns(canvas)) {
-        return { safe: false, reason: SENSITIVE_REASON, hasPerson: false, hasPlateNumber: true };
-      }
     }
 
     // ------------------------------------------------------------------

@@ -9,6 +9,8 @@ const crypto_1 = __importDefault(require("crypto"));
 const db_1 = require("../config/db");
 const DEFAULT_BUCKET = process.env.SUPABASE_STORAGE_BUCKET || 'report-photos';
 const ORIGINALS_BUCKET = process.env.SUPABASE_STORAGE_ORIGINALS_BUCKET || 'report-photos-originals';
+// Suppress repeated EgoBlur "unavailable" log noise — warn once per process start.
+let egoBlurUnavailableLogged = false;
 // Known image magic bytes — the sniffed signature decides the extension/content-type,
 // never the client-declared MIME string. SVG is deliberately not supported (script risk).
 const IMAGE_SIGNATURES = [
@@ -49,7 +51,10 @@ async function blurImage(buffer, mimeType) {
         return Buffer.from(await response.arrayBuffer());
     }
     catch (error) {
-        console.warn('EgoBlur unavailable, storing image unblurred:', error);
+        if (!egoBlurUnavailableLogged) {
+            egoBlurUnavailableLogged = true;
+            console.warn('[mediaStorage] EgoBlur sidecar unavailable — storing images unblurred. Set EGOBLUR_SERVICE_URL to enable blurring.');
+        }
         return null;
     }
 }

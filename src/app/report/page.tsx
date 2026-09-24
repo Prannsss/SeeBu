@@ -5,12 +5,13 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { ChevronLeft, ChevronRight, Upload, X, Copy, CheckCheck, Tag, Camera, RefreshCcw, AlertTriangle, Loader2 } from 'lucide-react';
 import { gooeyToast } from 'goey-toast';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import BackButton from '@/components/navigation/back-button';
 import { useCurrentUser } from '@/hooks/queries/useCurrentUser';
 import { CameraPrivacyNoticeModal } from '@/components/reports/camera-privacy-notice-modal';
 import { ReportPrivacyAgreementModal } from '@/components/reports/report-privacy-agreement-modal';
 import { scanImageForSensitiveData } from '@/lib/sensitiveDataDetector';
+import { redactPlatesInFile } from '@/lib/plateRedactor';
 
 const useAuth = () => {
   const { data: profileData } = useCurrentUser();
@@ -84,6 +85,7 @@ export default function ReportPage() {
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const queryClient = useQueryClient();
   const { isLoggedIn, user } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [showCameraNotice, setShowCameraNotice] = useState(false);
@@ -617,8 +619,15 @@ export default function ReportPage() {
         throw new Error(`Photo "${oversized.name}" is too large. Max allowed source size is 20MB.`);
       }
 
+      // Redact any license plates in each photo before compressing/encoding.
+      // This runs client-side via the plateRedactor (stackblur-canvas heuristic
+      // pipeline) and is completely separate from face-api detection.
+      const photosWithRedactedPlates = await Promise.all(
+        formData.photos.map((file) => redactPlatesInFile(file))
+      );
+
       const photoDataUrls = await Promise.all(
-        formData.photos.map(async (file) => {
+        photosWithRedactedPlates.map(async (file) => {
           const compressedBlob = await compressImageFile(file);
           return fileToDataUrl(compressedBlob);
         })
@@ -666,6 +675,11 @@ export default function ReportPage() {
       try {
         sessionStorage.removeItem(DRAFT_STORAGE_KEY);
       } catch {}
+
+      // Immediately refresh the client history so the new report appears without
+      // waiting for the Supabase Realtime event (which can be slow or miss the window).
+      queryClient.invalidateQueries({ queryKey: ['client-reports'] });
+
       gooeyToast.success("Report submitted!", {
         description: result.email_sent
           ? `Your tracking ID has been sent to ${emailUsed}.`
