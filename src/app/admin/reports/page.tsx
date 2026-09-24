@@ -220,7 +220,7 @@ export default function AdminReportsPage() {
 
   const filteredItems = reportsList.filter((item: any) => {
     const matchesTab = item.status === activeTab;
-    const matchesUrgency = urgencyFilter === "All" || item.urgency === urgencyFilter;
+    const matchesUrgency = urgencyFilter === "All" || (item.urgency || "").toLowerCase() === urgencyFilter.toLowerCase();
     return matchesTab && matchesUrgency;
   });
 
@@ -333,13 +333,15 @@ export default function AdminReportsPage() {
                         <div className="flex justify-between items-center mt-2 border-t pt-3">
                           <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Status • Urgency</span>
                           <div className="flex items-center gap-2">
-                            <div className={`flex items-center gap-1.5 text-xs font-semibold px-2 py-0.5 rounded-full ${
-                              item.urgency === 'High' ? 'bg-red-100 text-red-700' :
-                              item.urgency === 'Medium' ? 'bg-emerald-100 text-emerald-700' :
-                              'bg-yellow-100 text-yellow-700'
+                            <div className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full capitalize ${
+                              (item.urgency || '').toLowerCase() === 'high'
+                                ? 'bg-red-100 text-red-700 border border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800'
+                                : (item.urgency || '').toLowerCase() === 'medium'
+                                  ? 'bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800'
+                                  : 'bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800'
                             }`}>
-                              <AlertCircle className="h-3 w-3" />
-                              {item.urgency}
+                              <AlertCircle className="h-3 w-3 shrink-0" />
+                              {item.urgency || 'Low'}
                             </div>
                             <div className={`flex items-center gap-1.5 text-sm font-semibold px-2.5 py-1 rounded-full ${
                               item.status === 'Resolved' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
@@ -426,14 +428,14 @@ export default function AdminReportsPage() {
                                 <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800">
                                   {item.id}
                                 </span>
-                                <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${
-                                  item.urgency === 'High'
+                                <span className={`text-xs font-semibold px-2 py-0.5 rounded border capitalize ${
+                                  (item.urgency || '').toLowerCase() === 'high'
                                     ? 'text-red-600 bg-red-50 border-red-200 dark:bg-red-950/50 dark:border-red-800'
-                                    : item.urgency === 'Medium'
+                                    : (item.urgency || '').toLowerCase() === 'medium'
                                       ? 'text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-950/50 dark:border-amber-800'
-                                      : 'text-green-600 bg-green-50 border-green-200 dark:bg-green-950/50 dark:border-green-800'
+                                      : 'text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-950/50 dark:border-emerald-800'
                                 }`}>
-                                  {item.urgency} Urgency
+                                  {item.urgency || 'Low'} Urgency
                                 </span>
                               </div>
                               <div className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
@@ -479,14 +481,14 @@ export default function AdminReportsPage() {
                                 <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800">
                                   {item.id}
                                 </span>
-                                <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${
-                                  item.urgency === 'High'
+                                <span className={`text-xs font-semibold px-2 py-0.5 rounded border capitalize ${
+                                  (item.urgency || '').toLowerCase() === 'high'
                                     ? 'text-red-600 bg-red-50 border-red-200 dark:bg-red-950/50 dark:border-red-800'
-                                    : item.urgency === 'Medium'
+                                    : (item.urgency || '').toLowerCase() === 'medium'
                                       ? 'text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-950/50 dark:border-amber-800'
-                                      : 'text-green-600 bg-green-50 border-green-200 dark:bg-green-950/50 dark:border-green-800'
+                                      : 'text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-950/50 dark:border-emerald-800'
                                 }`}>
-                                  {item.urgency} Urgency
+                                  {item.urgency || 'Low'} Urgency
                                 </span>
                               </div>
                               <div className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
@@ -571,13 +573,13 @@ export default function AdminReportsPage() {
                                     <div className="text-sm text-muted-foreground mt-2 grid gap-2">
                                       <div className="flex justify-between border-b pb-2 gap-4">
                                         <span className="text-slate-500">Urgency Level:</span>
-                                        <span className={`font-medium text-right ${
-                                          item.urgency === 'High'
+                                        <span className={`font-medium text-right capitalize ${
+                                          (item.urgency || '').toLowerCase() === 'high'
                                             ? 'text-red-600 dark:text-red-400'
-                                            : item.urgency === 'Medium'
-                                              ? 'text-yellow-600 dark:text-yellow-400'
-                                              : 'text-green-600 dark:text-green-400'
-                                        }`}>{item.urgency}</span>
+                                            : (item.urgency || '').toLowerCase() === 'medium'
+                                              ? 'text-amber-600 dark:text-amber-400'
+                                              : 'text-emerald-600 dark:text-emerald-400'
+                                        }`}>{item.urgency || 'Low'}</span>
                                       </div>
                                       <div className="flex justify-between border-b pb-2 gap-4">
                                         <span className="text-slate-500">Title:</span>
@@ -733,9 +735,13 @@ export default function AdminReportsPage() {
                                   <div className="text-sm text-muted-foreground grid gap-2">
                                     <div className="flex justify-between border-b pb-2 gap-4">
                                       <span className="text-slate-500">Urgency:</span>
-                                      <span className={`font-medium text-right ${
-                                        item.urgency === 'High' ? 'text-red-600' : item.urgency === 'Medium' ? 'text-yellow-600' : 'text-green-600'
-                                      }`}>{item.urgency}</span>
+                                      <span className={`font-medium text-right capitalize ${
+                                        (item.urgency || '').toLowerCase() === 'high'
+                                          ? 'text-red-600 dark:text-red-400'
+                                          : (item.urgency || '').toLowerCase() === 'medium'
+                                            ? 'text-amber-600 dark:text-amber-400'
+                                            : 'text-emerald-600 dark:text-emerald-400'
+                                      }`}>{item.urgency || 'Low'}</span>
                                     </div>
                                     <div className="grid border-b pb-2 gap-1">
                                       <span className="text-slate-500">Description:</span>
@@ -799,7 +805,7 @@ export default function AdminReportsPage() {
                           <div className="font-medium text-sm text-slate-900 dark:text-slate-100">{item.title}</div>
                           <div className="text-xs text-muted-foreground mt-1 flex gap-3">
                             <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {item.zone}</span>
-                            <span className="flex items-center gap-1"><AlertCircle className="h-3 w-3" /> {item.urgency}</span>
+                            <span className="flex items-center gap-1 capitalize"><AlertCircle className="h-3 w-3" /> {item.urgency || 'Low'}</span>
                           </div>
                         </div>
 

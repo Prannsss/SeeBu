@@ -240,12 +240,12 @@ export default function WorkforceAdminTasksPage() {
                                       {task.id}
                                     </span>
                                     {task.related_report?.urgency && (
-                                      <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${
-                                        task.related_report.urgency === 'High'
+                                      <span className={`text-xs font-semibold px-2 py-0.5 rounded border capitalize ${
+                                        (task.related_report.urgency || '').toLowerCase() === 'high'
                                           ? 'text-red-600 bg-red-50 border-red-200 dark:bg-red-950/50 dark:border-red-800'
-                                          : task.related_report.urgency === 'Medium'
+                                          : (task.related_report.urgency || '').toLowerCase() === 'medium'
                                             ? 'text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-950/50 dark:border-amber-800'
-                                            : 'text-green-600 bg-green-50 border-green-200 dark:bg-green-950/50 dark:border-green-800'
+                                            : 'text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-950/50 dark:border-emerald-800'
                                       }`}>
                                         {task.related_report.urgency} Urgency
                                       </span>
@@ -420,12 +420,12 @@ export default function WorkforceAdminTasksPage() {
                     {selectedTask.id}
                   </span>
                   {selectedTask.related_report?.urgency && (
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${
-                      selectedTask.related_report.urgency === 'High'
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded border capitalize ${
+                      (selectedTask.related_report.urgency || '').toLowerCase() === 'high'
                         ? 'text-red-600 bg-red-50 border-red-200 dark:bg-red-950/50 dark:border-red-800'
-                        : selectedTask.related_report.urgency === 'Medium'
+                        : (selectedTask.related_report.urgency || '').toLowerCase() === 'medium'
                           ? 'text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-950/50 dark:border-amber-800'
-                          : 'text-green-600 bg-green-50 border-green-200 dark:bg-green-950/50 dark:border-green-800'
+                          : 'text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-950/50 dark:border-emerald-800'
                     }`}>
                       {selectedTask.related_report.urgency} Urgency
                     </span>
@@ -469,12 +469,12 @@ export default function WorkforceAdminTasksPage() {
                   <div className="text-sm text-muted-foreground grid gap-2">
                     <div className="flex justify-between border-b pb-2 gap-4">
                       <span className="text-slate-500">Urgency Level:</span>
-                      <span className={`font-medium text-right ${
-                        selectedTask?.related_report?.urgency === "High"
+                      <span className={`font-medium text-right capitalize ${
+                        (selectedTask?.related_report?.urgency || '').toLowerCase() === "high"
                           ? "text-red-600 dark:text-red-400"
-                          : selectedTask?.related_report?.urgency === "Medium"
-                            ? "text-yellow-600 dark:text-yellow-400"
-                            : "text-green-600 dark:text-green-400"
+                          : (selectedTask?.related_report?.urgency || '').toLowerCase() === "medium"
+                            ? "text-amber-600 dark:text-amber-400"
+                            : "text-emerald-600 dark:text-emerald-400"
                       }`}>{selectedTask?.related_report?.urgency || "Low"}</span>
                     </div>
                     <div className="flex justify-between border-b pb-2 gap-4">

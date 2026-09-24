@@ -224,10 +224,10 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
                           )}
                           {(task.related_report?.urgency || task.priority) && (
                             <div className="flex items-center text-slate-500">
-                              <AlertTriangle className="w-4 h-4 mr-2" /> Priority: <span className={`ml-1 font-medium ${
-                                (task.related_report?.urgency || task.priority) === 'High' ? 'text-red-600 dark:text-red-400' :
-                                (task.related_report?.urgency || task.priority) === 'Medium' ? 'text-amber-600 dark:text-amber-400' :
-                                'text-green-600 dark:text-green-400'
+                              <AlertTriangle className="w-4 h-4 mr-2" /> Priority: <span className={`ml-1 font-medium capitalize ${
+                                (task.related_report?.urgency || task.priority || '').toLowerCase() === 'high' ? 'text-red-600 dark:text-red-400' :
+                                (task.related_report?.urgency || task.priority || '').toLowerCase() === 'medium' ? 'text-amber-600 dark:text-amber-400' :
+                                'text-emerald-600 dark:text-emerald-400'
                               }`}>{task.related_report?.urgency || task.priority}</span>
                             </div>
                           )}
@@ -294,12 +294,12 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
                       {confirmAcceptTask.id}
                     </span>
                     {(confirmAcceptTask.related_report?.urgency || confirmAcceptTask.priority) && (
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${
-                        (confirmAcceptTask.related_report?.urgency || confirmAcceptTask.priority) === 'High'
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded border capitalize ${
+                        (confirmAcceptTask.related_report?.urgency || confirmAcceptTask.priority || '').toLowerCase() === 'high'
                           ? 'text-red-600 bg-red-50 border-red-200 dark:bg-red-950/50 dark:border-red-800'
-                          : (confirmAcceptTask.related_report?.urgency || confirmAcceptTask.priority) === 'Medium'
+                          : (confirmAcceptTask.related_report?.urgency || confirmAcceptTask.priority || '').toLowerCase() === 'medium'
                             ? 'text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-950/50 dark:border-amber-800'
-                            : 'text-green-600 bg-green-50 border-green-200 dark:bg-green-950/50 dark:border-green-800'
+                            : 'text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-950/50 dark:border-emerald-800'
                       }`}>
                         {confirmAcceptTask.related_report?.urgency || confirmAcceptTask.priority} Priority
                       </span>
@@ -419,12 +419,12 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
                   <div className="text-sm text-muted-foreground grid gap-2">
                     <div className="flex justify-between border-b pb-2 gap-4">
                       <span className="text-slate-500">Urgency Level:</span>
-                      <span className={`font-medium text-right ${
-                        selectedTaskForReport?.related_report?.urgency === "High"
+                      <span className={`font-medium text-right capitalize ${
+                        (selectedTaskForReport?.related_report?.urgency || '').toLowerCase() === "high"
                           ? "text-red-600 dark:text-red-400"
-                          : selectedTaskForReport?.related_report?.urgency === "Medium"
-                            ? "text-yellow-600 dark:text-yellow-400"
-                            : "text-green-600 dark:text-green-400"
+                          : (selectedTaskForReport?.related_report?.urgency || '').toLowerCase() === "medium"
+                            ? "text-amber-600 dark:text-amber-400"
+                            : "text-emerald-600 dark:text-emerald-400"
                       }`}>{selectedTaskForReport?.related_report?.urgency || "Low"}</span>
                     </div>
                     <div className="flex justify-between border-b pb-2 gap-4">
