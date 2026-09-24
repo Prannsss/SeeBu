@@ -21,6 +21,7 @@ export function Navbar({ items = [] }: NavbarProps) {
     { label: 'Home', href: '/#top' },
     { label: 'Process', href: '/#process' },
     { label: 'Features', href: '/#features' },
+    { label: 'Services', href: '/services' },
     { label: 'Contact', href: '/#contact' },
     { label: 'Track Report', href: '/track' }
   ];
@@ -57,8 +58,12 @@ export function Navbar({ items = [] }: NavbarProps) {
           <div className="flex items-center justify-between">
             {/* Logo */}
             <Link 
-              href="#top" 
-              onClick={(e) => scrollToTarget(e, '#top')}
+              href="/" 
+              onClick={(e) => {
+                if (window.location.pathname === '/') {
+                  scrollToTarget(e, '#top');
+                }
+              }}
               className="flex items-center gap-2 group"
             >
               <Image 

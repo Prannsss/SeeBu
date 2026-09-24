@@ -80,7 +80,7 @@ export default function AdminAnalyticsPage() {
 
           {/* Issue Type Bar Chart — resolution split, per-type colors */}
           <Card className="border-slate-200 dark:border-slate-800 shadow-sm flex flex-col h-[500px] lg:h-[600px] overflow-y-auto">
-            <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0 sticky top-0 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 z-10 rounded-t-xl">
+            <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0 sticky top-0 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 z-10 rounded-t-md">
               <div>
                 <CardTitle className="text-lg">Reports by Issue Type</CardTitle>
                 <p className="text-xs text-muted-foreground mt-0.5">Resolved vs. unresolved per category</p>

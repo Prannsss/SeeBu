@@ -77,11 +77,12 @@ export default {
         'card': '0 10px 40px -10px rgba(0,0,0,0.05)'
       },
       borderRadius: {
-        lg: '1rem',
-        xl: '1.5rem',
-        '2xl': '2rem',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
+        lg: 'var(--radius)', // 8px (0.5rem)
+        md: 'calc(var(--radius) - 2px)', // 6px
+        sm: 'calc(var(--radius) - 4px)', // 4px
+        xs: '2px',
+        xl: 'var(--radius)', // 8px
+        '2xl': 'var(--radius)', // 8px
       },
       keyframes: {
         'accordion-down': {

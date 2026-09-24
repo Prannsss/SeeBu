@@ -70,7 +70,7 @@ export default function SuperadminAnalyticsPage() {
 
           {/* Issue Type Bar Chart — resolution split, per-type colors */}
           <Card className="border-slate-200 dark:border-slate-800 shadow-sm flex flex-col h-[500px] lg:h-[600px] overflow-y-auto">
-            <CardHeader className="pb-3 flex flex-col gap-3 space-y-0 sticky top-0 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 z-10 rounded-t-xl">
+            <CardHeader className="pb-3 flex flex-col gap-3 space-y-0 sticky top-0 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 z-10 rounded-t-md">
               <div>
                 <CardTitle className="text-lg">Reports by Issue Type</CardTitle>
                 <p className="text-xs text-muted-foreground mt-0.5">Resolved vs. unresolved per category</p>
@@ -79,7 +79,7 @@ export default function SuperadminAnalyticsPage() {
               <div className="flex flex-col gap-2">
                 <select
                   title="Filter by municipality"
-                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
+                  className="w-full px-3 py-2 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
                   value={municipalityFilter}
                   onChange={(e) => {
                     setMunicipalityFilter(e.target.value);
@@ -93,7 +93,7 @@ export default function SuperadminAnalyticsPage() {
                 </select>
                 <select
                   title="Filter by barangay"
-                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm disabled:opacity-50"
+                  className="w-full px-3 py-2 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm disabled:opacity-50"
                   value={barangayFilter}
                   onChange={(e) => setBarangayFilter(e.target.value)}
                   disabled={municipalityFilter === "all"}

@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState } from "react"
 import { useMutation } from "@tanstack/react-query"
@@ -111,7 +111,7 @@ export default function AdminAddPage() {
     <div className="min-h-screen overflow-y-scroll bg-slate-50 pb-32 dark:bg-slate-950 dark:text-slate-100">
       <div className="container mx-auto max-w-3xl px-5 pt-10 pb-6">
         <div className="mb-8 flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#e5f7fd] dark:bg-[#00B2E2]/20">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#e5f7fd] dark:bg-[#00B2E2]/20">
             <UserPlus className="h-6 w-6 text-[#00B2E2] dark:text-[#00B2E2]" />
           </div>
           <div>

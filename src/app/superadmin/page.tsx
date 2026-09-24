@@ -100,7 +100,7 @@ export default async function SuperadminHomePage() {
             headerAction={
               <Link 
                 href="/superadmin/analytics" 
-                className="flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/50 dark:hover:bg-blue-900/50 px-3 py-1.5 rounded-full transition-colors"
+                className="flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/50 dark:hover:bg-blue-900/50 px-3 py-1.5 rounded-md transition-colors"
               >
                 Full Analytics <ArrowRight className="w-4 h-4" />
               </Link>

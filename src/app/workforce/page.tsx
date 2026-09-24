@@ -82,7 +82,7 @@ export default async function WorkforceDashboard() {
           <h1 className="text-3xl font-bold tracking-tight">Workforce Dashboard</h1>
           <p className="text-muted-foreground mt-1">Overview of your daily assignments and performance.</p>
         </div>
-        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50 dark:bg-emerald-950 dark:text-emerald-400">
+        <Badge className="bg-emerald-600 text-white hover:bg-emerald-700">
           On Duty
         </Badge>
       </div>

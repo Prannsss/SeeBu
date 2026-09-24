@@ -15,6 +15,7 @@ export default function Home() {
           { label: 'Home', href: '#top' },
           { label: 'Process', href: '#process' },
           { label: 'Features', href: '#features' },
+          { label: 'Services', href: '/services' },
           { label: 'Contact', href: '#contact' },
           { label: 'Track Report', href: '/track' }
         ]}

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import Image from "next/image";
@@ -25,7 +25,7 @@ export default function ForbiddenPage() {
         </p>
         <div className="pt-6">
           <Link href="/auth/login">
-            <Button size="lg" className="w-full bg-primary hover:bg-primary-dark text-white font-bold h-14 rounded-xl text-lg">
+            <Button size="lg" className="w-full bg-primary hover:bg-primary-dark text-white font-bold h-14 rounded-full text-lg">
               Log In to Continue
             </Button>
           </Link>

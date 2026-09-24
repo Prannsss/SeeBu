@@ -1,4 +1,4 @@
-import { Users, ClipboardList, CheckCircle, TrendingUp, Shield } from "lucide-react"
+﻿import { Users, ClipboardList, CheckCircle, TrendingUp, Shield } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { cookies } from "next/headers";
 
@@ -63,7 +63,7 @@ export default async function WorkforceAdminPage() {
     <div className="min-h-screen bg-slate-50 pb-32 dark:bg-slate-950 dark:text-slate-100">
       <div className="container mx-auto max-w-5xl px-5 pt-10 pb-6">
         <div className="mb-8 flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-100 dark:bg-orange-900/50">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/50">
             <Shield className="h-6 w-6 text-orange-600 dark:text-orange-400" />
           </div>
           <div>
@@ -73,34 +73,34 @@ export default async function WorkforceAdminPage() {
         </div>
 
         <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
             <Card>
-              <CardHeader className="pb-2">
-                <CardDescription>Active Tasks</CardDescription>
-                <CardTitle className="text-3xl text-blue-600">{activeTasks}</CardTitle>
+              <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
+                <CardDescription className="text-xs sm:text-sm truncate">Active Tasks</CardDescription>
+                <CardTitle className="text-lg sm:text-3xl text-blue-600">{activeTasks}</CardTitle>
               </CardHeader>
-              <CardContent className="text-sm text-muted-foreground flex items-center gap-2">
-                <ClipboardList className="w-4 h-4" /> active tasks across workforce
+              <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 text-[10px] sm:text-sm text-muted-foreground flex items-center gap-2">
+                <ClipboardList className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" /> <span className="truncate">Active tasks across workforce</span>
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader className="pb-2">
-                <CardDescription>Department Headcount</CardDescription>
-                <CardTitle className="text-3xl text-indigo-600">{headcount}</CardTitle>
+              <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
+                <CardDescription className="text-xs sm:text-sm truncate">Dept. Headcount</CardDescription>
+                <CardTitle className="text-lg sm:text-3xl text-indigo-600">{headcount}</CardTitle>
               </CardHeader>
-              <CardContent className="text-sm text-muted-foreground flex items-center gap-2">
-                <Users className="w-4 h-4" /> Available field officers
+              <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 text-[10px] sm:text-sm text-muted-foreground flex items-center gap-2">
+                <Users className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" /> <span className="truncate">Available field officers</span>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="pb-2">
-                <CardDescription>Completed Today</CardDescription>
-                <CardTitle className="text-3xl text-emerald-600">{completedToday}</CardTitle>
+            <Card className="col-span-2 lg:col-span-1">
+              <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
+                <CardDescription className="text-xs sm:text-sm truncate">Completed Today</CardDescription>
+                <CardTitle className="text-lg sm:text-3xl text-emerald-600">{completedToday}</CardTitle>
               </CardHeader>
-              <CardContent className="text-sm text-muted-foreground flex items-center gap-2">
-                <CheckCircle className="w-4 h-4" /> <TrendingUp className="w-3 h-3 text-emerald-500"/> Tasks successfully resolved
+              <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 text-[10px] sm:text-sm text-muted-foreground flex items-center gap-2">
+                <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" /> <TrendingUp className="w-3 h-3 text-emerald-500 flex-shrink-0"/> <span className="truncate">Tasks successfully resolved</span>
               </CardContent>
             </Card>
           </div>

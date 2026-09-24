@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, type ChangeEvent } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -187,16 +187,16 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="mb-6 flex h-auto w-full bg-white dark:bg-slate-900 border rounded-lg p-1">
-            <TabsTrigger value="Assigned" className="flex-1 rounded-md py-2.5 data-[state=active]:bg-amber-50 data-[state=active]:text-amber-700 dark:data-[state=active]:bg-amber-900/30 dark:data-[state=active]:text-amber-400 font-medium">Assigned Tasks</TabsTrigger>
-            <TabsTrigger value="Accepted" className="flex-1 rounded-md py-2.5 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 dark:data-[state=active]:bg-blue-900/30 dark:data-[state=active]:text-blue-400 font-medium">In Progress</TabsTrigger>
-            <TabsTrigger value="Completed" className="flex-1 rounded-md py-2.5 data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-700 dark:data-[state=active]:bg-emerald-900/30 dark:data-[state=active]:text-emerald-400 font-medium">Completed Tasks</TabsTrigger>
+          <TabsList className="mb-6 grid w-full grid-cols-3 h-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md p-1">
+            <TabsTrigger value="Assigned" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-amber-600 data-[state=active]:text-white transition-all">Assigned Tasks</TabsTrigger>
+            <TabsTrigger value="Accepted" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-blue-600 data-[state=active]:text-white transition-all">In Progress</TabsTrigger>
+            <TabsTrigger value="Completed" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-emerald-600 data-[state=active]:text-white transition-all">Completed Tasks</TabsTrigger>
           </TabsList>
 
           <TabsContent value={activeTab} className="m-0 focus-visible:outline-none">
             <div className="grid gap-4">
               {filteredTasks.length === 0 ? (
-                <div className="text-center py-12 text-slate-500 bg-white dark:bg-slate-900 rounded-xl border border-dashed">
+                <div className="text-center py-12 text-slate-500 bg-white dark:bg-slate-900 rounded-md border border-dashed">
                   No tasks found for this status.
                 </div>
               ) : (
@@ -242,7 +242,7 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
                       <div className="bg-slate-50 dark:bg-slate-950 p-6 border-t md:border-t-0 md:border-l flex flex-col justify-center gap-3 min-w-[240px]">
                         {task.status === "Assigned" && (
                           <Button
-                            className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-sm font-medium"
+                            className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-sm font-semibold rounded-md h-9"
                             onClick={() => setConfirmAcceptTask(task)}
                           >
                             Accept Task
@@ -251,7 +251,7 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
 
                         {task.status === "Accepted" && (
                           <Button
-                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm font-medium"
+                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm font-semibold rounded-md h-9"
                             onClick={() => handleOpenCompleteModal(task.id)}
                           >
                             Upload &amp; Mark as Complete
@@ -260,8 +260,7 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
 
                         {task.related_report_id && (
                           <Button
-                            variant="outline"
-                            className="w-full"
+                            className="w-full bg-slate-800 hover:bg-slate-900 text-white shadow-sm font-semibold rounded-md h-9"
                             onClick={() => handleViewLinkedReport(task)}
                           >
                             View Linked Report
@@ -278,7 +277,7 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
 
         {/* Confirmation Modal for Accepting Task */}
         <Dialog open={Boolean(confirmAcceptTask)} onOpenChange={(open) => !open && setConfirmAcceptTask(null)}>
-          <DialogContent className="w-[calc(100%-2rem)] sm:max-w-md rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-5 sm:p-6">
+          <DialogContent className="w-[calc(100%-2rem)] sm:max-w-md rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-5 sm:p-6">
             <DialogHeader>
               <DialogTitle className="text-xl">Accept Task</DialogTitle>
               <DialogDescription className="text-sm text-slate-600 dark:text-slate-400">
@@ -288,13 +287,13 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
 
             {confirmAcceptTask && (
               <div className="py-2">
-                <div className="rounded-lg bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 p-3.5">
+                <div className="rounded-md bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 p-3.5">
                   <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                    <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800">
+                    <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
                       {confirmAcceptTask.id}
                     </span>
                     {(confirmAcceptTask.related_report?.urgency || confirmAcceptTask.priority) && (
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded border capitalize ${
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border capitalize ${
                         (confirmAcceptTask.related_report?.urgency || confirmAcceptTask.priority || '').toLowerCase() === 'high'
                           ? 'text-red-600 bg-red-50 border-red-200 dark:bg-red-950/50 dark:border-red-800'
                           : (confirmAcceptTask.related_report?.urgency || confirmAcceptTask.priority || '').toLowerCase() === 'medium'
@@ -322,7 +321,7 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
               <Button
                 type="button"
                 variant="outline"
-                className="w-full"
+                className="w-full rounded-md"
                 onClick={() => setConfirmAcceptTask(null)}
               >
                 Cancel
@@ -330,7 +329,7 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
               <Button
                 type="button"
                 disabled={isUpdatingStatus}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-sm"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-sm rounded-md"
                 onClick={() => {
                   if (confirmAcceptTask) {
                     handleAcceptTask(confirmAcceptTask.id);
@@ -346,7 +345,7 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
 
         {/* Proof of Completion Modal */}
         <Dialog open={completionModalOpen} onOpenChange={setCompletionModalOpen}>
-          <DialogContent className="w-[calc(100%-2rem)] sm:max-w-md rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-5 sm:p-6">
+          <DialogContent className="w-[calc(100%-2rem)] sm:max-w-md rounded-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-5 sm:p-6">
             <DialogHeader>
               <DialogTitle className="text-xl">Submit Proof of Completion</DialogTitle>
               <DialogDescription className="text-sm text-slate-600 dark:text-slate-400">
@@ -404,7 +403,7 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
 
         {/* Linked Report Modal */}
         <Dialog open={Boolean(selectedTaskForReport)} onOpenChange={(open) => !open && setSelectedTaskForReport(null)}>
-          <DialogContent className="w-[calc(100%-2rem)] sm:max-w-5xl rounded-xl max-h-[88vh] overflow-y-auto p-5 sm:p-7">
+          <DialogContent className="w-[calc(100%-2rem)] sm:max-w-5xl rounded-md max-h-[88vh] overflow-y-auto p-5 sm:p-7">
             <DialogHeader>
               <DialogTitle>{selectedTaskForReport?.related_report?.title || selectedTaskForReport?.title || "Linked Report"}</DialogTitle>
               <DialogDescription>

@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState } from "react"
 import { ClipboardList, Users, CheckCircle2, Clock, Link2, MapPin, AlertCircle } from "lucide-react" 
@@ -181,19 +181,19 @@ export default function WorkforceAdminTasksPage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="mb-6 flex h-auto w-full bg-white dark:bg-slate-900 border rounded-lg p-1">
-            <TabsTrigger value="Pending" className="flex-1 rounded-md py-2.5 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 dark:data-[state=active]:bg-blue-900/30 dark:data-[state=active]:text-blue-400">Pending Tasks</TabsTrigger>
-            <TabsTrigger value="Assigned" className="flex-1 rounded-md py-2.5 data-[state=active]:bg-amber-50 data-[state=active]:text-amber-700 dark:data-[state=active]:bg-amber-900/30 dark:data-[state=active]:text-amber-400">Assigned Tasks</TabsTrigger>
-            <TabsTrigger value="Completed" className="flex-1 rounded-md py-2.5 data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-700 dark:data-[state=active]:bg-emerald-900/30 dark:data-[state=active]:text-emerald-400">Completed Tasks</TabsTrigger>
+          <TabsList className="mb-6 grid w-full grid-cols-3 h-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md p-1">
+            <TabsTrigger value="Pending" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-blue-600 data-[state=active]:text-white transition-all">Pending Tasks</TabsTrigger>
+            <TabsTrigger value="Assigned" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-amber-600 data-[state=active]:text-white transition-all">Assigned Tasks</TabsTrigger>
+            <TabsTrigger value="Completed" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-emerald-600 data-[state=active]:text-white transition-all">Completed Tasks</TabsTrigger>
           </TabsList>
 
           <TabsContent value="Pending">
             {pendingTasks.length === 0 ? (
-              <div className="text-center py-12 text-slate-500 bg-white dark:bg-slate-900 rounded-xl border border-dashed">No pending tasks for your department.</div>
+              <div className="text-center py-12 text-slate-500 bg-white dark:bg-slate-900 rounded-md border border-dashed">No pending tasks for your department.</div>
             ) : (
               <div className="grid gap-4">
                 {pendingTasks.map((task) => (
-                  <Card key={task.id} className="overflow-hidden hover:shadow-md transition-shadow dark:bg-slate-900">
+                  <Card key={task.id} className="overflow-hidden hover:shadow-md transition-shadow dark:bg-slate-900 rounded-lg">
                     <div className="flex flex-col md:flex-row">
                       <div className="flex-1 p-6">
                         <div className="flex items-center justify-between mb-3">
@@ -220,13 +220,13 @@ export default function WorkforceAdminTasksPage() {
                           }}>
                             <DialogTrigger asChild>
                               <Button
-                                className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-sm font-medium"
+                                className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-sm font-semibold rounded-md h-9"
                                 onClick={() => setDelegateTo("")}
                               >
                                 Accept and Delegate
                               </Button>
                             </DialogTrigger>
-                            <DialogContent className="w-[calc(100%-2rem)] sm:max-w-xl rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-5 sm:p-7">
+                            <DialogContent className="w-[calc(100%-2rem)] sm:max-w-xl rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-5 sm:p-7">
                               <DialogHeader>
                                 <DialogTitle>Accept &amp; Delegate Task</DialogTitle>
                                 <DialogDescription>Assign the field operation for {task.id} to an available workforce member.</DialogDescription>
@@ -236,11 +236,11 @@ export default function WorkforceAdminTasksPage() {
                                 {/* Compact Report Summary Banner */}
                                 <div className="rounded-lg bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 p-3.5">
                                   <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                                    <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800">
+                                    <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
                                       {task.id}
                                     </span>
                                     {task.related_report?.urgency && (
-                                      <span className={`text-xs font-semibold px-2 py-0.5 rounded border capitalize ${
+                                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border capitalize ${
                                         (task.related_report.urgency || '').toLowerCase() === 'high'
                                           ? 'text-red-600 bg-red-50 border-red-200 dark:bg-red-950/50 dark:border-red-800'
                                           : (task.related_report.urgency || '').toLowerCase() === 'medium'
@@ -307,8 +307,7 @@ export default function WorkforceAdminTasksPage() {
                           </Dialog>
                         )}
                         <Button
-                          variant="outline"
-                          className="w-full"
+                          className="w-full bg-slate-800 hover:bg-slate-900 text-white shadow-sm font-semibold rounded-md h-9"
                           onClick={() => handleViewLinkedReport(task)}
                         >
                           View Linked Report
@@ -323,11 +322,11 @@ export default function WorkforceAdminTasksPage() {
 
           <TabsContent value="Assigned">
             {assignedTasks.length === 0 ? (
-              <div className="text-center py-12 text-slate-500 bg-white dark:bg-slate-900 rounded-xl border border-dashed">No assigned tasks yet.</div>
+              <div className="text-center py-12 text-slate-500 bg-white dark:bg-slate-900 rounded-md border border-dashed">No assigned tasks yet.</div>
             ) : (
               <div className="grid gap-4">
                 {assignedTasks.map((task) => (
-                  <Card key={task.id} className="overflow-hidden hover:shadow-md transition-shadow dark:bg-slate-900">
+                  <Card key={task.id} className="overflow-hidden hover:shadow-md transition-shadow dark:bg-slate-900 rounded-lg">
                     <div className="flex flex-col md:flex-row">
                       <div className="flex-1 p-6">
                         <div className="flex items-center justify-between mb-3">
@@ -348,8 +347,7 @@ export default function WorkforceAdminTasksPage() {
 
                       <div className="bg-slate-50 dark:bg-slate-950 p-6 border-t md:border-t-0 md:border-l flex flex-col justify-center gap-3 min-w-[240px]">
                         <Button
-                          variant="outline"
-                          className="w-full"
+                          className="w-full bg-slate-800 hover:bg-slate-900 text-white shadow-sm font-semibold rounded-md h-9"
                           onClick={() => handleViewLinkedReport(task)}
                         >
                           View Linked Report
@@ -364,11 +362,11 @@ export default function WorkforceAdminTasksPage() {
 
           <TabsContent value="Completed">
             {completedTasks.length === 0 ? (
-               <div className="text-center py-12 text-slate-500 bg-white dark:bg-slate-900 rounded-xl border border-dashed">No completed tasks yet.</div>
+               <div className="text-center py-12 text-slate-500 bg-white dark:bg-slate-900 rounded-md border border-dashed">No completed tasks yet.</div>
             ) : (
                <div className="grid gap-4">
                  {completedTasks.map((task) => (
-                   <Card key={task.id} className="dark:bg-slate-900 border-emerald-100 dark:border-emerald-900">
+                   <Card key={task.id} className="dark:bg-slate-900 border-emerald-100 dark:border-emerald-900 rounded-lg">
                      <CardHeader className="pb-3 border-b border-emerald-50 dark:border-emerald-950 flex flex-col sm:flex-row justify-between items-start sm:items-center">
                        <div>
                          <CardTitle className="text-lg flex items-center gap-2">
@@ -399,7 +397,7 @@ export default function WorkforceAdminTasksPage() {
           setDelegateTo("");
         }
       }}>
-        <DialogContent className={`w-[calc(100%-2rem)] ${modalDelegateMode ? 'sm:max-w-xl' : 'sm:max-w-5xl'} rounded-xl max-h-[88vh] overflow-y-auto p-5 sm:p-7 transition-all duration-200`}>
+        <DialogContent className={`w-[calc(100%-2rem)] ${modalDelegateMode ? 'sm:max-w-xl' : 'sm:max-w-5xl'} rounded-lg max-h-[88vh] overflow-y-auto p-5 sm:p-7 transition-all duration-200`}>
           <DialogHeader>
             <DialogTitle>
               {modalDelegateMode ? "Accept & Delegate Task" : (selectedTask?.related_report?.title || selectedTask?.title || "Linked Report")}
@@ -414,13 +412,13 @@ export default function WorkforceAdminTasksPage() {
           {modalDelegateMode && selectedTask ? (
             <div className="py-2 space-y-4 animate-in fade-in duration-200">
               {/* Compact Report Summary Banner */}
-              <div className="rounded-lg bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 p-3.5">
+              <div className="rounded-md bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 p-3.5">
                 <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                  <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800">
+                  <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
                     {selectedTask.id}
                   </span>
                   {selectedTask.related_report?.urgency && (
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded border capitalize ${
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border capitalize ${
                       (selectedTask.related_report.urgency || '').toLowerCase() === 'high'
                         ? 'text-red-600 bg-red-50 border-red-200 dark:bg-red-950/50 dark:border-red-800'
                         : (selectedTask.related_report.urgency || '').toLowerCase() === 'medium'
@@ -442,7 +440,7 @@ export default function WorkforceAdminTasksPage() {
                 )}
               </div>
 
-              <div className="space-y-3 rounded-lg border border-blue-200 bg-blue-50/60 dark:bg-blue-950/30 p-4">
+              <div className="space-y-3 rounded-md border border-blue-200 bg-blue-50/60 dark:bg-blue-950/30 p-4">
                 <label htmlFor="modal-delegate-officer" className="text-sm font-medium text-slate-700 dark:text-slate-300">
                   Workforce Officer *
                 </label>

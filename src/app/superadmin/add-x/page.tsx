@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
@@ -182,7 +182,7 @@ export default function SuperadminAddPage() {
     <div className="min-h-screen overflow-y-scroll bg-slate-50 pb-32 dark:bg-slate-950 dark:text-slate-100 flex flex-col">
       <div className="container mx-auto max-w-3xl px-5 pt-10 pb-6 flex flex-col flex-1">
         <div className="mb-8 flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#e5f7fd] dark:bg-[#00B2E2]/20">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#e5f7fd] dark:bg-[#00B2E2]/20">
             <UserPlus className="h-6 w-6 text-[#00B2E2] dark:text-[#00B2E2]" />
           </div>
           <div>
@@ -441,7 +441,7 @@ export default function SuperadminAddPage() {
 
       {/* Confirmation Dialog for New Municipality */}
       <Dialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
-        <DialogContent className="w-[calc(100%-2rem)] max-w-sm rounded-xl p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
+        <DialogContent className="w-[calc(100%-2rem)] max-w-sm rounded-md p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold">Municipality Not Found</DialogTitle>
           </DialogHeader>

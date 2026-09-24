@@ -115,7 +115,7 @@ export default function AddOfficerPage() {
             />
           </div>
         ) : (
-          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 sm:p-8 animate-in fade-in duration-500">
+          <div className="bg-white dark:bg-slate-900 rounded-md shadow-sm border border-slate-200 dark:border-slate-800 p-6 sm:p-8 animate-in fade-in duration-500">
             <form className="space-y-6" onSubmit={handleAddOfficer}>
 
               <div className="grid grid-cols-2 gap-4">

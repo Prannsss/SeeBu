@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect } from "react"
 import { Users, Filter, Search, MoreVertical } from "lucide-react"
@@ -49,18 +49,18 @@ export default function SuperadminUsersPage() {
   // Helper method for badge styles
   const getRoleBadgeClass = (role: string) => {
     switch (role) {
-      case 'SUPERADMIN': return 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-400 border-red-200'
-      case 'ADMIN': return 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-400 border-blue-200'
-      case 'WORKFORCE_ADMIN': return 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-400 border-indigo-200'
-      case 'WORKFORCE_OFFICER': return 'bg-orange-50 text-orange-700 dark:bg-orange-950 dark:text-orange-400 border-orange-200'
-      default: return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400 border-slate-200'
+      case 'SUPERADMIN': return 'bg-red-600 text-white border-red-700'
+      case 'ADMIN': return 'bg-blue-600 text-white border-blue-700'
+      case 'WORKFORCE_ADMIN': return 'bg-indigo-600 text-white border-indigo-700'
+      case 'WORKFORCE_OFFICER': return 'bg-orange-500 text-white border-orange-600'
+      default: return 'bg-slate-600 text-white border-slate-700'
     }
   }
 
   const getStatusBadgeClass = (status: string) => {
     return status === 'Active' 
-      ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' 
-      : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+      ? 'bg-emerald-600 text-white' 
+      : 'bg-yellow-500 text-white'
   }
 
   return (
@@ -68,7 +68,7 @@ export default function SuperadminUsersPage() {
       <div className="container mx-auto max-w-6xl px-5 pt-10 pb-6">
         <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-100 dark:bg-indigo-900/50">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/50">
               <Users className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
             </div>
             <div>
@@ -78,7 +78,7 @@ export default function SuperadminUsersPage() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+        <div className="bg-white dark:bg-slate-900 rounded-md border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
           <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-col md:flex-row gap-4 items-center bg-slate-50/50 dark:bg-slate-900/50">
             <div className="relative w-full flex-grow">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -174,7 +174,7 @@ export default function SuperadminUsersPage() {
                               <MoreVertical className="h-4 w-4" />
                             </Button>
                           </DialogTrigger>
-                          <DialogContent className="w-[calc(100%-2rem)] max-w-sm rounded-[1rem] p-6 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+                          <DialogContent className="w-[calc(100%-2rem)] max-w-sm rounded-md p-6 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
                             <DialogHeader>
                               <DialogTitle className="text-xl">User Details</DialogTitle>
                             </DialogHeader>

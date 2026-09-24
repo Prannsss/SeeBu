@@ -1,8 +1,22 @@
-"use client"
+﻿"use client"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { FileWarning, MapPin, AlertCircle, CheckCircle2, FileText, Filter } from "lucide-react"
+import { 
+  FileWarning, 
+  MapPin, 
+  AlertCircle, 
+  CheckCircle2, 
+  FileText, 
+  Filter, 
+  Eye, 
+  Camera, 
+  Clock, 
+  XCircle, 
+  Calendar, 
+  Image as ImageIcon, 
+  User 
+} from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -252,28 +266,28 @@ export default function AdminReportsPage() {
         </div>
 
         <Tabs defaultValue="In Review" onValueChange={setActiveTab} className="w-full">
-          <TabsList className="flex w-full h-auto mb-6 bg-transparent border-b rounded-none p-0 overflow-x-auto no-scrollbar">
+          <TabsList className="grid w-full grid-cols-4 h-auto mb-6 bg-transparent border-b rounded-none p-0">
             <TabsTrigger
               value="In Review"
-              className="flex-1 text-sm md:text-base py-3 px-4 sm:px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-blue-700 font-medium transition-all duration-300 ease-in-out whitespace-nowrap"
+              className="text-xs sm:text-sm md:text-base py-3 px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-blue-700 font-semibold transition-all duration-300 ease-in-out text-center truncate"
             >
               In Review
             </TabsTrigger>
             <TabsTrigger
               value="Action Taken"
-              className="flex-1 text-sm md:text-base py-3 px-4 sm:px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-blue-700 font-medium transition-all duration-300 ease-in-out whitespace-nowrap"
+              className="text-xs sm:text-sm md:text-base py-3 px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-blue-700 font-semibold transition-all duration-300 ease-in-out text-center truncate"
             >
               Action Taken
             </TabsTrigger>
             <TabsTrigger
               value="Resolved"
-              className="flex-1 text-sm md:text-base py-3 px-4 sm:px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-blue-700 font-medium transition-all duration-300 ease-in-out whitespace-nowrap"
+              className="text-xs sm:text-sm md:text-base py-3 px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-emerald-700 font-semibold transition-all duration-300 ease-in-out text-center truncate"
             >
               Resolved
             </TabsTrigger>
             <TabsTrigger
               value="Rejected"
-              className="flex-1 text-sm md:text-base py-3 px-4 sm:px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-red-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-red-600 font-medium transition-all duration-300 ease-in-out whitespace-nowrap"
+              className="text-xs sm:text-sm md:text-base py-3 px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-red-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-red-600 font-semibold transition-all duration-300 ease-in-out text-center truncate"
             >
               Rejected
             </TabsTrigger>
@@ -282,7 +296,7 @@ export default function AdminReportsPage() {
           <TabsContent value={activeTab} className="m-0 focus-visible:outline-none">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
               {filteredItems.length === 0 ? (
-                <div className="text-center py-10 col-span-full text-muted-foreground bg-slate-50 dark:bg-slate-900 rounded-xl border border-dashed border-slate-300 dark:border-slate-800">
+                <div className="text-center py-10 col-span-full text-muted-foreground bg-slate-50 dark:bg-slate-900 rounded-md border border-dashed border-slate-300 dark:border-slate-800">
                   No records found for this category and urgency.
                 </div>
               ) : (
@@ -298,68 +312,142 @@ export default function AdminReportsPage() {
                       }
                     }}
                   >
-                    <Card className="border-blue-100/70 bg-white/85 backdrop-blur hover:shadow-md transition-shadow">
-                      <CardHeader className="pb-2 flex flex-col items-start gap-1 sm:flex-row sm:justify-between sm:items-center">
-                        <div>
-                          <CardTitle className="text-lg">{item.title}</CardTitle>
-                          <CardDescription className="mt-1 flex items-center gap-1.5">
-                            <MapPin className="h-3.5 w-3.5" /> {item.barangay} • {item.date}
-                          </CardDescription>
-                        </div>
-                        <Badge variant="outline" className="border-blue-300 text-blue-700 bg-blue-50/50 mt-2 sm:mt-0 whitespace-nowrap font-mono">{item.id}</Badge>
-                      </CardHeader>
-                      <CardContent className="flex flex-col gap-3">
-                        <div className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-400">
-                          <FileText className="h-4 w-4 mt-0.5 shrink-0" />
-                          <span className="leading-snug">{item.timeline}</span>
-                        </div>
-
-                        {/* completed_by — shown on Resolved cards */}
-                        {item.status === 'Resolved' && item.completedBy && (
-                          <div className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-400">
-                            <CheckCircle2 className="h-4 w-4 shrink-0" />
-                            <span>Completed by: <span className="font-semibold">{item.completedBy}</span></span>
-                          </div>
-                        )}
-
-                        {/* rejection_reason — shown on Rejected cards */}
-                        {item.status === 'Rejected' && item.rejectionReason && (
-                          <div className="flex items-start gap-2 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900 rounded-lg p-3">
-                            <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-                            <span className="leading-snug"><span className="font-semibold">Reason:</span> {item.rejectionReason}</span>
-                          </div>
-                        )}
-
-                        <div className="flex justify-between items-center mt-2 border-t pt-3">
-                          <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Status • Urgency</span>
-                          <div className="flex items-center gap-2">
-                            <div className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full capitalize ${
+                    <Card className="group relative overflow-hidden rounded-lg border border-slate-200/80 dark:border-slate-800 bg-white/95 dark:bg-slate-900/90 shadow-sm transition-all duration-200 hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700 flex flex-col justify-between">
+                      <div className="p-4 sm:p-5 pb-3">
+                        {/* Top Meta Row: Urgency Pill, Category Pill, Report ID */}
+                        <div className="flex items-center justify-between gap-2 mb-2.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full capitalize border ${
                               (item.urgency || '').toLowerCase() === 'high'
-                                ? 'bg-red-100 text-red-700 border border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800'
+                                ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/60 dark:text-red-300 dark:border-red-800'
                                 : (item.urgency || '').toLowerCase() === 'medium'
-                                  ? 'bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800'
-                                  : 'bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800'
+                                  ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800'
+                                  : 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800'
                             }`}>
                               <AlertCircle className="h-3 w-3 shrink-0" />
                               {item.urgency || 'Low'}
-                            </div>
-                            <div className={`flex items-center gap-1.5 text-sm font-semibold px-2.5 py-1 rounded-full ${
-                              item.status === 'Resolved' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
-                              item.status === 'Rejected' ? 'bg-red-100 text-red-700 border border-red-200' :
-                              item.status === 'In Review' || item.status === 'Action Taken' ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' :
-                              'bg-slate-100 text-slate-700 border border-slate-200'
-                            }`}>
-                              {item.status === 'Resolved' && <CheckCircle2 className="h-4 w-4" />}
-                              {item.status}
-                            </div>
+                            </span>
+
+                            {item.issueType && (
+                              <span className="inline-flex items-center text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700 capitalize">
+                                {item.issueType.replace(/_/g, ' ')}
+                              </span>
+                            )}
                           </div>
+
+                          <span className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded-full bg-blue-50/70 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/70 dark:border-blue-800 shrink-0">
+                            {item.id}
+                          </span>
                         </div>
 
+                        {/* Card Title */}
+                        <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 line-clamp-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                          {item.title}
+                        </h3>
+
+                        {/* Location & Date */}
+                        <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
+                          <MapPin className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                          <span className="font-medium text-slate-700 dark:text-slate-300">{item.barangay}</span>
+                          {item.municipality && item.municipality !== "Unknown" && (
+                            <span>, {item.municipality}</span>
+                          )}
+                          <span className="text-slate-300 dark:text-slate-700">•</span>
+                          <Calendar className="h-3 w-3 text-slate-400 shrink-0" />
+                          <span>{item.date}</span>
+                        </div>
+                      </div>
+
+                      <div className="px-4 sm:px-5 pb-3 space-y-2.5 flex-1 flex flex-col justify-between">
+                        {/* Description Preview */}
+                        <div>
+                          {item.description ? (
+                            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed bg-slate-50/70 dark:bg-slate-900/40 rounded-md p-2.5 border border-slate-100 dark:border-slate-800/80">
+                              {item.description}
+                            </p>
+                          ) : (
+                            <p className="text-xs text-slate-400 italic bg-slate-50/70 dark:bg-slate-900/40 rounded-md p-2 border border-slate-100 dark:border-slate-800/80">
+                              No description provided.
+                            </p>
+                          )}
+
+                          {/* Photos Badge Indicator */}
+                          {((item.reporterPhotos && item.reporterPhotos.length > 0) || (item.completionPhotos && item.completionPhotos.length > 0)) && (
+                            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 pt-1.5">
+                              {item.reporterPhotos && item.reporterPhotos.length > 0 && (
+                                <span className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800/80 px-2 py-0.5 rounded-full text-[11px] font-medium">
+                                  <ImageIcon className="h-3 w-3 text-slate-500" />
+                                  {item.reporterPhotos.length} photo{item.reporterPhotos.length > 1 ? 's' : ''}
+                                </span>
+                              )}
+                              {item.completionPhotos && item.completionPhotos.length > 0 && (
+                                <span className="inline-flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60 px-2 py-0.5 rounded-full text-[11px] font-medium">
+                                  <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                                  {item.completionPhotos.length} proof
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Tab-Specific Context Callout Banner */}
+                        <div className="pt-1">
+                          {item.status === 'Resolved' && (
+                            <div className="flex items-center justify-between text-xs bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 rounded-md p-2.5 text-emerald-800 dark:text-emerald-300">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                                <span className="truncate">
+                                  Completed by <span className="font-semibold">{item.completedBy}</span>
+                                </span>
+                              </div>
+                              <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-200/70 dark:bg-emerald-900/60 px-1.5 py-0.5 rounded-full text-emerald-800 dark:text-emerald-200 shrink-0 ml-2">
+                                Resolved
+                              </span>
+                            </div>
+                          )}
+
+                          {item.status === 'Rejected' && (
+                            <div className="flex items-start gap-2 text-xs bg-red-50/90 dark:bg-red-950/40 border border-red-200/80 dark:border-red-900/60 rounded-md p-2.5 text-red-700 dark:text-red-300">
+                              <XCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+                              <div className="min-w-0 flex-1">
+                                <span className="font-semibold text-red-800 dark:text-red-200">Rejection Reason: </span>
+                                <span className="text-red-700 dark:text-red-300 leading-snug">{item.rejectionReason || 'Spam or invalid details'}</span>
+                              </div>
+                            </div>
+                          )}
+
+                          {item.status === 'Action Taken' && (
+                            <div className="flex items-center justify-between text-xs bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-800/60 rounded-md p-2.5 text-blue-800 dark:text-blue-300">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <Clock className="h-4 w-4 text-blue-600 shrink-0 animate-pulse" />
+                                <span className="truncate font-medium">In Progress with Workforce</span>
+                              </div>
+                              <span className="text-[10px] font-bold uppercase tracking-wider bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-200 px-1.5 py-0.5 rounded-full shrink-0 ml-2">
+                                Active
+                              </span>
+                            </div>
+                          )}
+
+                          {item.status === 'In Review' && (
+                            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/60 rounded-md p-2 border border-slate-100 dark:border-slate-800">
+                              <div className="flex items-center gap-1.5 truncate">
+                                <User className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                                <span className="truncate">Reporter: <span className="font-medium text-slate-700 dark:text-slate-300">{maskName(item.reporterName)}</span></span>
+                              </div>
+                              <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 border border-amber-200/60 dark:border-amber-900/60 px-1.5 py-0.5 rounded-full shrink-0 ml-2">
+                                Needs Action
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Card Action Button Footer */}
+                      <div className="px-4 sm:px-5 pb-4 pt-2 border-t border-slate-100 dark:border-slate-800/80 mt-auto">
                         {item.status === 'In Review' && (
                           <Button 
-                            variant="outline" 
                             size="sm" 
-                            className="mt-2 w-full font-medium text-blue-600 border-blue-200 hover:bg-blue-50"
+                            className="w-full font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-all flex items-center justify-center gap-2 h-9 rounded-md"
                             onClick={() => {
                               setReviewOpen(item.id)
                               setRejectMode(false)
@@ -370,28 +458,50 @@ export default function AdminReportsPage() {
                               setDelegateAssignee("")
                             }}
                           >
-                            View &amp; Review
+                            <Eye className="h-4 w-4" />
+                            <span>Review &amp; Delegate</span>
                           </Button>
                         )}
 
                         {item.status === 'Resolved' && (
                           <Button 
-                            variant="outline" 
                             size="sm" 
-                            className="mt-2 w-full font-medium text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+                            className="w-full font-semibold text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm transition-all flex items-center justify-center gap-2 h-9 rounded-md"
                             onClick={() => setResolvedOpen(item.id)}
                           >
-                            View Details &amp; Proof
+                            <CheckCircle2 className="h-4 w-4 text-white" />
+                            <span>View Details &amp; Proof</span>
                           </Button>
                         )}
-                        
+
+                        {item.status === 'Action Taken' && (
+                          <Button 
+                            size="sm" 
+                            className="w-full font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-all flex items-center justify-center gap-2 h-9 rounded-md"
+                            onClick={() => setResolvedOpen(item.id)}
+                          >
+                            <Clock className="h-4 w-4 text-white" />
+                            <span>View Progress &amp; Details</span>
+                          </Button>
+                        )}
+
+                        {item.status === 'Rejected' && (
+                          <Button 
+                            size="sm" 
+                            className="w-full font-semibold text-white bg-slate-700 hover:bg-slate-800 shadow-sm transition-all flex items-center justify-center gap-2 h-9 rounded-md"
+                            onClick={() => setResolvedOpen(item.id)}
+                          >
+                            <FileText className="h-4 w-4 text-white" />
+                            <span>View Report Details</span>
+                          </Button>
+                        )}
+
                         {(item.status !== 'Resolved' && item.status !== 'In Review' && item.status !== 'Action Taken' && item.status !== 'Rejected') && (
-                          <DialogTrigger asChild className="mt-2 text-blue-600 border-blue-200 hover:bg-blue-50">
-                            <Button variant="outline" size="sm" className="w-full font-medium">Delegate Task</Button>
+                          <DialogTrigger asChild className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm rounded-md">
+                            <Button size="sm" className="w-full font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-md">Delegate Task</Button>
                           </DialogTrigger>
                         )}
-                        
-                      </CardContent>
+                      </div>
                     </Card>
 
                     {/* Review Dialog */}
@@ -406,7 +516,7 @@ export default function AdminReportsPage() {
                         setDelegateAssignee("");
                       }
                     }}>
-                      <DialogContent className={`w-[calc(100%-2rem)] ${rejectMode || delegateMode ? 'sm:max-w-xl' : 'sm:max-w-5xl'} rounded-xl max-h-[88vh] overflow-y-auto p-5 sm:p-7 transition-all duration-200`}>
+                      <DialogContent className={`w-[calc(100%-2rem)] ${rejectMode || delegateMode ? 'sm:max-w-xl' : 'sm:max-w-5xl'} rounded-lg max-h-[88vh] overflow-y-auto p-5 sm:p-7 transition-all duration-200`}>
                         <DialogHeader>
                           <DialogTitle>
                             {rejectMode ? "Reject Report" : delegateMode ? "Approve & Delegate Report" : "Review Report"}
@@ -423,12 +533,12 @@ export default function AdminReportsPage() {
                         {rejectMode ? (
                           <div className="py-4 space-y-4 animate-in fade-in duration-200">
                             {/* Compact Report Summary Banner */}
-                            <div className="rounded-lg bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 p-3.5">
+                            <div className="rounded-md bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 p-3.5">
                               <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                                <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800">
+                                <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
                                   {item.id}
                                 </span>
-                                <span className={`text-xs font-semibold px-2 py-0.5 rounded border capitalize ${
+                                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border capitalize ${
                                   (item.urgency || '').toLowerCase() === 'high'
                                     ? 'text-red-600 bg-red-50 border-red-200 dark:bg-red-950/50 dark:border-red-800'
                                     : (item.urgency || '').toLowerCase() === 'medium'
@@ -447,7 +557,7 @@ export default function AdminReportsPage() {
                               </div>
                             </div>
 
-                            <div className="space-y-3 rounded-lg border border-red-200 bg-red-50/50 dark:bg-red-950/20 p-4">
+                            <div className="space-y-3 rounded-md border border-red-200 bg-red-50/50 dark:bg-red-950/20 p-4">
                               <label className="text-sm font-medium text-red-600 flex items-center gap-1.5">
                                 <AlertCircle className="w-4 h-4"/> Reason for Rejection *
                               </label>
@@ -476,12 +586,12 @@ export default function AdminReportsPage() {
                         ) : delegateMode ? (
                           <div className="py-4 space-y-4 animate-in fade-in duration-200">
                             {/* Compact Report Summary Banner */}
-                            <div className="rounded-lg bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 p-3.5">
+                            <div className="rounded-md bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 p-3.5">
                               <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                                <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800">
+                                <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
                                   {item.id}
                                 </span>
-                                <span className={`text-xs font-semibold px-2 py-0.5 rounded border capitalize ${
+                                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border capitalize ${
                                   (item.urgency || '').toLowerCase() === 'high'
                                     ? 'text-red-600 bg-red-50 border-red-200 dark:bg-red-950/50 dark:border-red-800'
                                     : (item.urgency || '').toLowerCase() === 'medium'
@@ -500,7 +610,7 @@ export default function AdminReportsPage() {
                               </div>
                             </div>
 
-                            <div className="space-y-4 rounded-lg border border-blue-200 bg-blue-50/60 dark:bg-blue-950/30 p-4">
+                            <div className="space-y-4 rounded-md border border-blue-200 bg-blue-50/60 dark:bg-blue-950/30 p-4">
                               <div className="space-y-2">
                                 <label htmlFor="approve-department" className="text-sm font-medium text-slate-700 dark:text-slate-300">
                                   Delegate To Department *
@@ -544,10 +654,10 @@ export default function AdminReportsPage() {
                         ) : (
                           <div className="grid gap-5 py-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
                             <div className="space-y-4">
-                              <div className="rounded-lg bg-slate-50 dark:bg-slate-900 border p-4 h-fit">
+                              <div className="rounded-md bg-slate-50 dark:bg-slate-900 border p-4 h-fit">
                                 <div className="flex items-center justify-between mb-3">
                                   <div className="font-semibold text-base text-slate-900 dark:text-slate-100">Review Report Details</div>
-                                  <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950 px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-800">{item.id}</span>
+                                  <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">{item.id}</span>
                                 </div>
                                 <div className="space-y-4">
                                   <div>
@@ -612,7 +722,6 @@ export default function AdminReportsPage() {
                             </div>
 
                             <div className="space-y-3">
-                              <div className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-1">Reporter Uploaded Images</div>
                               <ReportMediaGallery
                                 title="Reporter Uploaded Images"
                                 images={(item.reporterPhotos || []).map((url: string, index: number) => ({
@@ -694,23 +803,46 @@ export default function AdminReportsPage() {
                       </DialogContent>
                     </Dialog>
 
-                    {/* Resolved Detail Dialog */}
+                    {/* Details Dialog */}
                     <Dialog open={resolvedOpen === item.id} onOpenChange={(open) => { if (!open) setResolvedOpen(null); }}>
-                      <DialogContent className="w-[calc(100%-2rem)] sm:max-w-5xl rounded-xl max-h-[88vh] overflow-y-auto p-5 sm:p-7">
+                      <DialogContent className="w-[calc(100%-2rem)] sm:max-w-5xl rounded-lg max-h-[88vh] overflow-y-auto p-5 sm:p-7">
                         <DialogHeader>
-                          <DialogTitle className="flex items-center gap-2 text-emerald-700">
-                            <CheckCircle2 className="h-5 w-5" /> Resolved Report Details
+                          <DialogTitle className="flex items-center gap-2">
+                            {item.status === 'Resolved' ? (
+                              <span className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
+                                <CheckCircle2 className="h-5 w-5" /> Resolved Report Details
+                              </span>
+                            ) : item.status === 'Action Taken' ? (
+                              <span className="flex items-center gap-2 text-blue-700 dark:text-blue-400">
+                                <Clock className="h-5 w-5" /> In-Progress Report Details
+                              </span>
+                            ) : item.status === 'Rejected' ? (
+                              <span className="flex items-center gap-2 text-red-700 dark:text-red-400">
+                                <XCircle className="h-5 w-5" /> Rejected Report Details
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-2 text-slate-800 dark:text-slate-100">
+                                <FileText className="h-5 w-5" /> Report Details
+                              </span>
+                            )}
                           </DialogTitle>
                           <DialogDescription>
-                            Full report details and completion proof submitted by workforce.
+                            {item.status === 'Resolved' 
+                              ? "Full report details and completion proof submitted by workforce."
+                              : item.status === 'Action Taken'
+                                ? "Report details, assigned personnel, and timeline progress."
+                                : item.status === 'Rejected'
+                                  ? "Report information and reason for administrative rejection."
+                                  : "Comprehensive view of the submitted citizen report."
+                            }
                           </DialogDescription>
                         </DialogHeader>
                         <div className="grid gap-5 py-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
                           <div className="space-y-4">
-                            <div className="rounded-lg bg-slate-50 dark:bg-slate-900 border p-4">
+                            <div className="rounded-md bg-slate-50 dark:bg-slate-900 border p-4">
                               <div className="flex items-center justify-between mb-3">
                                 <div className="font-semibold text-base text-slate-900 dark:text-slate-100">{item.title}</div>
-                                <span className="text-xs font-mono font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded-md border border-emerald-200">{item.id}</span>
+                                <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">{item.id}</span>
                               </div>
                               <div className="space-y-4">
                                 <div>
@@ -761,32 +893,72 @@ export default function AdminReportsPage() {
                                     </div>
                                   </div>
                                 </div>
-                                {item.completedBy && (
-                                  <div className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-lg p-3">
+                                {item.status === 'Resolved' && item.completedBy && (
+                                  <div className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-md p-3">
                                     <CheckCircle2 className="h-4 w-4 shrink-0" />
                                     <span>Completed by: <span className="font-semibold">{item.completedBy}</span></span>
+                                  </div>
+                                )}
+                                {item.status === 'Rejected' && item.rejectionReason && (
+                                  <div className="flex items-start gap-2 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900 rounded-md p-3">
+                                    <XCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                                    <span className="leading-snug"><span className="font-semibold">Reason:</span> {item.rejectionReason}</span>
+                                  </div>
+                                )}
+                                {item.status === 'Action Taken' && (
+                                  <div className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-md p-3">
+                                    <Clock className="h-4 w-4 shrink-0" />
+                                    <span>Status: <span className="font-semibold">In Progress with Workforce</span></span>
                                   </div>
                                 )}
                               </div>
                             </div>
                           </div>
                           <div className="space-y-4">
-                            <div className="text-sm font-semibold text-slate-700 dark:text-slate-200">Reporter Uploaded Images</div>
-                            <ReportMediaGallery
-                              title="Reporter Uploaded Images"
-                              images={(item.reporterPhotos || []).map((url: string, index: number) => ({ url, alt: `Reporter image ${index + 1}` }))}
-                              emptyText="No reporter images available."
-                            />
-                            <div className="text-sm font-semibold text-emerald-700 dark:text-emerald-300 mt-4">Completion Proof</div>
-                            <ReportMediaGallery
-                              title="Completion Proof"
-                              images={(item.completionPhotos || []).map((url: string, index: number) => ({ url, alt: `Proof image ${index + 1}` }))}
-                              emptyText="No completion proof submitted yet."
-                            />
+                            <Tabs defaultValue={item.completionPhotos && item.completionPhotos.length > 0 ? "completion" : "reporter"} className="w-full">
+                              <TabsList className="grid w-full grid-cols-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-md">
+                                <TabsTrigger 
+                                  value="reporter" 
+                                  className="text-xs sm:text-sm font-medium py-1.5 flex items-center justify-center gap-1.5 rounded data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:shadow-sm"
+                                >
+                                  <Camera className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                                  <span>Uploaded Photos</span>
+                                  <span className="ml-1 px-1.5 py-0.2 rounded-sm text-[10px] font-semibold bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                                    {item.reporterPhotos?.length || 0}
+                                  </span>
+                                </TabsTrigger>
+                                <TabsTrigger 
+                                  value="completion" 
+                                  className="text-xs sm:text-sm font-medium py-1.5 flex items-center justify-center gap-1.5 rounded data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:shadow-sm data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400"
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                  <span>Completion Proof</span>
+                                  <span className="ml-1 px-1.5 py-0.2 rounded-sm text-[10px] font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                                    {item.completionPhotos?.length || 0}
+                                  </span>
+                                </TabsTrigger>
+                              </TabsList>
+                              
+                              <TabsContent value="reporter" className="mt-3 focus-visible:outline-none">
+                                <ReportMediaGallery
+                                  title="Reporter Uploaded Images"
+                                  images={(item.reporterPhotos || []).map((url: string, index: number) => ({ url, alt: `Reporter image ${index + 1}` }))}
+                                  emptyText="No reporter images available."
+                                />
+                              </TabsContent>
+
+                              <TabsContent value="completion" className="mt-3 focus-visible:outline-none">
+                                <ReportMediaGallery
+                                  title="Completion Proof"
+                                  images={(item.completionPhotos || []).map((url: string, index: number) => ({ url, alt: `Proof image ${index + 1}` }))}
+                                  emptyText="No completion proof submitted yet."
+                                />
+                              </TabsContent>
+                            </Tabs>
                           </div>
                         </div>
                         <div className="flex justify-end mt-2">
-                          <Button className="bg-slate-600 hover:bg-slate-700 text-white" onClick={() => setResolvedOpen(null)}>Close</Button>
+                          <Button className="bg-slate-600 hover:bg-slate-700 text-white rounded-md" onClick={() => setResolvedOpen(null)}>Close</Button>
                         </div>
                       </DialogContent>
                     </Dialog>
@@ -801,7 +973,7 @@ export default function AdminReportsPage() {
                       </DialogHeader>
                       
                       <div className="grid gap-4 py-4">
-                        <div className="rounded-lg bg-slate-50 dark:bg-slate-900 border p-3">
+                        <div className="rounded-md bg-slate-50 dark:bg-slate-900 border p-3">
                           <div className="font-medium text-sm text-slate-900 dark:text-slate-100">{item.title}</div>
                           <div className="text-xs text-muted-foreground mt-1 flex gap-3">
                             <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {item.zone}</span>
