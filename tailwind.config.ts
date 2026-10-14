@@ -12,15 +12,16 @@ export default {
     extend: {
       colors: {
         // Design system from code.html
-        "primary": "#13b6ec",
+        // Bright brand palette (user preference: prominent over strict AA on solid fills).
+        primary: { DEFAULT: "#13b6ec", foreground: "#ffffff", light: "#13b6ec" },
         "primary-dark": "#0e8db9",
-        "secondary": "#2ecc71",
+        secondary: { DEFAULT: "#2ecc71", foreground: "#ffffff", light: "#2ecc71" },
         "secondary-dark": "#27ae60",
         "background-light": "#f8fbfc",
         "background-dark": "#101d22",
         "surface": "#ffffff",
         "text-main": "#0d181b",
-        "text-muted": "#4c869a",
+        "text-muted": "#3d6e80",
 
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
@@ -65,11 +66,11 @@ export default {
       },
       fontFamily: {
         // Design system fonts
-        sans: ['Montserrat', 'sans-serif'],
-        display: ['Playfair Display', 'serif'],
-        
-        body: ['Montserrat', 'sans-serif'],
-        headline: ['Montserrat', 'sans-serif'],
+        sans: ['var(--font-montserrat)', 'sans-serif'],
+        display: ['var(--font-playfair)', 'serif'],
+
+        body: ['var(--font-montserrat)', 'sans-serif'],
+        headline: ['var(--font-montserrat)', 'sans-serif'],
         code: ['monospace'],
       },
       boxShadow: {

@@ -67,7 +67,7 @@ export function Navbar({ items = [] }: NavbarProps) {
               className="flex items-center gap-2 group"
             >
               <Image 
-                src="/assets/logo.svg" 
+                src="/assets/logo-128.png" 
                 alt="SeeBu Logo" 
                 width={40} 
                 height={40}

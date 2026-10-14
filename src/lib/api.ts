@@ -88,7 +88,7 @@ export async function apiFetch<T = any>(
 
   if (!response.ok) {
     const error = await response.json().catch(() => null);
-    throw new Error(extractErrorMessage(error, response));
+    throw Object.assign(new Error(extractErrorMessage(error, response)), { status: response.status });
   }
 
   return response.json();
@@ -127,10 +127,15 @@ export async function apiFetchClient<T = any>(
 
   if (!response.ok) {
     const error = await response.json().catch(() => null);
-    throw new Error(extractErrorMessage(error, response));
+    throw Object.assign(new Error(extractErrorMessage(error, response)), { status: response.status });
   }
 
   return response.json();
+}
+
+/** True when a client fetch failed at the network level behind a controlling SW (BackgroundSync queues it). */
+export function isOfflineQueuedError(err: unknown): boolean {
+  return err instanceof Error && err.message.startsWith('API network error') && typeof navigator !== 'undefined' && !!navigator.serviceWorker?.controller;
 }
 
 // ============================================================================

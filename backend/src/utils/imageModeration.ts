@@ -16,6 +16,15 @@ function parseDataUrl(value: string): { mimeType: string; base64Data: string } |
   return { mimeType: match[1], base64Data: match[2] };
 }
 
+// The EgoBlur sidecar handles one request at a time, so /detect and /blur calls share
+// one queue; each timeout starts when that request is actually sent.
+let egoQueue: Promise<unknown> = Promise.resolve();
+export function serializeEgoBlur<T>(fn: () => Promise<T>): Promise<T> {
+  const run = egoQueue.then(fn, fn);
+  egoQueue = run.catch(() => {});
+  return run;
+}
+
 /**
  * Checks image against EgoBlur sidecar detection if the service is configured and reachable.
  * Returns null when unavailable so callers can fall through gracefully.
@@ -25,12 +34,12 @@ async function checkEgoBlur(buffer: Buffer, mimeType: string): Promise<Moderatio
   if (!serviceUrl) return null;
 
   try {
-    const response = await fetch(`${serviceUrl}/detect`, {
+    const response = await serializeEgoBlur(() => fetch(`${serviceUrl}/detect`, {
       method: 'POST',
       headers: { 'Content-Type': mimeType },
       body: new Uint8Array(buffer),
       signal: AbortSignal.timeout(5000),
-    });
+    }));
 
     if (!response.ok) return null;
 

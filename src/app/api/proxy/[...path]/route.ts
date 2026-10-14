@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { resolveApiBaseUrl } from "@/lib/api";
 
+export const maxDuration = 60;
+export const dynamic = "force-dynamic";
+
 async function forward(request: NextRequest, path: string[]) {
   const cookieStore = await cookies();
   const token = cookieStore.get("auth-token")?.value;
@@ -14,14 +17,22 @@ async function forward(request: NextRequest, path: string[]) {
 
   const hasBody = request.method !== "GET" && request.method !== "HEAD";
 
-  const response = await fetch(targetUrl, {
-    method: request.method,
-    headers,
-    body: hasBody ? await request.text() : undefined,
-    cache: "no-store",
-  });
-
-  const body = await response.text();
+  let response: Response;
+  let body: string;
+  try {
+    response = await fetch(targetUrl, {
+      method: request.method,
+      headers,
+      body: hasBody ? await request.text() : undefined,
+      cache: "no-store",
+    });
+    body = await response.text();
+  } catch {
+    return NextResponse.json(
+      { error: "The server is temporarily unavailable. Please try again in a moment." },
+      { status: 502 }
+    );
+  }
   return new NextResponse(body, {
     status: response.status,
     headers: { "Content-Type": response.headers.get("content-type") || "application/json" },

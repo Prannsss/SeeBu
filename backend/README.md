@@ -88,3 +88,11 @@ backend/
 
 - Email and SMS sends are fire-and-forget where used for notifications (e.g. password reset, report tracking) — failures are logged but never roll back the underlying operation (registration, report creation, etc.).
 - The Synermaxx request shape in `smsService.ts` is a best-effort implementation based on the gateway's URL convention; confirm exact query parameter names against Synermaxx's docs before relying on it in production.
+
+## Caching & image compression
+
+- **`REDIS_URL`** *(optional)* — `redis://` or `rediss://` URL (e.g. Upstash). When unset or unreachable, the API falls back to an in-process memory cache automatically (per instance, max 2000 entries). See `src/utils/cache.ts`.
+- Cached GET responses (per caller, `X-Cache: HIT|MISS` header): reports 30s, tasks 15s, analytics 60s, users 60s, departments 120s, locations 600s. Writes invalidate the affected prefixes; account status checks in `withAuth` are cached for 60s.
+- Uploaded images are compressed with `sharp` before blurring and storage.
+- Self-checks (no DB access): `npx tsx src/utils/cache.check.ts` and `npx tsx src/utils/imageCompression.check.ts` (run inside `backend/`).
+- `database/migration_003_original_photo_url.sql` is optional; the backend works with or without it.

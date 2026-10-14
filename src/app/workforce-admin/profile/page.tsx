@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react"
 import { LogOut, Pencil, Trash2 } from "lucide-react"
-import { useRouter } from "next/navigation"
-import { logoutUser, getUserProfile } from "@/app/actions/user.actions"
+import { useQueryClient } from "@tanstack/react-query"
+import { useCurrentUser } from "@/hooks/queries/useCurrentUser"
+import { useLogout } from "@/hooks/use-logout"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -22,10 +23,10 @@ import { gooeyToast } from "goey-toast"
 import ProfileLoadingSkeleton from "@/components/ui/profile-loading-skeleton"
 
 export default function WorkforceAdminProfilePage() {
-  const router = useRouter()
+  const queryClient = useQueryClient()
+  const logout = useLogout('/auth/login')
+  const { data: profile, isPending } = useCurrentUser()
   const [isEditing, setIsEditing] = useState(false)
-  const [profile, setProfile] = useState<any>(null)
-  const [isLoading, setIsLoading] = useState(true)
 
   // Form State
   const [formData, setFormData] = useState({
@@ -34,45 +35,22 @@ export default function WorkforceAdminProfilePage() {
     phone: ""
   })
 
+  // Profile comes from the persisted ['me'] query (instant); keep the form in sync with it
   useEffect(() => {
-    async function loadProfile() {
-      // Opt to show preloaded profile immediately
-      const cached = localStorage.getItem('user-profile');
-      if (cached) {
-        try {
-          const data = JSON.parse(cached);
-          setProfile(data);
-          setFormData({
-            name: data.full_name || "",
-            email: data.email || "",
-            phone: data.contact_number || ""
-          });
-          setIsLoading(false);
-        } catch (e) {}
-      }
-
-      const data = await getUserProfile();
-      if (data) {
-        setProfile(data);
-        setFormData({
-          name: data.full_name || "",
-          email: data.email || "",
-          phone: data.contact_number || ""
-        });
-        localStorage.setItem('user-profile', JSON.stringify(data));
-      }
-      setIsLoading(false);
+    if (profile) {
+      setFormData({
+        name: profile.full_name || "",
+        email: profile.email || "",
+        phone: profile.contact_number || ""
+      });
     }
-    loadProfile();
-  }, []);
+  }, [profile]);
 
   const handleLogout = async () => {
-    await logoutUser()
-    localStorage.removeItem('user-profile')
     gooeyToast.success("Logged out", {
       description: "You have been signed out of your account."
     })
-    router.push("/auth/login")
+    await logout()
   }
 
   const handleDeleteAccount = async () => {
@@ -80,11 +58,10 @@ export default function WorkforceAdminProfilePage() {
       const { deleteAccount } = await import("@/app/actions/user.actions");
       const res = await deleteAccount();
       if (res.success) {
-        localStorage.removeItem('user-profile')
         gooeyToast.success("Account deleted", {
           description: "Your account has been permanently removed."
         });
-        router.push("/auth/login");
+        await logout();
       } else {
         gooeyToast.error("Error", { description: res.error || "Failed to delete account" });
       }
@@ -109,7 +86,8 @@ export default function WorkforceAdminProfilePage() {
         gooeyToast.success("Profile updated", {
           description: "Your changes have been saved."
         });
-        setProfile((prev: any) => ({ ...prev, full_name: formData.name, email: formData.email, contact_number: formData.phone }));
+        queryClient.setQueryData(['me'], (old: any) => ({ ...old, full_name: formData.name, email: formData.email, contact_number: formData.phone }));
+        queryClient.invalidateQueries({ queryKey: ['me'] });
         setIsEditing(false);
       } else {
         gooeyToast.error(res.error || "Update failed");
@@ -119,7 +97,7 @@ export default function WorkforceAdminProfilePage() {
     }
   }
 
-  if (isLoading) {
+  if (isPending) {
     return <ProfileLoadingSkeleton />
   }
 
@@ -129,7 +107,7 @@ export default function WorkforceAdminProfilePage() {
         <div className="mb-6 flex items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white">Workforce Admin Profile</h1>
-            <p className="text-muted-foreground mt-1 tracking-tight">Manage your account settings and preferences.</p>
+            <p className="text-slate-600 mt-1 tracking-tight">Manage your account settings and preferences.</p>
           </div>
         </div>
         
@@ -142,7 +120,7 @@ export default function WorkforceAdminProfilePage() {
                 </AvatarFallback>
               </Avatar>
               <div>
-                <p className="text-slate-500 font-bold uppercase text-xs tracking-wider mb-1">WORKFORCE-ADMIN</p>
+                <p className="text-slate-600 font-bold uppercase text-xs tracking-wider mb-1">WORKFORCE-ADMIN</p>
                 <h2 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">
                   {profile?.full_name || 'Loading...'}
                 </h2>
@@ -169,20 +147,20 @@ export default function WorkforceAdminProfilePage() {
             {!isEditing ? (
               <div className="space-y-4 pt-1">
                 <div className="pb-4 border-b border-slate-100 dark:border-slate-800/60 last:border-0 last:pb-0">
-                  <span className="flex text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 items-center gap-2">Full Name</span>
+                  <span className="flex text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5 items-center gap-2">Full Name</span>
                   <span className="block text-base text-slate-900 dark:text-white font-medium">{profile?.full_name || 'N/A'}</span>
                 </div>
                 <div className="pb-4 border-b border-slate-100 dark:border-slate-800/60 last:border-0 last:pb-0">
-                  <span className="flex text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 items-center gap-2">Email</span>
+                  <span className="flex text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5 items-center gap-2">Email</span>
                   <span className="block text-base text-slate-900 dark:text-white font-medium">{profile?.email || 'N/A'}</span>
                 </div>
                 <div className="pb-4 border-b border-slate-100 dark:border-slate-800/60 last:border-0 last:pb-0">
-                  <span className="flex text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 items-center gap-2">Phone</span>
+                  <span className="flex text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5 items-center gap-2">Phone</span>
                   <span className="block text-base text-slate-900 dark:text-white font-medium">{profile?.contact_number || 'N/A'}</span>
                 </div>
               
                 <div className="pb-4 border-b border-slate-100 dark:border-slate-800/60 last:border-0 last:pb-0">
-                  <span className="flex text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 items-center gap-2">Role/Assignment</span>
+                  <span className="flex text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5 items-center gap-2">Role/Assignment</span>
                   <span className="block text-base text-slate-900 dark:text-white font-medium">{profile?.role || 'N/A'}</span>
                 </div>
 
@@ -223,12 +201,12 @@ export default function WorkforceAdminProfilePage() {
           <AlertDialogContent className="sm:rounded-[16px] rounded-[16px] max-w-[90vw] sm:max-w-md w-full">
             <AlertDialogHeader>
               <AlertDialogTitle className="text-xl">Logout of account</AlertDialogTitle>
-              <AlertDialogDescription className="text-base text-slate-500 dark:text-slate-400">
+              <AlertDialogDescription className="text-base text-slate-600 dark:text-slate-400">
                 Are you sure you want to end your current session?
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter className="mt-6 gap-3 sm:gap-3">
-              <AlertDialogCancel className="h-11 rounded-md font-bold bg-[#13b6ec] hover:bg-[#0fa6d8] text-white border-[#13b6ec] m-0">Cancel</AlertDialogCancel>
+              <AlertDialogCancel className="h-11 rounded-md font-bold bg-sky-700 hover:bg-sky-800 text-white border-sky-700 m-0">Cancel</AlertDialogCancel>
               <AlertDialogAction onClick={handleLogout} className="h-11 rounded-md bg-red-600 text-white hover:bg-red-700 font-bold shadow-sm">Logout</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

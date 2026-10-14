@@ -2,40 +2,37 @@
 
 import { QueryClient } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
-import { createStore, get, set, del } from 'idb-keyval';
-import { useState, useEffect } from 'react';
+import { PersistQueryClientProvider, type PersistedClient, type Persister } from '@tanstack/react-query-persist-client';
+import { get, set } from 'idb-keyval';
+import { useState } from 'react';
+import { IDB_CACHE_KEY, getIdbStore, writeLocalSnapshot, readLocalSnapshot, clearClientCaches } from '@/lib/client-cache';
 
-// Create a custom IndexedDB store for React Query
-const idbStore = typeof window !== 'undefined' ? createStore('seebu-db', 'query-cache') : null;
-
-// IndexedDB persister implementation
-const idbPersister = {
-  persistClient: async (client: any) => {
-    if (!idbStore) return;
-    try {
-      await set('tanstack-query-cache', client, idbStore);
-    } catch (error) {
-      console.error('Failed to persist query cache', error);
+// IndexedDB is the primary store; a small localStorage snapshot is the fallback (see client-cache.ts)
+const persister: Persister = {
+  persistClient: async (client: PersistedClient) => {
+    const store = getIdbStore();
+    if (store) {
+      try {
+        await set(IDB_CACHE_KEY, client, store);
+      } catch (error) {
+        console.error('Failed to persist query cache', error);
+      }
     }
+    writeLocalSnapshot(client);
   },
   restoreClient: async () => {
-    if (!idbStore) return undefined;
-    try {
-      return await get('tanstack-query-cache', idbStore);
-    } catch (error) {
-      console.error('Failed to restore query cache', error);
-      return undefined;
+    const store = getIdbStore();
+    let client: PersistedClient | undefined;
+    if (store) {
+      try {
+        client = await get<PersistedClient>(IDB_CACHE_KEY, store);
+      } catch (error) {
+        console.error('Failed to restore query cache', error);
+      }
     }
+    return client ?? readLocalSnapshot();
   },
-  removeClient: async () => {
-    if (!idbStore) return;
-    try {
-      await del('tanstack-query-cache', idbStore);
-    } catch (error) {
-      console.error('Failed to clear query cache', error);
-    }
-  },
+  removeClient: () => clearClientCaches(),
 };
 
 export function QueryProvider({ children }: { children: React.ReactNode }) {
@@ -44,20 +41,19 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
       new QueryClient({
         defaultOptions: {
           queries: {
-            staleTime: 1000 * 60 * 5, // 5 minutes stale time
-            gcTime: 1000 * 60 * 60 * 24, // Keep cache for 24 hours
-            refetchOnWindowFocus: true,
-            networkMode: 'offlineFirst', // Prefer offline cache if disconnected
-            retry: (failureCount, error: any) => {
-              if (error.status === 404) return false;
-              if (error.status === 401) return false;
-              return failureCount < 3;
-            },
+            staleTime: 5 * 60_000,
+            gcTime: 24 * 60 * 60_000,
+            refetchOnWindowFocus: false,
+            refetchOnReconnect: true,
+            networkMode: 'offlineFirst',
+            // Don't retry client errors (401/403/404/422...)
+            retry: (n, e: any) => (e?.status >= 400 && e?.status < 500 ? false : n < 2),
           },
           mutations: {
-            networkMode: 'offlineFirst', // Support mutations while offline
-            retry: 3, // Retry mutations
-          }
+            // Non-idempotent POSTs must not be replayed; the SW queues offline submissions
+            retry: 0,
+            networkMode: 'always',
+          },
         },
       })
   );
@@ -65,9 +61,10 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
   return (
     <PersistQueryClientProvider
       client={queryClient}
-      persistOptions={{ 
-        persister: idbPersister,
-        buster: 'v1', // Increment when breaking cache format changes occur
+      persistOptions={{
+        persister,
+        buster: 'v2', // v2 discards caches persisted before the logout fix
+        maxAge: 24 * 60 * 60_000,
       }}
     >
       {children}

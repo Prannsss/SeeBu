@@ -103,7 +103,7 @@ export function ChartAreaInteractive({
                     "px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-150 " +
                     (timeRange === tab.key
                       ? "bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm"
-                      : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200")
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200")
                   }
                 >
                   {tab.label}

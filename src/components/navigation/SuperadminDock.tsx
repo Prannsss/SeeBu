@@ -1,12 +1,19 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Home, BarChart, PlusCircle, User, Users } from "lucide-react";
 import Dock from "@/components/ui/dock";
 
+const ROUTES = ['/superadmin', '/superadmin/analytics', '/superadmin/users', '/superadmin/add-x', '/superadmin/profile'];
+
 export default function SuperadminDock() {
   const router = useRouter();
   const pathname = usePathname();
+
+  useEffect(() => {
+    ROUTES.forEach((r) => router.prefetch(r));
+  }, [router]);
 
   const items = [
     { icon: <Home className={`w-5 h-5 ${pathname === '/superadmin' ? 'text-white' : ''}`} />, label: "Home", onClick: () => router.push('/superadmin'), className: pathname === '/superadmin' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },

@@ -12,23 +12,21 @@ export default function NotFound() {
       <div className="max-w-md w-full text-center space-y-6">
         <div className="flex justify-center">
           <Image 
-            src="/assets/not found.svg" 
+            src="/assets/not-found.webp" 
             alt="Page Not Found" 
             width={300} 
             height={300} 
             className="mb-8"
           />
         </div>
-        <h1 className="text-4xl font-black text-gray-900 dark:text-white">Page Not Found</h1>
-        <p className="text-gray-600 dark:text-gray-400 text-lg">
+        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">Page Not Found</h1>
+        <p className="text-slate-600 dark:text-gray-400 text-lg">
           The page you are looking for doesn't exist or has been moved.
         </p>
         <div className="pt-6">
-          <Link href="/">
-            <Button size="lg" className="w-full bg-primary hover:bg-primary-dark text-white font-bold h-14 rounded-full text-lg">
-              Return Home
-            </Button>
-          </Link>
+          <Button asChild size="lg" className="w-full bg-primary hover:bg-primary-dark text-white font-bold h-14 rounded-full text-lg">
+            <Link href="/">Return Home</Link>
+          </Button>
         </div>
       </div>
     </div>

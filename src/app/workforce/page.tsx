@@ -35,7 +35,7 @@ export default async function WorkforceDashboard() {
   // Active work queue for current workforce officer.
   const activeAssignments = normalizedTasks.filter((t: any) => {
     const status = statusOf(t);
-    return status === "assigned" || status === "accepted" || status === "in progress";
+    return status === "assigned" || status === "pending" || status === "accepted" || status === "in progress";
   }).length;
   
   // Tasks completed today
@@ -79,83 +79,51 @@ export default async function WorkforceDashboard() {
     <div className="container mx-auto max-w-6xl px-4 py-10">
       <div className="mb-8 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Workforce Dashboard</h1>
-          <p className="text-muted-foreground mt-1">Overview of your daily assignments and performance.</p>
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900">Workforce Dashboard</h1>
+          <p className="text-slate-600 mt-1">Overview of your daily assignments and performance.</p>
         </div>
-        <Badge className="bg-emerald-600 text-white hover:bg-emerald-700">
+        <Badge className="bg-emerald-600 text-white hover:bg-emerald-800">
           On Duty
         </Badge>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 mb-8">
-        <Card>
-          <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
-            <CardDescription className="text-xs sm:text-sm truncate" title="Active Assignments">Active Assignments</CardDescription>
-            <CardTitle className="text-lg sm:text-2xl text-blue-600 dark:text-blue-400">{activeAssignments}</CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
-            <div className="text-[10px] sm:text-xs text-muted-foreground flex items-center min-w-0" title={activeSubtitle}>
-              <Briefcase className="mr-1 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-              <span className="truncate">{activeSubtitle}</span>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
-            <CardDescription className="text-xs sm:text-sm truncate" title="Completed Today">Completed Today</CardDescription>
-            <CardTitle className="text-lg sm:text-2xl text-emerald-600 dark:text-emerald-400">{completedToday}</CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
-            <div className="text-[10px] sm:text-xs text-muted-foreground flex items-center min-w-0" title={completedSubtitle}>
-              <CheckCircle2 className="mr-1 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-              <span className="truncate">{completedSubtitle}</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
-            <CardDescription className="text-xs sm:text-sm truncate" title="Efficiency Rating">Efficiency Rating</CardDescription>
-            <CardTitle className="text-lg sm:text-2xl text-indigo-600 dark:text-indigo-400">{efficiency}%</CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
-            <div className="text-[10px] sm:text-xs text-muted-foreground flex items-center min-w-0" title={efficiencySubtitle}>
-              <TrendingUp className="mr-1 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0 text-emerald-500" />
-              <span className="truncate">{efficiencySubtitle}</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
-            <CardDescription className="text-xs sm:text-sm truncate" title="Pending Alerts">Pending Alerts</CardDescription>
-            <CardTitle className="text-lg sm:text-2xl text-red-600 dark:text-red-400">{pendingAlerts}</CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
-            <div className="text-[10px] sm:text-xs text-muted-foreground flex items-center min-w-0" title={pendingSubtitle}>
-              <AlertCircle className="mr-1 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-              <span className="truncate">{pendingSubtitle}</span>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-4 mb-8">
+        {[
+          { label: 'Active Assignments', value: activeAssignments, hint: activeSubtitle, icon: Briefcase, chip: 'bg-sky-100 text-sky-800' },
+          { label: 'Completed Today', value: completedToday, hint: completedSubtitle, icon: CheckCircle2, chip: 'bg-emerald-100 text-emerald-600' },
+          { label: 'Efficiency Rating', value: `${efficiency}%`, hint: efficiencySubtitle, icon: TrendingUp, chip: 'bg-indigo-100 text-indigo-800' },
+          { label: 'Pending Alerts', value: pendingAlerts, hint: pendingSubtitle, icon: AlertCircle, chip: 'bg-red-100 text-red-800' },
+        ].map(({ label, value, hint, icon: Icon, chip }) => (
+          <Card key={label}>
+            <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
+              <div className="flex items-center justify-between gap-2">
+                <CardDescription className="text-sm font-medium text-slate-600 truncate" title={label}>{label}</CardDescription>
+                <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${chip}`}><Icon className="h-4 w-4" aria-hidden="true" /></span>
+              </div>
+              <CardTitle className="text-2xl sm:text-3xl font-bold text-slate-900">{value}</CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
+              <div className="text-xs sm:text-sm text-slate-600 truncate" title={hint}>{hint}</div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       <div className="grid gap-6 md:grid-cols-1">
         <Card>
           <CardHeader>
             <CardTitle>Recent Announcements</CardTitle>
-            <CardDescription className="text-xs sm:text-sm truncate" title="Updates from administration">Updates from administration</CardDescription>
+            <CardDescription className="text-sm truncate" title="Updates from administration">Updates from administration</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               <div className="rounded-lg border p-3">
-                <div className="font-medium">Safety Gear Protocol</div>
-                <div className="text-sm text-muted-foreground mt-1">Please ensure all high-visibility vests are worn during road repairs.</div>
+                <div className="font-semibold text-slate-900">Safety Gear Protocol</div>
+                <div className="text-sm text-slate-600 mt-1">Please ensure all high-visibility vests are worn during road repairs.</div>
               </div>
               <div className="rounded-lg border p-3">
-                <div className="font-medium">Schedule Update</div>
-                <div className="text-sm text-muted-foreground mt-1">Shift changes for the upcoming holiday weekend have been posted.</div>
+                <div className="font-semibold text-slate-900">Schedule Update</div>
+                <div className="text-sm text-slate-600 mt-1">Shift changes for the upcoming holiday weekend have been posted.</div>
               </div>
             </div>
           </CardContent>

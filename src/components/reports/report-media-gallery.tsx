@@ -33,12 +33,12 @@ export function ReportMediaGallery({ title, images, emptyText }: ReportMediaGall
       <div className="flex items-center justify-between">
         <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-100">{title}</h4>
         {sanitizedImages.length > 0 ? (
-          <span className="text-xs text-slate-500 dark:text-slate-400">{sanitizedImages.length} image(s)</span>
+          <span className="text-xs text-slate-600 dark:text-slate-400">{sanitizedImages.length} image(s)</span>
         ) : null}
       </div>
 
       {sanitizedImages.length === 0 ? (
-        <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
+        <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
           {emptyText}
         </div>
       ) : (
@@ -50,13 +50,15 @@ export function ReportMediaGallery({ title, images, emptyText }: ReportMediaGall
                   <button
                     type="button"
                     onClick={() => setActiveImage(image)}
-                    className="group relative block w-full overflow-hidden rounded-md border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-900"
+                    className="group relative block w-full overflow-hidden rounded-md border border-slate-200 bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:border-slate-700 dark:bg-slate-900"
                     aria-label={`Open image ${index + 1}`}
                   >
                     <div className="relative aspect-video w-full">
                       <img
                         src={image.url}
                         alt={image.alt || `${title} ${index + 1}`}
+                        loading={index === 0 ? "eager" : "lazy"}
+                        decoding="async"
                         className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                       />
                     </div>
@@ -81,13 +83,15 @@ export function ReportMediaGallery({ title, images, emptyText }: ReportMediaGall
                 key={`thumb-${image.url}-${index}`}
                 type="button"
                 onClick={() => setActiveImage(image)}
-                className="overflow-hidden rounded border border-slate-200 bg-slate-100 transition hover:border-blue-400 dark:border-slate-700 dark:bg-slate-900"
+                className="overflow-hidden rounded border border-slate-300 bg-slate-100 transition hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:border-slate-700 dark:bg-slate-900"
                 aria-label={`Open thumbnail ${index + 1}`}
               >
                 <div className="aspect-square w-full">
                   <img
                     src={image.url}
                     alt={image.alt || `${title} thumbnail ${index + 1}`}
+                    loading="lazy"
+                    decoding="async"
                     className="h-full w-full object-cover"
                   />
                 </div>
@@ -104,7 +108,7 @@ export function ReportMediaGallery({ title, images, emptyText }: ReportMediaGall
           </DialogHeader>
           {activeImage ? (
             <div className="overflow-hidden rounded-md border border-slate-200 bg-black dark:border-slate-700">
-              <img src={activeImage.url} alt={activeImage.alt || title} className="max-h-[75vh] w-full object-contain" />
+              <img src={activeImage.url} alt={activeImage.alt || title} decoding="async" className="max-h-[75vh] w-full object-contain" />
             </div>
           ) : null}
         </DialogContent>

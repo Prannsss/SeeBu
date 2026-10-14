@@ -2,8 +2,6 @@
 
 import { useEffect, useRef } from "react";
 import Link from "next/link";
-import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 
@@ -16,7 +14,7 @@ const services = [
     href: "/client/report",
     cta: "File a Report",
     tag: "Most Used",
-    tagColor: "bg-red-50 text-red-600 border-red-200",
+    tagColor: "bg-red-50 text-red-800 border-red-200",
   },
   {
     icon: "manage_search",
@@ -46,7 +44,7 @@ const services = [
     href: "/auth/login",
     cta: "Get Verified",
     tag: "Priority Access",
-    tagColor: "bg-indigo-50 text-indigo-600 border-indigo-200",
+    tagColor: "bg-indigo-50 text-indigo-800 border-indigo-200",
   },
   {
     icon: "location_city",
@@ -66,7 +64,7 @@ const services = [
     href: "/client/report",
     cta: "Submit with Photos",
     tag: "AI-Powered",
-    tagColor: "bg-purple-50 text-purple-600 border-purple-200",
+    tagColor: "bg-purple-50 text-purple-800 border-purple-200",
   },
   {
     icon: "shield_person",
@@ -76,7 +74,7 @@ const services = [
     href: "/client/report",
     cta: "Report Anonymously",
     tag: "Private",
-    tagColor: "bg-slate-100 text-slate-600 border-slate-200",
+    tagColor: "bg-slate-100 text-slate-800 border-slate-200",
   },
   {
     icon: "analytics",
@@ -96,9 +94,16 @@ export default function ServicesPage() {
   const ctaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    gsap.registerPlugin(ScrollTrigger);
+    // gsap is loaded lazily so it stays out of the page's initial bundle.
+    let ctx: { revert: () => void } | undefined;
+    let cancelled = false;
+    (async () => {
+      const { gsap } = await import("gsap");
+      const { ScrollTrigger } = await import("gsap/ScrollTrigger");
+      if (cancelled) return;
+      gsap.registerPlugin(ScrollTrigger);
 
-    const ctx = gsap.context(() => {
+      ctx = gsap.context(() => {
       // Header entrance animation
       if (headerRef.current) {
         gsap.from(Array.from(headerRef.current.children), {
@@ -149,9 +154,13 @@ export default function ServicesPage() {
           }
         );
       }
-    });
+      });
+    })();
 
-    return () => ctx.revert();
+    return () => {
+      cancelled = true;
+      ctx?.revert();
+    };
   }, []);
 
   return (
@@ -233,17 +242,17 @@ export default function ServicesPage() {
             <div className="absolute bottom-0 left-0 w-64 h-64 bg-secondary/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none" />
 
             <div className="relative z-10">
-              <span className="inline-flex items-center gap-2 text-primary font-bold tracking-widest text-xs uppercase mb-4 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20">
+              <span className="inline-flex items-center gap-2 text-primary-light font-bold tracking-widest text-xs uppercase mb-4 px-4 py-1.5 rounded-full bg-primary-light/10 border border-primary-light/20">
                 <span className="material-symbols-outlined text-base">star</span>
                 Get Started Today
               </span>
 
               <h2 className="text-4xl lg:text-5xl font-black text-white mb-6">
                 Ready to make Cebu{" "}
-                <span className="font-display italic text-yellow-500">better</span>?
+                <span className="font-display italic text-yellow-400">better</span>?
               </h2>
 
-              <p className="text-gray-400 text-lg mb-10 max-w-2xl mx-auto leading-relaxed">
+              <p className="text-gray-300 text-lg mb-10 max-w-2xl mx-auto leading-relaxed">
                 Join thousands of Cebuanos already using SeeBu to report issues, track progress, and create a more responsive city.
               </p>
 

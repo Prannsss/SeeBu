@@ -74,7 +74,7 @@ function ResolutionTooltip({ active, payload, label }: CustomTooltipProps) {
         <span className="ml-auto font-bold text-slate-800 dark:text-slate-100">{unresolved}</span>
       </div>
       <div className="border-t border-slate-100 dark:border-slate-700 mt-2 pt-1 flex items-center justify-between">
-        <span className="text-slate-500 dark:text-slate-400">Total</span>
+        <span className="text-slate-600 dark:text-slate-400">Total</span>
         <span className="font-bold text-slate-800 dark:text-slate-100">{total}</span>
       </div>
     </div>
@@ -83,7 +83,7 @@ function ResolutionTooltip({ active, payload, label }: CustomTooltipProps) {
 
 function ResolutionLegend() {
   return (
-    <div className="flex items-center gap-4 justify-center mt-2 text-xs text-slate-500 dark:text-slate-400">
+    <div className="flex items-center gap-4 justify-center mt-2 text-xs text-slate-600 dark:text-slate-400">
       <div className="flex items-center gap-1.5">
         <span className="inline-block w-3 h-3 rounded-sm bg-blue-500" />
         <span>Resolved (color per type)</span>

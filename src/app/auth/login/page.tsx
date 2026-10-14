@@ -10,10 +10,13 @@ import { Eye, EyeOff } from "lucide-react";
 import { gooeyToast } from "goey-toast";
 import { GoogleLogin, CredentialResponse } from "@react-oauth/google";
 import FacebookLogin from "react-facebook-login/dist/facebook-login-render-props";
+import { useQueryClient } from "@tanstack/react-query";
+import { clearClientCaches } from "@/lib/client-cache";
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const queryClient = useQueryClient();
   const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
 
   const clearSession = async () => {
@@ -44,6 +47,8 @@ export default function LoginPage() {
     if (!res.ok) throw new Error(data.error || 'OAuth Login failed');
 
     if (!data.user?.role) throw new Error('OAuth login response missing user role');
+    // Drop any previous user's persisted cache before the new session exists
+    await clearClientCaches(queryClient);
     await clearSession();
     await establishSession(data.token, data.user.role);
     localStorage.setItem('user-profile', JSON.stringify(data.user));
@@ -108,7 +113,7 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.message || 'Login failed');
+        throw new Error(data.error || data.message || 'Login failed');
       }
 
       if (!data.user?.role) {
@@ -117,6 +122,8 @@ export default function LoginPage() {
 
       // Evict old session then establish new one so the middleware always sees
       // the correct user-role cookie from the very first request after login.
+      // Drop any previous user's persisted cache so it can never hydrate.
+      await clearClientCaches(queryClient);
       await clearSession();
       await establishSession(data.token, data.user.role);
       localStorage.setItem('user-profile', JSON.stringify(data.user));
@@ -166,7 +173,7 @@ export default function LoginPage() {
           {/* GIF */}
           <div className="rounded-2xl overflow-hidden">
             <Image 
-              src="/gifs/auth.gif" 
+              src="/gifs/auth.webp" 
               alt="SeeBu in action" 
               width={800}
               height={600}
@@ -182,7 +189,7 @@ export default function LoginPage() {
         <div className="w-full max-w-md space-y-6 sm:space-y-8 animate-in fade-in duration-500">
           <div className="text-center lg:text-left">
             <div className="md:hidden mb-4 flex justify-center">
-              <Image src="/assets/logo.svg" alt="SeeBu Logo" width={60} height={60} />
+              <Image src="/assets/logo-128.png" alt="SeeBu Logo" width={60} height={60} />
             </div>
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-text-main dark:text-white mb-2 sm:mb-3">Welcome Back</h2>
             <p className="text-sm sm:text-base text-text-muted dark:text-gray-400">Access your SeeBu account to track your reports.</p>

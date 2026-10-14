@@ -7,6 +7,8 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { OAuth2Client } from 'google-auth-library';
+import { findAccountsByEmail, emailExists } from '../utils/accounts';
+import { cacheDelPrefix } from '../utils/cache';
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID as string;
@@ -86,6 +88,10 @@ export const authController = {
         return res.status(400).json({ error: 'Missing required fields' });
       }
 
+      if (await emailExists(email)) {
+        return res.status(409).json({ error: 'An account with this email already exists.' });
+      }
+
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(password, salt);
 
@@ -105,6 +111,7 @@ export const authController = {
       if (error) {
         return res.status(500).json({ error: serverErrorMessage(error) });
       }
+      await cacheDelPrefix('users:');
 
       // Issue OTP and send emails
       const verificationCode = await issueVerificationToken(email, 'email_verify');
@@ -162,6 +169,10 @@ export const authController = {
         return res.status(200).json({ message: 'Login successful', user: { ...safeUser, role: 'client' }, token });
       }
 
+      if (await emailExists(email)) {
+        return res.status(409).json({ error: 'This email belongs to an existing staff account. Please sign in with your email and password.' });
+      }
+
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(crypto.randomBytes(16).toString('hex'), salt);
 
@@ -178,6 +189,7 @@ export const authController = {
         .single();
 
       if (error) throw error;
+      await cacheDelPrefix('users:');
 
       // Do NOT trigger the email service for OAuth registrations
       // const verificationCode = await issueVerificationToken(email, 'email_verify');
@@ -228,6 +240,10 @@ export const authController = {
         return res.status(200).json({ message: 'Login successful', user: { ...safeUser, role: 'client' }, token });
       }
 
+      if (await emailExists(email)) {
+        return res.status(409).json({ error: 'This email belongs to an existing staff account. Please sign in with your email and password.' });
+      }
+
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(crypto.randomBytes(16).toString('hex'), salt);
 
@@ -244,6 +260,7 @@ export const authController = {
         .single();
 
       if (error) throw error;
+      await cacheDelPrefix('users:');
 
       // Do NOT trigger the email service for OAuth registrations
       // const verificationCode = await issueVerificationToken(email, 'email_verify');
@@ -272,38 +289,28 @@ export const authController = {
         return res.status(400).json({ error: 'Missing email or password' });
       }
 
-      const tables = [
-        { name: 'clients', role: 'client' },
-        { name: 'admins', role: 'admin' },
-        { name: 'superadmins', role: 'superadmin' },
-        { name: 'workforce_admins', role: 'workforce-admin' },
-        { name: 'workforce_officers', role: 'workforce' },
-      ];
+      // The frontend sends role:'user', so a role param can't be required. Instead: staff tables are
+      // checked before clients and the account is chosen by password match, so a client account
+      // registered with a staff email can never shadow or take over the staff account.
+      const candidates = await findAccountsByEmail(email);
 
-      let user = null;
-      let userRole = null;
+      let user: any = null;
+      let userRole: string | null = null;
 
-      for (const table of tables) {
-        const { data } = await supabase
-          .from(table.name)
-          .select('*')
-          .eq('email', email)
-          .single();
-
-        if (data) {
-          user = data;
-          userRole = table.role;
+      for (const candidate of candidates) {
+        if (candidate.row.password_hash && await bcrypt.compare(password, candidate.row.password_hash)) {
+          user = candidate.row;
+          userRole = candidate.role;
           break;
         }
       }
 
       if (!user) {
-        return res.status(401).json({ error: 'User not found' });
+        return res.status(401).json({ error: 'Invalid email or password' });
       }
 
-      const isMatch = await bcrypt.compare(password, user.password_hash);
-      if (!isMatch) {
-        return res.status(401).json({ error: 'Invalid credentials' });
+      if (user.status && user.status !== 'Active') {
+        return res.status(403).json({ error: 'Your account is not active. Please contact your administrator.' });
       }
 
       const { password_hash, ...safeUser } = user;
@@ -457,6 +464,10 @@ export const authController = {
         }
       }
 
+      if (await emailExists(email)) {
+        return res.status(409).json({ error: 'An account with this email already exists.' });
+      }
+
       // ── 1. Create user in Supabase Auth ─────────────────────────────────
       const { data: authData, error: authError } = await supabase.auth.admin.createUser({
         email,
@@ -471,7 +482,7 @@ export const authController = {
 
       const userId = authData.user.id;
 
-      // ── 2. Insert into generic users table ───────────────────────────────
+      // ── 2. Insert into generic users table (optional: the table may not exist) ──
       const { error: usersError } = await supabase.from('users').insert([{
         id: userId,
         email,
@@ -482,8 +493,7 @@ export const authController = {
       }]);
 
       if (usersError) {
-        console.error('[provision] Failed to insert into generic users table:', usersError);
-        return res.status(500).json({ error: usersError.message });
+        console.warn('[provision] optional users table insert skipped:', usersError.message);
       }
 
       // ── 3. Insert into role-specific table with HASHED password ──────────
@@ -521,9 +531,12 @@ export const authController = {
       if (table) {
         const { error: roleError } = await supabase.from(table).insert([insertData]);
         if (roleError) {
+          // Fatal: without the role-table row the account can never log in
           console.error(`[provision] Failed to insert into ${table}:`, roleError);
+          return res.status(500).json({ error: serverErrorMessage(roleError) });
         }
       }
+      await cacheDelPrefix('users:', 'departments:');
 
       // ── 4. Issue OTP and send verification email ─────────────────────────
       try {

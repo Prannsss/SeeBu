@@ -6,6 +6,7 @@ import { Search, CheckCircle, Clock, XCircle } from "lucide-react";
 import { gooeyToast } from "goey-toast";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
+import { statusBadgeClass } from "@/lib/status-styles";
 
 type TimelineEvent = {
   id: string;
@@ -51,6 +52,7 @@ function TrackingContent() {
   const [trackingNumber, setTrackingNumber] = useState(defaultQuery);
   const [result, setResult] = useState<ReportData | null>(null);
   const [activeTrackingId, setActiveTrackingId] = useState<string | null>(null);
+  const [error, setError] = useState<{ notFound: boolean; message: string } | null>(null);
 
   // Trigger search on mount if a query parameter exists
   useEffect(() => {
@@ -113,6 +115,7 @@ function TrackingContent() {
 
     setResult(formattedData);
     setActiveTrackingId(data.id);
+    setError(null);
 
     if (showToast) {
       gooeyToast.success("Report Found!", {
@@ -132,9 +135,7 @@ const handleTrack = async (e: React.FormEvent, silent = false) => {
     } catch (err: any) {
       setResult(null);
       setActiveTrackingId(null);
-      gooeyToast.error("Not Found", {
-        description: err.message || "No report matches that tracking number.",
-      });
+      setError({ notFound: err?.status === 404, message: err?.status === 404 ? `No report found for ${normalizedTrackingId}. Check the tracking number and try again.` : "Could not check the status right now. Please try again." });
     }
   };
 
@@ -162,7 +163,7 @@ const handleTrack = async (e: React.FormEvent, silent = false) => {
   const getStatusIcon = (status: string) => {
     const kind = getStatusKind(status);
     if (kind === "success") return <CheckCircle className="h-5 w-5 text-green-600" />;
-    if (kind === "rejected") return <XCircle className="h-5 w-5 text-red-600" />;
+    if (kind === "rejected") return <XCircle className="h-5 w-5 text-red-700" />;
     return <Clock className="h-5 w-5 text-amber-600" />;
   };
 
@@ -188,7 +189,7 @@ const handleTrack = async (e: React.FormEvent, silent = false) => {
   const getTimelineIcon = (event: TimelineEvent, index: number, total: number) => {
     const kind = getTimelineDisplayKind(event, index, total);
     if (kind === "success") return <CheckCircle className="h-5 w-5 text-green-600" />;
-    if (kind === "rejected") return <XCircle className="h-5 w-5 text-red-600" />;
+    if (kind === "rejected") return <XCircle className="h-5 w-5 text-red-700" />;
     return <Clock className="h-5 w-5 text-amber-600" />;
   };
 
@@ -203,8 +204,8 @@ const handleTrack = async (e: React.FormEvent, silent = false) => {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-32" suppressHydrationWarning>
       <div className="container mx-auto max-w-2xl px-4 pt-16 space-y-8" suppressHydrationWarning>
         <div className="text-center space-y-2">
-          <h1 className="text-3xl font-black text-slate-900 dark:text-white">Track Report</h1>
-          <p className="text-slate-500 dark:text-slate-400">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Track Report</h1>
+          <p className="text-slate-600 dark:text-slate-400">
             Enter your tracking number (e.g., RPT-123, RPT-404)
           </p>
         </div>
@@ -212,23 +213,42 @@ const handleTrack = async (e: React.FormEvent, silent = false) => {
         <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 sm:p-8">
           <form onSubmit={handleTrack} className="space-y-6">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500" aria-hidden="true" />
               <input
                 id="tracking"
                 type="text"
+                aria-label="Tracking number"
                 placeholder="RPT-XXXX"
-                className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-primary uppercase text-lg transition-all"
+                className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-primary uppercase text-lg transition-all"
                 required
                 value={trackingNumber}
                 onChange={(e) => setTrackingNumber(e.target.value)}
               />
             </div>
             
-            <Button type="submit" className="w-full py-6 text-lg font-bold shadow-lg text-white hover:text-white">
+            <Button type="submit" className="w-full py-6 text-lg font-bold shadow-lg bg-primary hover:bg-primary-dark text-white hover:text-white">
               Track Status
             </Button>
           </form>
         </div>
+
+        {error && (
+          <div role="alert" className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
+            <XCircle className="h-5 w-5 shrink-0 mt-0.5" aria-hidden="true" />
+            <div>
+              <p className="font-semibold">{error.notFound ? "Report not found" : "Couldn't check status right now"}</p>
+              <p className="text-sm">{error.message}</p>
+            </div>
+          </div>
+        )}
+
+        {!result && !error && (
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center">
+            <Search className="mx-auto mb-3 h-10 w-10 text-slate-500" aria-hidden="true" />
+            <p className="text-base font-semibold text-slate-900">No report selected</p>
+            <p className="text-sm text-slate-600 mt-1">Enter a tracking number above, or open one from your report history.</p>
+          </div>
+        )}
 
         {result && (
           <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500 fade-in">
@@ -236,14 +256,14 @@ const handleTrack = async (e: React.FormEvent, silent = false) => {
                 <div className="flex items-start justify-between gap-3">
                 <div>
                   <h2 className="text-xl font-bold text-slate-900 dark:text-white">{result.title}</h2>
-                  <p className="text-slate-500">{result.location}</p>
+                  <p className="text-slate-600">{result.location}</p>
                 </div>
                   <div className={`h-10 w-10 rounded-full border flex items-center justify-center ${getStatusCircleClass(result.status)}`}>
                     {getStatusIcon(result.status)}
                   </div>
               </div>
               
-              <div className="inline-flex items-center px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-sm font-medium">
+              <div className={`inline-flex items-center px-3 py-1 rounded-full border text-sm font-medium ${statusBadgeClass(result.status)}`}>
                 Status: <span className="ml-1 font-bold">{result.status}</span>
               </div>
 
@@ -259,12 +279,12 @@ const handleTrack = async (e: React.FormEvent, silent = false) => {
               {(result.status === "Completed" || result.status === "Resolved") && result.completion_photos && result.completion_photos.length > 0 && (
                 <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
                   <h3 className="font-bold flex items-center gap-2 text-slate-900 dark:text-white">
-                    <CheckCircle className="h-4 w-4 text-green-500" /> Completion Proof
+                    <CheckCircle className="h-4 w-4 text-green-600" /> Completion Proof
                   </h3>
                   <div className="grid grid-cols-2 gap-2">
                     {result.completion_photos.map((url, i) => (
                       <div key={i} className="relative aspect-video rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
-                        <Image src={url} alt="Completion" fill className="object-cover" />
+                        <Image src={url} alt={`Completion proof ${i + 1}`} fill sizes="(max-width: 768px) 50vw, 33vw" className="object-cover" />
                       </div>
                     ))}
                   </div>
@@ -273,7 +293,10 @@ const handleTrack = async (e: React.FormEvent, silent = false) => {
             </div>
 
             <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm relative">
-              <h3 className="font-bold text-lg mb-6 text-slate-900 dark:text-white">Timeline History</h3>
+              <h3 className="font-semibold text-lg mb-6 text-slate-900 dark:text-white">Timeline History</h3>
+              {result.timeline.length === 0 && (
+                <p className="text-sm text-slate-600">No timeline updates yet.</p>
+              )}
               <div className="relative space-y-6 before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-slate-200 dark:before:bg-slate-800">
                 {result.timeline.map((event, index) => (
                   <div key={event.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
@@ -284,7 +307,7 @@ const handleTrack = async (e: React.FormEvent, silent = false) => {
                     <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-1 gap-2">
                         <h4 className="font-bold text-slate-900 dark:text-white">{event.status}</h4>
-                        <time className="text-xs font-medium text-slate-500">{event.date}</time>
+                        <time className="text-xs font-medium text-slate-600">{event.date}</time>
                       </div>
                       {event.notes && <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">{event.notes}</p>}
                     </div>

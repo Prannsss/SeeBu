@@ -4,9 +4,42 @@
 
 @layer base {
   :root {
-    --background: 204 86% 94%;
-    --foreground: 207 60% 10%;
+    --background: 204 45% 97%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 19% 35%;
+    --accent: 199 80% 94%;
+    --accent-foreground: 200 90% 22%;
+    --destructive: 0 72% 42%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 32% 85%;
+    --input: 212 18% 58%;
+    --ring: 195 85% 50%;
+    --chart-1: 195 85% 50%;
+    --chart-2: 145 63% 49%;
+    --chart-3: 45 93% 47%;
+    --chart-4: 0 72% 42%;
+    --chart-5: 262 52% 47%;
     --radius: 0.5rem;
+  }
+
+  :focus-visible {
+    outline: 2px solid #13b6ec;
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
@@ -91,7 +124,7 @@
 .floating-input textarea {
   width: 100%;
   padding: 0.875rem 1rem 0.875rem 2.75rem;
-  border: 2px solid #e5e7eb;
+  border: 2px solid #8193a8;
   border-radius: 1rem;
   font-size: 0.9375rem;
   transition: all 0.3s ease;
@@ -123,7 +156,7 @@
 .floating-input textarea:focus {
   outline: none;
   border-color: #13b6ec;
-  box-shadow: 0 0 0 3px rgba(19, 182, 236, 0.1);
+  box-shadow: 0 0 0 3px rgba(19, 182, 236, 0.2);
 }
 
 .floating-input label {
@@ -132,7 +165,7 @@
   top: 50%;
   transform: translateY(-50%);
   font-size: 0.9375rem;
-  color: #9ca3af;
+  color: #64748b;
   pointer-events: none;
   transition: all 0.3s ease;
   background: transparent;
@@ -184,7 +217,7 @@
   left: 0.75rem;
   top: 50%;
   transform: translateY(-50%);
-  color: #9ca3af;
+  color: #64748b;
   transition: color 0.3s ease;
   pointer-events: none;
   font-size: 1.25rem;
@@ -208,7 +241,7 @@
   right: 0.75rem;
   top: 50%;
   transform: translateY(-50%);
-  color: #9ca3af;
+  color: #64748b;
   cursor: pointer;
   background: none;
   border: none;
@@ -240,7 +273,7 @@
 
 /* Auth pages background */
 .auth-bg {
-  background-color: #E3F2FD;
+  background-color: hsl(204 45% 97%);
 }
 
 /* Shine effect for buttons */

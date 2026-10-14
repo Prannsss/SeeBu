@@ -3,12 +3,16 @@
 import { useState } from "react"
 import { BarChart3 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ChartBarInteractive } from "@/components/ui/chart-bar-interactive"
-import { ChartAreaInteractive } from "@/components/ui/chart-area-interactive"
+import dynamic from "next/dynamic"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useQuery } from '@tanstack/react-query'
 import { useCurrentUser } from '@/hooks/queries/useCurrentUser'
 import { AnalyticsSkeleton } from '@/components/ui/analytics-skeleton'
+
+// recharts is heavy: load the charts in their own chunk after first paint.
+const ChartAreaInteractive = dynamic(() => import("@/components/ui/chart-area-interactive").then((m) => m.ChartAreaInteractive), { ssr: false, loading: () => <Skeleton className="h-[300px] w-full" /> })
+const ChartBarInteractive = dynamic(() => import("@/components/ui/chart-bar-interactive").then((m) => m.ChartBarInteractive), { ssr: false, loading: () => <Skeleton className="h-[300px] w-full" /> })
 
 export default function AdminAnalyticsPage() {
   const [barangayFilter, setBarangayFilter] = useState("all")
@@ -38,10 +42,10 @@ export default function AdminAnalyticsPage() {
       <div className="w-full max-w-[1600px] mx-auto px-4 py-10">
         <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <BarChart3 className="h-7 w-7 text-blue-600" />
+            <BarChart3 className="h-7 w-7 text-blue-600" aria-hidden="true" />
             <div>
-              <h1 className="text-3xl font-bold">Admin Analytics</h1>
-              <p className="text-muted-foreground">Deep dive into report trends.</p>
+              <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900">Admin Analytics</h1>
+              <p className="text-slate-600">Deep dive into report trends.</p>
             </div>
           </div>
           <div className="flex flex-col sm:flex-row gap-3">

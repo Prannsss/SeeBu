@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 export function Features() {
   const sectionRef = useRef<HTMLElement>(null);
@@ -10,9 +8,16 @@ export function Features() {
   const cardsRef = useRef<(HTMLDivElement | null)[]>([]);
 
   useEffect(() => {
-    gsap.registerPlugin(ScrollTrigger);
+    // gsap is loaded lazily so it stays out of the landing page's initial bundle.
+    let ctx: { revert: () => void } | undefined;
+    let cancelled = false;
+    (async () => {
+      const { gsap } = await import("gsap");
+      const { ScrollTrigger } = await import("gsap/ScrollTrigger");
+      if (cancelled) return;
+      gsap.registerPlugin(ScrollTrigger);
 
-    const ctx = gsap.context(() => {
+      ctx = gsap.context(() => {
       // Header scroll fade-in from bottom
       if (headerRef.current) {
         gsap.fromTo(
@@ -55,9 +60,13 @@ export function Features() {
           }
         );
       });
-    }, sectionRef);
+      }, sectionRef);
+    })();
 
-    return () => ctx.revert();
+    return () => {
+      cancelled = true;
+      ctx?.revert();
+    };
   }, []);
 
   return (

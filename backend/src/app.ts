@@ -1,9 +1,8 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
 import { limiter } from './middlewares/rateLimiter';
 import authRoutes from './routes/authRoutes';
 import locationRoutes from './routes/locationRoutes';
@@ -23,6 +22,8 @@ if (!process.env.JWT_SECRET) {
 }
 
 const app = express();
+// Behind Render/Vercel proxies: use the first X-Forwarded-For hop as req.ip (rate limiting)
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 5000;
 
 app.use(helmet({
@@ -50,11 +51,15 @@ app.use(cors({
   credentials: true
 }));
 
-// Body limits: Allow up to 50MB payloads for base64 image uploads (reports/tasks)
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+// Body limits: up to 50MB for base64 image uploads (reports/tasks), 1MB elsewhere.
+// The upload parser runs first; the global parser then skips already-parsed bodies.
+const uploadJson = express.json({ limit: '50mb' });
+app.use('/api/v1/reports', uploadJson);
+app.use('/api/v1/tasks', uploadJson);
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
-const imageUploadBodyLimit = express.json({ limit: '50mb' });
+console.log(`[cache] REDIS_URL ${process.env.REDIS_URL ? 'set' : 'unset (in-memory cache)'}`);
 
 // Health check endpoint for Render/Root URL
 app.get('/health', (req, res) => {
@@ -78,10 +83,10 @@ app.get('/', (req, res) => {
 // API Routes
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/locations', locationRoutes);
-app.use('/api/v1/reports', imageUploadBodyLimit, reportRoutes);
+app.use('/api/v1/reports', reportRoutes);
 app.use('/api/v1/analytics', analyticsRoutes);
 app.use('/api/v1/users', userRoutes);
-app.use('/api/v1/tasks', imageUploadBodyLimit, taskRoutes);
+app.use('/api/v1/tasks', taskRoutes);
 app.use('/api/v1/departments', departmentRoutes);
 
 // API health check
@@ -90,6 +95,16 @@ app.get('/api/v1/health', (req, res) => {
     status: 'OK', 
     timestamp: new Date().toISOString() 
   });
+});
+
+// JSON error responses (instead of Express's default HTML page)
+app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
+  if (err?.type === 'entity.too.large') return res.status(413).json({ error: 'Upload too large. Please use fewer or smaller photos.' });
+  if (err?.message === 'Not allowed by CORS') return res.status(403).json({ error: 'Origin not allowed' });
+  const status = err?.status || 500;
+  if (status < 500) return res.status(status).json({ error: 'Invalid request' });
+  console.error('[unhandled]', err);
+  return res.status(status).json({ error: 'Internal server error' });
 });
 
 app.listen(PORT, () => {

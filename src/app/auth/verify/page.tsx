@@ -128,10 +128,10 @@ export default function VerifyPage() {
           {/* GIF */}
           <div className="rounded-2xl overflow-hidden">
             <Image 
-              src="/gifs/verify.gif" 
+              src="/gifs/verify.webp" 
               alt="Verification process" 
               width={800}
-              height={600}
+              height={800}
               unoptimized
               className="w-full h-auto"
             />
@@ -144,7 +144,7 @@ export default function VerifyPage() {
         <div className="w-full max-w-md space-y-6 sm:space-y-8 animate-in fade-in duration-500">
           <div className="text-center lg:text-left">
             <div className="md:hidden mb-4 flex justify-center">
-              <Image src="/assets/logo.svg" alt="SeeBu Logo" width={60} height={60} />
+              <Image src="/assets/logo-128.png" alt="SeeBu Logo" width={60} height={60} />
             </div>
             <div className="flex justify-center lg:justify-start mb-6">
               <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center text-primary animate-pulse">

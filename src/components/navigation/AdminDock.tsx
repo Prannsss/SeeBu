@@ -1,12 +1,19 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Home, FileText, BarChart, UserPlus, User } from "lucide-react";
 import Dock from "@/components/ui/dock";
 
+const ROUTES = ['/admin', '/admin/reports', '/admin/analytics', '/admin/add-admin', '/admin/profile'];
+
 export default function AdminDock() {
   const router = useRouter();
   const pathname = usePathname();
+
+  useEffect(() => {
+    ROUTES.forEach((r) => router.prefetch(r));
+  }, [router]);
 
   const items = [
     { icon: <Home className={`w-5 h-5 ${pathname === '/admin' ? 'text-white' : ''}`} />, label: "Home", onClick: () => router.push('/admin'), className: pathname === '/admin' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },

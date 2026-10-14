@@ -17,8 +17,10 @@
     "genkit": "^1.28.0",
     "google-auth-library": "^10.9.0",
     "helmet": "^8.2.0",
+    "ioredis": "^6.0.0",
     "jsonwebtoken": "^9.0.3",
     "nodemailer": "^7.0.9",
+    "sharp": "^0.35.5",
     "zod": "^3.24.2"
   },
   "devDependencies": {

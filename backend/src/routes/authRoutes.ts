@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { authController } from '../controllers/authController';
 import { withAuth } from '../middlewares/withAuth';
 import { requireRole } from '../middlewares/requireRole';
-import { authLimiter } from '../middlewares/rateLimiter';
+import { authLimiter, otpLimiter } from '../middlewares/rateLimiter';
 
 const router = Router();
 
@@ -10,9 +10,9 @@ const router = Router();
 router.post('/login', authLimiter, authController.login);
 router.post('/register', authLimiter, authController.registerClient);
 router.post('/forgot-password', authLimiter, authController.forgotPassword);
-router.post('/verify-reset-code', authLimiter, authController.verifyResetCode);
-router.post('/reset-password', authLimiter, authController.resetPassword);
-router.post('/verify-email', authLimiter, authController.verifyEmail);
+router.post('/verify-reset-code', authLimiter, otpLimiter, authController.verifyResetCode);
+router.post('/reset-password', authLimiter, otpLimiter, authController.resetPassword);
+router.post('/verify-email', authLimiter, otpLimiter, authController.verifyEmail);
 router.post('/resend-verification', authLimiter, authController.resendVerification);
 
 // OAuth callbacks with rate limiting

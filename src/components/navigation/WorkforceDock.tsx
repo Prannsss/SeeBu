@@ -1,12 +1,19 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Home, ClipboardList, User, ShieldCheck } from "lucide-react";
 import Dock from "@/components/ui/dock";
 
+const ROUTES = ['/workforce', '/workforce/tasks', '/workforce/profile'];
+
 export default function WorkforceDock() {
   const router = useRouter();
   const pathname = usePathname();
+
+  useEffect(() => {
+    ROUTES.forEach((r) => router.prefetch(r));
+  }, [router]);
 
   const items = [
     { icon: <Home className={`w-5 h-5 ${pathname === '/workforce' ? 'text-white' : ''}`} />, label: "Home", onClick: () => router.push('/workforce'), className: pathname === '/workforce' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },

@@ -9,7 +9,7 @@ export function Footer() {
           <div className="col-span-2 md:col-span-1 flex flex-col items-center md:items-start text-center md:text-left">
             <div className="flex items-center gap-2 text-text-main dark:text-white mb-6">
               <Image 
-                src="/assets/logo.svg" 
+                src="/assets/logo-128.png" 
                 alt="SeeBu Logo" 
                 width={32} 
                 height={32}
@@ -21,9 +21,9 @@ export function Footer() {
               Bridging the gap between the government and the people of Cebu City through technology.
             </p>
             <div className="flex gap-4 justify-center md:justify-start">
-              <Link className="text-gray-400 hover:text-primary transition-colors" href="#"><span className="material-symbols-outlined">public</span></Link>
-              <Link className="text-gray-400 hover:text-primary transition-colors" href="#"><span className="material-symbols-outlined">mail</span></Link>
-              <Link className="text-gray-400 hover:text-primary transition-colors" href="#"><span className="material-symbols-outlined">call</span></Link>
+              <Link className="text-slate-600 hover:text-primary transition-colors" href="#" aria-label="Website"><span className="material-symbols-outlined" aria-hidden="true">public</span></Link>
+              <Link className="text-slate-600 hover:text-primary transition-colors" href="#" aria-label="Email"><span className="material-symbols-outlined" aria-hidden="true">mail</span></Link>
+              <Link className="text-slate-600 hover:text-primary transition-colors" href="#" aria-label="Phone"><span className="material-symbols-outlined" aria-hidden="true">call</span></Link>
             </div>
           </div>
           <div className="flex flex-col items-center md:items-start">
@@ -53,7 +53,7 @@ export function Footer() {
             </ul>
           </div>
         </div>
-        <div className="border-t border-gray-100 dark:border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-gray-400">
+        <div className="border-t border-gray-100 dark:border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-slate-600">
           <p>© {new Date().getFullYear()} SeeBu. All rights reserved.</p>
           <p>Developed by France Laurence Velarde</p>
         </div>

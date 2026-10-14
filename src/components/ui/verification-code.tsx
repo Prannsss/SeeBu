@@ -102,7 +102,7 @@ export function VerificationCodeUI({ onVerify, onCancel, email = "" }: Verificat
       </div>
 
       <h2 className="text-2xl font-bold mb-2">Verification Required</h2>
-      <p className="text-slate-500 dark:text-slate-400 mb-2 max-w-sm">
+      <p className="text-slate-600 dark:text-slate-400 mb-2 max-w-sm">
         Please enter the 6-digit verification code sent to:
       </p>
       {email && (

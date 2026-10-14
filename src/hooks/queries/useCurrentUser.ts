@@ -9,11 +9,20 @@ export function useCurrentUser() {
     queryFn: async () => {
       try {
         const res = await apiClient.users.me();
-        return res.data ?? null;
+        const data = res.data ?? null;
+        if (data) {
+          try {
+            localStorage.setItem("user-profile", JSON.stringify(data));
+          } catch {
+            // localStorage unavailable
+          }
+        }
+        return data;
       } catch {
         return null;
       }
     },
+    staleTime: 5 * 60_000,
     retry: false,
   });
 }

@@ -13,6 +13,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { ReportMediaGallery } from "@/components/reports/report-media-gallery"
 import { useCurrentUser } from "@/hooks/queries/useCurrentUser"
 import { useRealtimeReports } from "@/hooks/useRealtimeReports"
+import { statusBadgeClass, urgencyBadgeClass } from "@/lib/status-styles"
 
 type LinkedReport = {
   id: string;
@@ -41,7 +42,6 @@ type TaskItem = {
 };
 
 export default function WorkforceAdminTasksPage() {
-  useRealtimeReports({ enableToasts: true, userRole: "workforce-admin" });
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState("Pending")
   const [delegateTo, setDelegateTo] = useState("")
@@ -50,6 +50,7 @@ export default function WorkforceAdminTasksPage() {
   const [modalDelegateMode, setModalDelegateMode] = useState(false)
 
   const { data: profileData } = useCurrentUser()
+  useRealtimeReports({ enableToasts: true, userRole: "workforce-admin", userId: profileData?.id });
 
   const departmentId = profileData?.department_id ? String(profileData.department_id) : "";
 
@@ -83,7 +84,6 @@ export default function WorkforceAdminTasksPage() {
       return json.data;
     },
     enabled: !!departmentId,
-    refetchInterval: 5000,
   })
 
   const updateTaskMutation = useMutation({
@@ -127,7 +127,7 @@ export default function WorkforceAdminTasksPage() {
     created_by: t.created_by || "System"
   })) : []
 
-  const pendingTasks = tasksList.filter(t => t.status === "Pending" || t.status === "Accepted")
+  const pendingTasks = tasksList.filter(t => t.status === "Pending" || t.status === "Accepted" || t.status === "In Progress")
   const assignedTasks = tasksList.filter(t => t.status === "Assigned")
   const completedTasks = tasksList.filter(t => t.status === "Completed")
 
@@ -160,36 +160,33 @@ export default function WorkforceAdminTasksPage() {
     setSelectedTask(task)
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Pending": return "bg-orange-100 text-orange-700 border-orange-200"
-      case "Accepted": return "bg-blue-100 text-blue-700 border-blue-200"
-      case "Assigned": return "bg-amber-100 text-amber-700 border-amber-200"
-      case "Completed": return "bg-emerald-100 text-emerald-700 border-emerald-200"
-      default: return "bg-slate-100 text-slate-700 border-slate-200"
-    }
-  }
-
   return (
     <div className="min-h-screen bg-slate-50 pb-32 dark:bg-slate-950 dark:text-slate-100">
       <div className="container mx-auto max-w-5xl px-4 py-8">
         <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Department Tasks</h1>
-            <p className="text-muted-foreground mt-1">Review department assignments and delegate to your workforce members.</p>
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">Department Tasks</h1>
+            <p className="text-slate-600 mt-1">Review department assignments and delegate to your workforce members.</p>
           </div>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="mb-6 grid w-full grid-cols-3 h-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md p-1">
-            <TabsTrigger value="Pending" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-blue-600 data-[state=active]:text-white transition-all">Pending Tasks</TabsTrigger>
-            <TabsTrigger value="Assigned" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-amber-600 data-[state=active]:text-white transition-all">Assigned Tasks</TabsTrigger>
-            <TabsTrigger value="Completed" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-emerald-600 data-[state=active]:text-white transition-all">Completed Tasks</TabsTrigger>
+            <TabsTrigger value="Pending" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-blue-600 data-[state=active]:text-white transition-all">Pending ({pendingTasks.length})</TabsTrigger>
+            <TabsTrigger value="Assigned" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-amber-600 data-[state=active]:text-white transition-all">Assigned ({assignedTasks.length})</TabsTrigger>
+            <TabsTrigger value="Completed" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-emerald-600 data-[state=active]:text-white transition-all">Completed ({completedTasks.length})</TabsTrigger>
           </TabsList>
 
           <TabsContent value="Pending">
             {pendingTasks.length === 0 ? (
-              <div className="text-center py-12 text-slate-500 bg-white dark:bg-slate-900 rounded-md border border-dashed">No pending tasks for your department.</div>
+              isLoading ? (
+                <div className="text-center py-12 text-slate-600 bg-white rounded-md border border-dashed border-slate-300" role="status">Loading tasks…</div>
+              ) : (
+                <div className="flex flex-col items-center text-center py-12 px-4 bg-white rounded-md border border-dashed border-slate-300">
+                  <ClipboardList className="w-10 h-10 text-slate-500 mb-3" aria-hidden="true" />
+                  <p className="text-base font-semibold text-slate-900">No pending tasks for your department.</p>
+                </div>
+              )
             ) : (
               <div className="grid gap-4">
                 {pendingTasks.map((task) => (
@@ -198,17 +195,17 @@ export default function WorkforceAdminTasksPage() {
                       <div className="flex-1 p-6">
                         <div className="flex items-center justify-between mb-3">
                           <Badge variant="outline" className="font-mono text-xs">{task.id}</Badge>
-                          <Badge variant="secondary" className={getStatusColor(task.status)}>{task.status}</Badge>
+                          <Badge variant="outline" className={statusBadgeClass(task.status)}>{task.status}</Badge>
                         </div>
-                        <h3 className="text-xl font-semibold">{task.title}</h3>
-                        <p className="text-slate-600 dark:text-slate-400 mt-2 text-sm">{task.description}</p>
+                        <h3 className="text-base font-semibold text-slate-900">{task.title}</h3>
+                        <p className="text-slate-600 mt-2 text-sm">{task.description}</p>
                         
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6 border-t pt-4 text-sm">
-                          <div className="flex items-center text-slate-500"><Clock className="w-4 h-4 mr-2" /> Logged: {task.date}</div>
+                          <div className="flex items-center text-slate-600"><Clock className="w-4 h-4 mr-2" /> Logged: {task.date}</div>
                           {task.related_report_id && (
-                            <div className="flex items-center text-slate-500"><Link2 className="w-4 h-4 mr-2" /> Report: <span className="font-medium text-blue-600 ml-1">{task.related_report_id}</span></div>
+                            <div className="flex items-center text-slate-600"><Link2 className="w-4 h-4 mr-2" /> Report: <span className="font-medium text-blue-600 ml-1">{task.related_report_id}</span></div>
                           )}
-                          <div className="flex items-center text-slate-500"><Users className="w-4 h-4 mr-2" /> Assignee: <span className="font-medium text-slate-900 dark:text-slate-200 ml-1">{task.officer || "Unassigned"}</span></div>
+                          <div className="flex items-center text-slate-600"><Users className="w-4 h-4 mr-2" /> Assignee: <span className="font-medium text-slate-900 dark:text-slate-200 ml-1">{task.officer || "Unassigned"}</span></div>
                         </div>
                       </div>
 
@@ -220,7 +217,7 @@ export default function WorkforceAdminTasksPage() {
                           }}>
                             <DialogTrigger asChild>
                               <Button
-                                className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-sm font-semibold rounded-md h-9"
+                                className="w-full bg-primary hover:bg-primary-dark text-white shadow-sm font-semibold rounded-md h-9"
                                 onClick={() => setDelegateTo("")}
                               >
                                 Accept and Delegate
@@ -240,13 +237,7 @@ export default function WorkforceAdminTasksPage() {
                                       {task.id}
                                     </span>
                                     {task.related_report?.urgency && (
-                                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border capitalize ${
-                                        (task.related_report.urgency || '').toLowerCase() === 'high'
-                                          ? 'text-red-600 bg-red-50 border-red-200 dark:bg-red-950/50 dark:border-red-800'
-                                          : (task.related_report.urgency || '').toLowerCase() === 'medium'
-                                            ? 'text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-950/50 dark:border-amber-800'
-                                            : 'text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-950/50 dark:border-emerald-800'
-                                      }`}>
+                                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border capitalize ${urgencyBadgeClass(task.related_report.urgency)}`}>
                                         {task.related_report.urgency} Urgency
                                       </span>
                                     )}
@@ -255,7 +246,7 @@ export default function WorkforceAdminTasksPage() {
                                     {task.title}
                                   </div>
                                   {(task.related_report?.barangay || task.description) && (
-                                    <div className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1 truncate">
+                                    <div className="text-xs text-slate-600 flex items-center gap-1.5 mt-1 truncate">
                                       <MapPin className="h-3 w-3 shrink-0" />
                                       <span>{task.related_report ? `${task.related_report.barangay}, ${task.related_report.municipality}` : task.description}</span>
                                     </div>
@@ -277,7 +268,7 @@ export default function WorkforceAdminTasksPage() {
                                     </SelectContent>
                                   </Select>
                                   {officers.length === 0 && (
-                                    <p className="text-xs text-red-500">No active officers available in your department.</p>
+                                    <p className="text-xs text-red-700">No active officers available in your department.</p>
                                   )}
                                 </div>
                               </div>
@@ -298,7 +289,7 @@ export default function WorkforceAdminTasksPage() {
                                   type="button"
                                   onClick={() => handleDelegate(task.id)}
                                   disabled={!delegateTo || officers.length === 0 || updateTaskMutation.isPending}
-                                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                                  className="w-full bg-primary hover:bg-primary-dark text-white"
                                 >
                                   {updateTaskMutation.isPending ? "Delegating..." : "Confirm Assignment"}
                                 </Button>
@@ -307,7 +298,8 @@ export default function WorkforceAdminTasksPage() {
                           </Dialog>
                         )}
                         <Button
-                          className="w-full bg-slate-800 hover:bg-slate-900 text-white shadow-sm font-semibold rounded-md h-9"
+                          variant="outline"
+                          className="w-full border-slate-300 text-slate-900 font-semibold rounded-md h-9"
                           onClick={() => handleViewLinkedReport(task)}
                         >
                           View Linked Report
@@ -322,7 +314,14 @@ export default function WorkforceAdminTasksPage() {
 
           <TabsContent value="Assigned">
             {assignedTasks.length === 0 ? (
-              <div className="text-center py-12 text-slate-500 bg-white dark:bg-slate-900 rounded-md border border-dashed">No assigned tasks yet.</div>
+              isLoading ? (
+                <div className="text-center py-12 text-slate-600 bg-white rounded-md border border-dashed border-slate-300" role="status">Loading tasks…</div>
+              ) : (
+                <div className="flex flex-col items-center text-center py-12 px-4 bg-white rounded-md border border-dashed border-slate-300">
+                  <ClipboardList className="w-10 h-10 text-slate-500 mb-3" aria-hidden="true" />
+                  <p className="text-base font-semibold text-slate-900">No assigned tasks yet.</p>
+                </div>
+              )
             ) : (
               <div className="grid gap-4">
                 {assignedTasks.map((task) => (
@@ -331,23 +330,24 @@ export default function WorkforceAdminTasksPage() {
                       <div className="flex-1 p-6">
                         <div className="flex items-center justify-between mb-3">
                           <Badge variant="outline" className="font-mono text-xs">{task.id}</Badge>
-                          <Badge variant="secondary" className={getStatusColor(task.status)}>{task.status}</Badge>
+                          <Badge variant="outline" className={statusBadgeClass(task.status)}>{task.status}</Badge>
                         </div>
-                        <h3 className="text-xl font-semibold">{task.title}</h3>
-                        <p className="text-slate-600 dark:text-slate-400 mt-2 text-sm">{task.description}</p>
+                        <h3 className="text-base font-semibold text-slate-900">{task.title}</h3>
+                        <p className="text-slate-600 mt-2 text-sm">{task.description}</p>
                         
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6 border-t pt-4 text-sm">
-                          <div className="flex items-center text-slate-500"><Clock className="w-4 h-4 mr-2" /> Logged: {task.date}</div>
+                          <div className="flex items-center text-slate-600"><Clock className="w-4 h-4 mr-2" /> Logged: {task.date}</div>
                           {task.related_report_id && (
-                            <div className="flex items-center text-slate-500"><Link2 className="w-4 h-4 mr-2" /> Report: <span className="font-medium text-blue-600 ml-1">{task.related_report_id}</span></div>
+                            <div className="flex items-center text-slate-600"><Link2 className="w-4 h-4 mr-2" /> Report: <span className="font-medium text-blue-600 ml-1">{task.related_report_id}</span></div>
                           )}
-                          <div className="flex items-center text-slate-500"><Users className="w-4 h-4 mr-2" /> Assignee: <span className="font-medium text-slate-900 dark:text-slate-200 ml-1">{task.officer || "Unassigned"}</span></div>
+                          <div className="flex items-center text-slate-600"><Users className="w-4 h-4 mr-2" /> Assignee: <span className="font-medium text-slate-900 dark:text-slate-200 ml-1">{task.officer || "Unassigned"}</span></div>
                         </div>
                       </div>
 
                       <div className="bg-slate-50 dark:bg-slate-950 p-6 border-t md:border-t-0 md:border-l flex flex-col justify-center gap-3 min-w-[240px]">
                         <Button
-                          className="w-full bg-slate-800 hover:bg-slate-900 text-white shadow-sm font-semibold rounded-md h-9"
+                          variant="outline"
+                          className="w-full border-slate-300 text-slate-900 font-semibold rounded-md h-9"
                           onClick={() => handleViewLinkedReport(task)}
                         >
                           View Linked Report
@@ -362,24 +362,31 @@ export default function WorkforceAdminTasksPage() {
 
           <TabsContent value="Completed">
             {completedTasks.length === 0 ? (
-               <div className="text-center py-12 text-slate-500 bg-white dark:bg-slate-900 rounded-md border border-dashed">No completed tasks yet.</div>
+               isLoading ? (
+                 <div className="text-center py-12 text-slate-600 bg-white rounded-md border border-dashed border-slate-300" role="status">Loading tasks…</div>
+               ) : (
+                 <div className="flex flex-col items-center text-center py-12 px-4 bg-white rounded-md border border-dashed border-slate-300">
+                   <ClipboardList className="w-10 h-10 text-slate-500 mb-3" aria-hidden="true" />
+                   <p className="text-base font-semibold text-slate-900">No completed tasks yet.</p>
+                 </div>
+               )
             ) : (
                <div className="grid gap-4">
                  {completedTasks.map((task) => (
                    <Card key={task.id} className="dark:bg-slate-900 border-emerald-100 dark:border-emerald-900 rounded-lg">
                      <CardHeader className="pb-3 border-b border-emerald-50 dark:border-emerald-950 flex flex-col sm:flex-row justify-between items-start sm:items-center">
                        <div>
-                         <CardTitle className="text-lg flex items-center gap-2">
-                           <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                         <CardTitle className="text-base font-semibold text-slate-900 flex items-center gap-2">
+                           <CheckCircle2 className="w-5 h-5 text-emerald-600" />
                            {task.title}
                          </CardTitle>
-                         <div className="flex gap-2 text-xs text-muted-foreground mt-2 font-mono">{task.id}</div>
+                         <div className="flex gap-2 text-xs text-slate-600 mt-2 font-mono">{task.id}</div>
                        </div>
-                       <Badge className="bg-emerald-100 text-emerald-700 border-none mt-2 sm:mt-0">Completed</Badge>
+                       <Badge variant="outline" className={`mt-2 sm:mt-0 ${statusBadgeClass("Completed")}`}>Completed</Badge>
                      </CardHeader>
                      <CardContent className="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                       <div className="flex items-center gap-2"><Clock className="w-4 h-4 text-slate-400" /> <span className="text-slate-600 dark:text-slate-400">Date:</span> {task.date}</div>
-                       <div className="flex items-center gap-2"><Users className="w-4 h-4 text-slate-400" /> <span className="text-slate-600 dark:text-slate-400">Completed By:</span> {task.officer}</div>
+                       <div className="flex items-center gap-2"><Clock className="w-4 h-4 text-slate-500" /> <span className="text-slate-600">Date:</span> {task.date}</div>
+                       <div className="flex items-center gap-2"><Users className="w-4 h-4 text-slate-500" /> <span className="text-slate-600">Completed By:</span> {task.officer}</div>
                      </CardContent>
                    </Card>
                  ))}
@@ -418,13 +425,7 @@ export default function WorkforceAdminTasksPage() {
                     {selectedTask.id}
                   </span>
                   {selectedTask.related_report?.urgency && (
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border capitalize ${
-                      (selectedTask.related_report.urgency || '').toLowerCase() === 'high'
-                        ? 'text-red-600 bg-red-50 border-red-200 dark:bg-red-950/50 dark:border-red-800'
-                        : (selectedTask.related_report.urgency || '').toLowerCase() === 'medium'
-                          ? 'text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-950/50 dark:border-amber-800'
-                          : 'text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-950/50 dark:border-emerald-800'
-                    }`}>
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border capitalize ${urgencyBadgeClass(selectedTask.related_report.urgency)}`}>
                       {selectedTask.related_report.urgency} Urgency
                     </span>
                   )}
@@ -433,7 +434,7 @@ export default function WorkforceAdminTasksPage() {
                   {selectedTask.title}
                 </div>
                 {(selectedTask.related_report?.barangay || selectedTask.description) && (
-                  <div className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1 truncate">
+                  <div className="text-xs text-slate-600 flex items-center gap-1.5 mt-1 truncate">
                     <MapPin className="h-3 w-3 shrink-0" />
                     <span>{selectedTask.related_report ? `${selectedTask.related_report.barangay}, ${selectedTask.related_report.municipality}` : selectedTask.description}</span>
                   </div>
@@ -455,7 +456,7 @@ export default function WorkforceAdminTasksPage() {
                   </SelectContent>
                 </Select>
                 {officers.length === 0 && (
-                  <p className="text-xs text-red-500">No active officers available in your department.</p>
+                  <p className="text-xs text-red-700">No active officers available in your department.</p>
                 )}
               </div>
             </div>
@@ -464,39 +465,33 @@ export default function WorkforceAdminTasksPage() {
               <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
                 <div className="rounded-lg border bg-slate-50 p-4 dark:bg-slate-900 h-fit">
                   <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2">Report Details</h4>
-                  <div className="text-sm text-muted-foreground grid gap-2">
+                  <div className="text-sm text-slate-600 grid gap-2">
                     <div className="flex justify-between border-b pb-2 gap-4">
-                      <span className="text-slate-500">Urgency Level:</span>
-                      <span className={`font-medium text-right capitalize ${
-                        (selectedTask?.related_report?.urgency || '').toLowerCase() === "high"
-                          ? "text-red-600 dark:text-red-400"
-                          : (selectedTask?.related_report?.urgency || '').toLowerCase() === "medium"
-                            ? "text-amber-600 dark:text-amber-400"
-                            : "text-emerald-600 dark:text-emerald-400"
-                      }`}>{selectedTask?.related_report?.urgency || "Low"}</span>
+                      <span className="text-slate-600">Urgency Level:</span>
+                      <Badge variant="outline" className={`capitalize ${urgencyBadgeClass(selectedTask?.related_report?.urgency || "Low")}`}>{selectedTask?.related_report?.urgency || "Low"}</Badge>
                     </div>
                     <div className="flex justify-between border-b pb-2 gap-4">
-                      <span className="text-slate-500">Title:</span>
+                      <span className="text-slate-600">Title:</span>
                       <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{selectedTask?.related_report?.title || selectedTask?.title || "N/A"}</span>
                     </div>
                     <div className="grid border-b pb-2 gap-1">
-                      <span className="text-slate-500">Description:</span>
+                      <span className="text-slate-600">Description:</span>
                       <span className="font-medium text-slate-700 dark:text-slate-300 leading-relaxed">{selectedTask?.related_report?.description || selectedTask?.description || "No report description available."}</span>
                     </div>
                     <div className="flex justify-between border-b pb-2 gap-4">
-                      <span className="text-slate-500">Municipality/City:</span>
+                      <span className="text-slate-600">Municipality/City:</span>
                       <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{selectedTask?.related_report?.municipality || "Unknown"}</span>
                     </div>
                     <div className="flex justify-between border-b pb-2 gap-4">
-                      <span className="text-slate-500">Barangay:</span>
+                      <span className="text-slate-600">Barangay:</span>
                       <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{selectedTask?.related_report?.barangay || "Unknown"}</span>
                     </div>
                     <div className="grid border-b pb-2 gap-1">
-                      <span className="text-slate-500">Street Address:</span>
+                      <span className="text-slate-600">Street Address:</span>
                       <span className="font-medium text-slate-700 dark:text-slate-300">{selectedTask?.related_report?.streetAddress || "N/A"}</span>
                     </div>
                     <div className="grid gap-1">
-                      <span className="text-slate-500">Landmark:</span>
+                      <span className="text-slate-600">Landmark:</span>
                       <span className="font-medium text-slate-700 dark:text-slate-300">{selectedTask?.related_report?.landmark || "N/A"}</span>
                     </div>
                   </div>
@@ -555,7 +550,7 @@ export default function WorkforceAdminTasksPage() {
                   type="button"
                   onClick={() => selectedTask && handleDelegate(selectedTask.id)}
                   disabled={!delegateTo || officers.length === 0 || updateTaskMutation.isPending}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                  className="w-full bg-primary hover:bg-primary-dark text-white"
                 >
                   {updateTaskMutation.isPending ? "Delegating..." : "Confirm & Delegate"}
                 </Button>
@@ -564,7 +559,7 @@ export default function WorkforceAdminTasksPage() {
               selectedTask && !selectedTask.assignedToId ? (
                 <Button
                   type="button"
-                  className="col-span-full w-full bg-blue-600 hover:bg-blue-700 text-white"
+                  className="col-span-full w-full bg-primary hover:bg-primary-dark text-white"
                   onClick={() => {
                     setModalDelegateMode(true);
                     setDelegateTo("");

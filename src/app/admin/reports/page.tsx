@@ -28,11 +28,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { ReportMediaGallery } from "@/components/reports/report-media-gallery"
 import { useCurrentUser } from "@/hooks/queries/useCurrentUser"
 import { useRealtimeReports } from "@/hooks/useRealtimeReports"
+import { statusBadgeClass, urgencyBadgeClass } from "@/lib/status-styles"
 
 export default function AdminReportsPage() {
-  useRealtimeReports({ enableToasts: true, userRole: "admin" });
   const queryClient = useQueryClient();
-  const { data: currentUser } = useCurrentUser();
+  const { data: currentUser, isPending: profilePending } = useCurrentUser();
+  useRealtimeReports({ enableToasts: true, userRole: "admin", municipalityId: currentUser?.municipality_id });
   const [activeTab, setActiveTab] = useState("In Review");
   const [urgencyFilter, setUrgencyFilter] = useState("All");
   const [delegationOpen, setDelegationOpen] = useState<string | null>(null);    
@@ -79,7 +80,8 @@ export default function AdminReportsPage() {
         : await apiClient.reports.getAll();
       return json.data;
     },
-    refetchInterval: 10000,
+    // Wait for the profile so we never fetch unscoped (all municipalities) reports first.
+    enabled: !!currentUser,
   });
 
   const updateStatusMutation = useMutation({
@@ -97,6 +99,10 @@ export default function AdminReportsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-reports'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+      // "Action Taken" creates a task for the department.
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['workforce-admin-tasks'] });
     }
   });
 
@@ -243,14 +249,14 @@ export default function AdminReportsPage() {
       <div className="container mx-auto max-w-5xl px-4 py-10">
         <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <FileWarning className="h-7 w-7 text-blue-600" />
+            <FileWarning className="h-7 w-7 text-primary" aria-hidden="true" />
             <div>
-              <h1 className="text-3xl font-bold">Reports</h1>
-              <p className="text-muted-foreground">Prioritize reports by urgency and location impact.</p>
+              <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">Reports</h1>
+              <p className="text-slate-600">Prioritize reports by urgency and location impact.</p>
             </div>
           </div>
           <div className="flex items-center gap-2 z-10 relative">
-            <Filter className="h-5 w-5 text-slate-500" />
+            <Filter className="h-5 w-5 text-slate-600" />
             <Select value={urgencyFilter} onValueChange={setUrgencyFilter}>
               <SelectTrigger className="w-[140px] bg-white dark:bg-slate-900 border-slate-200 shadow-sm">
                 <SelectValue placeholder="Filter Urgency" />
@@ -287,7 +293,7 @@ export default function AdminReportsPage() {
             </TabsTrigger>
             <TabsTrigger
               value="Rejected"
-              className="text-xs sm:text-sm md:text-base py-3 px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-red-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-red-600 font-semibold transition-all duration-300 ease-in-out text-center truncate"
+              className="text-xs sm:text-sm md:text-base py-3 px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-red-700 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-red-700 font-semibold transition-all duration-300 ease-in-out text-center truncate"
             >
               Rejected
             </TabsTrigger>
@@ -295,9 +301,20 @@ export default function AdminReportsPage() {
 
           <TabsContent value={activeTab} className="m-0 focus-visible:outline-none">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
-              {filteredItems.length === 0 ? (
-                <div className="text-center py-10 col-span-full text-muted-foreground bg-slate-50 dark:bg-slate-900 rounded-md border border-dashed border-slate-300 dark:border-slate-800">
-                  No records found for this category and urgency.
+              {profilePending || (currentUser && isLoading) ? (
+                <div className="text-center py-10 col-span-full text-slate-600 bg-slate-50 rounded-md border border-dashed border-slate-300" role="status">
+                  Loading reports…
+                </div>
+              ) : !currentUser ? (
+                <div className="text-center py-10 col-span-full text-slate-600 bg-slate-50 rounded-md border border-dashed border-slate-300" role="alert">
+                  We couldn&apos;t load your profile. Your session may have expired.{" "}
+                  <a href="/auth/login" className="font-semibold text-primary underline">Sign in again</a>
+                </div>
+              ) : filteredItems.length === 0 ? (
+                <div className="flex flex-col items-center text-center py-10 px-4 col-span-full bg-slate-50 dark:bg-slate-900 rounded-md border border-dashed border-slate-300 dark:border-slate-800">
+                  <FileText className="h-10 w-10 text-slate-600 mb-3" aria-hidden="true" />
+                  <p className="text-base font-semibold text-slate-900">No {activeTab.toLowerCase()} reports</p>
+                  <p className="text-sm text-slate-600 mt-1">No records found for this category and urgency.</p>
                 </div>
               ) : (
                 filteredItems.map((item) => (
@@ -317,13 +334,7 @@ export default function AdminReportsPage() {
                         {/* Top Meta Row: Urgency Pill, Category Pill, Report ID */}
                         <div className="flex items-center justify-between gap-2 mb-2.5">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full capitalize border ${
-                              (item.urgency || '').toLowerCase() === 'high'
-                                ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/60 dark:text-red-300 dark:border-red-800'
-                                : (item.urgency || '').toLowerCase() === 'medium'
-                                  ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800'
-                                  : 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800'
-                            }`}>
+                            <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full capitalize border ${urgencyBadgeClass(item.urgency)}`}>
                               <AlertCircle className="h-3 w-3 shrink-0" />
                               {item.urgency || 'Low'}
                             </span>
@@ -335,25 +346,25 @@ export default function AdminReportsPage() {
                             )}
                           </div>
 
-                          <span className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded-full bg-blue-50/70 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/70 dark:border-blue-800 shrink-0">
+                          <span className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded-full bg-blue-50/70 text-blue-600 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/70 dark:border-blue-800 shrink-0">
                             {item.id}
                           </span>
                         </div>
 
                         {/* Card Title */}
-                        <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 line-clamp-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                        <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100 line-clamp-1 group-hover:text-primary dark:group-hover:text-blue-400 transition-colors">
                           {item.title}
                         </h3>
 
                         {/* Location & Date */}
-                        <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
-                          <MapPin className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                        <div className="mt-1 flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-400 flex-wrap">
+                          <MapPin className="h-3.5 w-3.5 text-primary shrink-0" />
                           <span className="font-medium text-slate-700 dark:text-slate-300">{item.barangay}</span>
                           {item.municipality && item.municipality !== "Unknown" && (
                             <span>, {item.municipality}</span>
                           )}
-                          <span className="text-slate-300 dark:text-slate-700">•</span>
-                          <Calendar className="h-3 w-3 text-slate-400 shrink-0" />
+                          <span className="text-slate-600 dark:text-slate-700" aria-hidden="true">•</span>
+                          <Calendar className="h-3 w-3 text-slate-600 shrink-0" />
                           <span>{item.date}</span>
                         </div>
                       </div>
@@ -366,22 +377,22 @@ export default function AdminReportsPage() {
                               {item.description}
                             </p>
                           ) : (
-                            <p className="text-xs text-slate-400 italic bg-slate-50/70 dark:bg-slate-900/40 rounded-md p-2 border border-slate-100 dark:border-slate-800/80">
+                            <p className="text-xs text-slate-600 italic bg-slate-50/70 dark:bg-slate-900/40 rounded-md p-2 border border-slate-100 dark:border-slate-800/80">
                               No description provided.
                             </p>
                           )}
 
                           {/* Photos Badge Indicator */}
                           {((item.reporterPhotos && item.reporterPhotos.length > 0) || (item.completionPhotos && item.completionPhotos.length > 0)) && (
-                            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 pt-1.5">
+                            <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 pt-1.5">
                               {item.reporterPhotos && item.reporterPhotos.length > 0 && (
                                 <span className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800/80 px-2 py-0.5 rounded-full text-[11px] font-medium">
-                                  <ImageIcon className="h-3 w-3 text-slate-500" />
+                                  <ImageIcon className="h-3 w-3 text-slate-600" />
                                   {item.reporterPhotos.length} photo{item.reporterPhotos.length > 1 ? 's' : ''}
                                 </span>
                               )}
                               {item.completionPhotos && item.completionPhotos.length > 0 && (
-                                <span className="inline-flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60 px-2 py-0.5 rounded-full text-[11px] font-medium">
+                                <span className="inline-flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60 px-2 py-0.5 rounded-full text-[11px] font-medium">
                                   <CheckCircle2 className="h-3 w-3 text-emerald-600" />
                                   {item.completionPhotos.length} proof
                                 </span>
@@ -393,14 +404,14 @@ export default function AdminReportsPage() {
                         {/* Tab-Specific Context Callout Banner */}
                         <div className="pt-1">
                           {item.status === 'Resolved' && (
-                            <div className="flex items-center justify-between text-xs bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 rounded-md p-2.5 text-emerald-800 dark:text-emerald-300">
+                            <div className="flex items-center justify-between text-xs bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 rounded-md p-2.5 text-emerald-600 dark:text-emerald-300">
                               <div className="flex items-center gap-1.5 min-w-0">
                                 <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
                                 <span className="truncate">
                                   Completed by <span className="font-semibold">{item.completedBy}</span>
                                 </span>
                               </div>
-                              <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-200/70 dark:bg-emerald-900/60 px-1.5 py-0.5 rounded-full text-emerald-800 dark:text-emerald-200 shrink-0 ml-2">
+                              <span className={`text-[10px] font-bold uppercase tracking-wider border px-1.5 py-0.5 rounded-full shrink-0 ml-2 ${statusBadgeClass(item.status)}`}>
                                 Resolved
                               </span>
                             </div>
@@ -408,7 +419,7 @@ export default function AdminReportsPage() {
 
                           {item.status === 'Rejected' && (
                             <div className="flex items-start gap-2 text-xs bg-red-50/90 dark:bg-red-950/40 border border-red-200/80 dark:border-red-900/60 rounded-md p-2.5 text-red-700 dark:text-red-300">
-                              <XCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+                              <XCircle className="h-4 w-4 text-red-700 shrink-0 mt-0.5" />
                               <div className="min-w-0 flex-1">
                                 <span className="font-semibold text-red-800 dark:text-red-200">Rejection Reason: </span>
                                 <span className="text-red-700 dark:text-red-300 leading-snug">{item.rejectionReason || 'Spam or invalid details'}</span>
@@ -417,24 +428,24 @@ export default function AdminReportsPage() {
                           )}
 
                           {item.status === 'Action Taken' && (
-                            <div className="flex items-center justify-between text-xs bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-800/60 rounded-md p-2.5 text-blue-800 dark:text-blue-300">
+                            <div className="flex items-center justify-between text-xs bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-800/60 rounded-md p-2.5 text-blue-600 dark:text-blue-300">
                               <div className="flex items-center gap-1.5 min-w-0">
                                 <Clock className="h-4 w-4 text-blue-600 shrink-0 animate-pulse" />
                                 <span className="truncate font-medium">In Progress with Workforce</span>
                               </div>
-                              <span className="text-[10px] font-bold uppercase tracking-wider bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-200 px-1.5 py-0.5 rounded-full shrink-0 ml-2">
+                              <span className={`text-[10px] font-bold uppercase tracking-wider border px-1.5 py-0.5 rounded-full shrink-0 ml-2 ${statusBadgeClass(item.status)}`}>
                                 Active
                               </span>
                             </div>
                           )}
 
                           {item.status === 'In Review' && (
-                            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/60 rounded-md p-2 border border-slate-100 dark:border-slate-800">
+                            <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/60 rounded-md p-2 border border-slate-100 dark:border-slate-800">
                               <div className="flex items-center gap-1.5 truncate">
-                                <User className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                                <User className="h-3.5 w-3.5 text-slate-600 shrink-0" />
                                 <span className="truncate">Reporter: <span className="font-medium text-slate-700 dark:text-slate-300">{maskName(item.reporterName)}</span></span>
                               </div>
-                              <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 border border-amber-200/60 dark:border-amber-900/60 px-1.5 py-0.5 rounded-full shrink-0 ml-2">
+                              <span className={`text-[10px] font-semibold border px-1.5 py-0.5 rounded-full shrink-0 ml-2 ${statusBadgeClass(item.status)}`}>
                                 Needs Action
                               </span>
                             </div>
@@ -447,7 +458,7 @@ export default function AdminReportsPage() {
                         {item.status === 'In Review' && (
                           <Button 
                             size="sm" 
-                            className="w-full font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-all flex items-center justify-center gap-2 h-9 rounded-md"
+                            className="w-full font-semibold text-white bg-primary hover:bg-primary-dark shadow-sm transition-all flex items-center justify-center gap-2 h-9 rounded-md"
                             onClick={() => {
                               setReviewOpen(item.id)
                               setRejectMode(false)
@@ -466,7 +477,7 @@ export default function AdminReportsPage() {
                         {item.status === 'Resolved' && (
                           <Button 
                             size="sm" 
-                            className="w-full font-semibold text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm transition-all flex items-center justify-center gap-2 h-9 rounded-md"
+                            className="w-full font-semibold text-white bg-primary hover:bg-primary-dark shadow-sm transition-all flex items-center justify-center gap-2 h-9 rounded-md"
                             onClick={() => setResolvedOpen(item.id)}
                           >
                             <CheckCircle2 className="h-4 w-4 text-white" />
@@ -477,7 +488,7 @@ export default function AdminReportsPage() {
                         {item.status === 'Action Taken' && (
                           <Button 
                             size="sm" 
-                            className="w-full font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-all flex items-center justify-center gap-2 h-9 rounded-md"
+                            className="w-full font-semibold text-white bg-primary hover:bg-primary-dark shadow-sm transition-all flex items-center justify-center gap-2 h-9 rounded-md"
                             onClick={() => setResolvedOpen(item.id)}
                           >
                             <Clock className="h-4 w-4 text-white" />
@@ -497,8 +508,8 @@ export default function AdminReportsPage() {
                         )}
 
                         {(item.status !== 'Resolved' && item.status !== 'In Review' && item.status !== 'Action Taken' && item.status !== 'Rejected') && (
-                          <DialogTrigger asChild className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm rounded-md">
-                            <Button size="sm" className="w-full font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-md">Delegate Task</Button>
+                          <DialogTrigger asChild>
+                            <Button size="sm" className="w-full font-semibold text-white bg-primary hover:bg-primary-dark rounded-md">Delegate Task</Button>
                           </DialogTrigger>
                         )}
                       </div>
@@ -538,27 +549,21 @@ export default function AdminReportsPage() {
                                 <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
                                   {item.id}
                                 </span>
-                                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border capitalize ${
-                                  (item.urgency || '').toLowerCase() === 'high'
-                                    ? 'text-red-600 bg-red-50 border-red-200 dark:bg-red-950/50 dark:border-red-800'
-                                    : (item.urgency || '').toLowerCase() === 'medium'
-                                      ? 'text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-950/50 dark:border-amber-800'
-                                      : 'text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-950/50 dark:border-emerald-800'
-                                }`}>
+                                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border capitalize ${urgencyBadgeClass(item.urgency)}`}>
                                   {item.urgency || 'Low'} Urgency
                                 </span>
                               </div>
                               <div className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
                                 {item.title}
                               </div>
-                              <div className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1 truncate">
+                              <div className="text-xs text-slate-600 flex items-center gap-1.5 mt-1 truncate">
                                 <MapPin className="h-3 w-3 shrink-0" />
                                 <span>{item.barangay}, {item.municipality}</span>
                               </div>
                             </div>
 
                             <div className="space-y-3 rounded-md border border-red-200 bg-red-50/50 dark:bg-red-950/20 p-4">
-                              <label className="text-sm font-medium text-red-600 flex items-center gap-1.5">
+                              <label className="text-sm font-medium text-red-700 flex items-center gap-1.5">
                                 <AlertCircle className="w-4 h-4"/> Reason for Rejection *
                               </label>
                               <Select value={rejectReasonType} onValueChange={(v) => { setRejectReasonType(v); setRejectReasonOther(""); }}>
@@ -591,20 +596,14 @@ export default function AdminReportsPage() {
                                 <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
                                   {item.id}
                                 </span>
-                                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border capitalize ${
-                                  (item.urgency || '').toLowerCase() === 'high'
-                                    ? 'text-red-600 bg-red-50 border-red-200 dark:bg-red-950/50 dark:border-red-800'
-                                    : (item.urgency || '').toLowerCase() === 'medium'
-                                      ? 'text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-950/50 dark:border-amber-800'
-                                      : 'text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-950/50 dark:border-emerald-800'
-                                }`}>
+                                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border capitalize ${urgencyBadgeClass(item.urgency)}`}>
                                   {item.urgency || 'Low'} Urgency
                                 </span>
                               </div>
                               <div className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
                                 {item.title}
                               </div>
-                              <div className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1 truncate">
+                              <div className="text-xs text-slate-600 flex items-center gap-1.5 mt-1 truncate">
                                 <MapPin className="h-3 w-3 shrink-0" />
                                 <span>{item.barangay}, {item.municipality}</span>
                               </div>
@@ -662,17 +661,17 @@ export default function AdminReportsPage() {
                                 <div className="space-y-4">
                                   <div>
                                     <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2">Reporter Details</h4>
-                                    <div className="text-sm text-muted-foreground mt-2 grid gap-2">
+                                    <div className="text-sm text-slate-600 mt-2 grid gap-2">
                                       <div className="flex justify-between border-b pb-2 gap-4">
-                                        <span className="text-slate-500">Name:</span>
+                                        <span className="text-slate-600">Name:</span>
                                         <span className="font-medium text-slate-700 dark:text-slate-300 text-right font-mono tracking-wide">{maskName(item.reporterName)}</span>
                                       </div>
                                       <div className="flex justify-between border-b pb-2 gap-4">
-                                        <span className="text-slate-500">Email:</span>
+                                        <span className="text-slate-600">Email:</span>
                                         <span className="font-medium text-slate-700 dark:text-slate-300 text-right break-all font-mono tracking-wide">{maskEmail(item.reporterEmail)}</span>
                                       </div>
                                       <div className="flex justify-between pb-1 gap-4">
-                                        <span className="text-slate-500">Contact Number:</span>
+                                        <span className="text-slate-600">Contact Number:</span>
                                         <span className="font-medium text-slate-700 dark:text-slate-300 text-right font-mono tracking-wide">{maskPhone(item.reporterPhone)}</span>
                                       </div>
                                     </div>
@@ -680,39 +679,33 @@ export default function AdminReportsPage() {
 
                                   <div>
                                     <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2">Report Details</h4>
-                                    <div className="text-sm text-muted-foreground mt-2 grid gap-2">
+                                    <div className="text-sm text-slate-600 mt-2 grid gap-2">
                                       <div className="flex justify-between border-b pb-2 gap-4">
-                                        <span className="text-slate-500">Urgency Level:</span>
-                                        <span className={`font-medium text-right capitalize ${
-                                          (item.urgency || '').toLowerCase() === 'high'
-                                            ? 'text-red-600 dark:text-red-400'
-                                            : (item.urgency || '').toLowerCase() === 'medium'
-                                              ? 'text-amber-600 dark:text-amber-400'
-                                              : 'text-emerald-600 dark:text-emerald-400'
-                                        }`}>{item.urgency || 'Low'}</span>
+                                        <span className="text-slate-600">Urgency Level:</span>
+                                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border capitalize ${urgencyBadgeClass(item.urgency)}`}>{item.urgency || 'Low'}</span>
                                       </div>
                                       <div className="flex justify-between border-b pb-2 gap-4">
-                                        <span className="text-slate-500">Title:</span>
+                                        <span className="text-slate-600">Title:</span>
                                         <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{item.title}</span>
                                       </div>
                                       <div className="grid border-b pb-2 gap-1">
-                                        <span className="text-slate-500">Description:</span>
+                                        <span className="text-slate-600">Description:</span>
                                         <span className="font-medium text-slate-700 dark:text-slate-300 leading-relaxed">{item.description}</span>
                                       </div>
                                       <div className="flex justify-between border-b pb-2 gap-4">
-                                        <span className="text-slate-500">Municipality/City:</span>
+                                        <span className="text-slate-600">Municipality/City:</span>
                                         <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{item.municipality}</span>
                                       </div>
                                       <div className="flex justify-between border-b pb-2 gap-4">
-                                        <span className="text-slate-500">Barangay:</span>
+                                        <span className="text-slate-600">Barangay:</span>
                                         <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{item.barangay}</span>
                                       </div>
                                       <div className="grid border-b pb-2 gap-1">
-                                        <span className="text-slate-500">Street Address:</span>
+                                        <span className="text-slate-600">Street Address:</span>
                                         <span className="font-medium text-slate-700 dark:text-slate-300">{item.streetAddress}</span>
                                       </div>
                                       <div className="grid pb-1 gap-1">
-                                        <span className="text-slate-500">Landmark:</span>
+                                        <span className="text-slate-600">Landmark:</span>
                                         <span className="font-medium text-slate-700 dark:text-slate-300">{item.landmark}</span>
                                       </div>
                                     </div>
@@ -751,7 +744,7 @@ export default function AdminReportsPage() {
                               </Button>
                               <Button 
                                 type="button"
-                                className="w-full bg-red-600 hover:bg-red-700 text-white" 
+                                className="w-full bg-red-700 hover:bg-red-800 text-white" 
                                 onClick={() => handleReject(item.id)} 
                                 disabled={updateStatusMutation.isPending}
                               >
@@ -776,7 +769,7 @@ export default function AdminReportsPage() {
                                 type="button"
                                 onClick={() => handleApprove(item.id)} 
                                 disabled={!delegateDepartmentId || !delegateAssignee || updateStatusMutation.isPending}
-                                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                                className="w-full bg-primary hover:bg-primary-dark text-white"
                               >
                                 {updateStatusMutation.isPending ? "Delegating..." : "Confirm & Delegate"}
                               </Button>
@@ -785,15 +778,16 @@ export default function AdminReportsPage() {
                             <>
                               <Button 
                                 type="button"
+                                variant="outline"
                                 onClick={() => { setRejectMode(true); setDelegateMode(false); }} 
-                                className="w-full bg-red-600 hover:bg-red-700 text-white"
+                                className="w-full border-red-300 text-red-700 hover:bg-red-50 hover:text-red-800"
                               >
                                 Reject
                               </Button>
                               <Button 
                                 type="button"
                                 onClick={() => { setDelegateMode(true); setRejectMode(false); }} 
-                                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                                className="w-full bg-primary hover:bg-primary-dark text-white"
                               >
                                 Approve &amp; Delegate
                               </Button>
@@ -809,11 +803,11 @@ export default function AdminReportsPage() {
                         <DialogHeader>
                           <DialogTitle className="flex items-center gap-2">
                             {item.status === 'Resolved' ? (
-                              <span className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
+                              <span className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
                                 <CheckCircle2 className="h-5 w-5" /> Resolved Report Details
                               </span>
                             ) : item.status === 'Action Taken' ? (
-                              <span className="flex items-center gap-2 text-blue-700 dark:text-blue-400">
+                              <span className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
                                 <Clock className="h-5 w-5" /> In-Progress Report Details
                               </span>
                             ) : item.status === 'Rejected' ? (
@@ -847,66 +841,60 @@ export default function AdminReportsPage() {
                               <div className="space-y-4">
                                 <div>
                                   <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2">Reporter</h4>
-                                  <div className="text-sm text-muted-foreground grid gap-2">
+                                  <div className="text-sm text-slate-600 grid gap-2">
                                     <div className="flex justify-between border-b pb-2 gap-4">
-                                      <span className="text-slate-500">Name:</span>
+                                      <span className="text-slate-600">Name:</span>
                                       <span className="font-medium text-slate-700 dark:text-slate-300 text-right font-mono tracking-wide">{maskName(item.reporterName)}</span>
                                     </div>
                                     <div className="flex justify-between border-b pb-2 gap-4">
-                                      <span className="text-slate-500">Email:</span>
+                                      <span className="text-slate-600">Email:</span>
                                       <span className="font-medium text-slate-700 dark:text-slate-300 text-right break-all font-mono tracking-wide">{maskEmail(item.reporterEmail)}</span>
                                     </div>
                                     <div className="flex justify-between pb-1 gap-4">
-                                      <span className="text-slate-500">Phone:</span>
+                                      <span className="text-slate-600">Phone:</span>
                                       <span className="font-medium text-slate-700 dark:text-slate-300 text-right font-mono tracking-wide">{maskPhone(item.reporterPhone)}</span>
                                     </div>
                                   </div>
                                 </div>
                                 <div>
                                   <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2">Report Details</h4>
-                                  <div className="text-sm text-muted-foreground grid gap-2">
+                                  <div className="text-sm text-slate-600 grid gap-2">
                                     <div className="flex justify-between border-b pb-2 gap-4">
-                                      <span className="text-slate-500">Urgency:</span>
-                                      <span className={`font-medium text-right capitalize ${
-                                        (item.urgency || '').toLowerCase() === 'high'
-                                          ? 'text-red-600 dark:text-red-400'
-                                          : (item.urgency || '').toLowerCase() === 'medium'
-                                            ? 'text-amber-600 dark:text-amber-400'
-                                            : 'text-emerald-600 dark:text-emerald-400'
-                                      }`}>{item.urgency || 'Low'}</span>
+                                      <span className="text-slate-600">Urgency:</span>
+                                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border capitalize ${urgencyBadgeClass(item.urgency)}`}>{item.urgency || 'Low'}</span>
                                     </div>
                                     <div className="grid border-b pb-2 gap-1">
-                                      <span className="text-slate-500">Description:</span>
+                                      <span className="text-slate-600">Description:</span>
                                       <span className="font-medium text-slate-700 dark:text-slate-300 leading-relaxed">{item.description}</span>
                                     </div>
                                     <div className="flex justify-between border-b pb-2 gap-4">
-                                      <span className="text-slate-500">Barangay:</span>
+                                      <span className="text-slate-600">Barangay:</span>
                                       <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{item.barangay}</span>
                                     </div>
                                     <div className="flex justify-between border-b pb-2 gap-4">
-                                      <span className="text-slate-500">Street:</span>
+                                      <span className="text-slate-600">Street:</span>
                                       <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{item.streetAddress}</span>
                                     </div>
                                     <div className="flex justify-between pb-1 gap-4">
-                                      <span className="text-slate-500">Landmark:</span>
+                                      <span className="text-slate-600">Landmark:</span>
                                       <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{item.landmark}</span>
                                     </div>
                                   </div>
                                 </div>
                                 {item.status === 'Resolved' && item.completedBy && (
-                                  <div className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-md p-3">
+                                  <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-md p-3">
                                     <CheckCircle2 className="h-4 w-4 shrink-0" />
                                     <span>Completed by: <span className="font-semibold">{item.completedBy}</span></span>
                                   </div>
                                 )}
                                 {item.status === 'Rejected' && item.rejectionReason && (
-                                  <div className="flex items-start gap-2 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900 rounded-md p-3">
+                                  <div className="flex items-start gap-2 text-sm text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900 rounded-md p-3">
                                     <XCircle className="h-4 w-4 mt-0.5 shrink-0" />
                                     <span className="leading-snug"><span className="font-semibold">Reason:</span> {item.rejectionReason}</span>
                                   </div>
                                 )}
                                 {item.status === 'Action Taken' && (
-                                  <div className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-md p-3">
+                                  <div className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-md p-3">
                                     <Clock className="h-4 w-4 shrink-0" />
                                     <span>Status: <span className="font-semibold">In Progress with Workforce</span></span>
                                   </div>
@@ -923,7 +911,7 @@ export default function AdminReportsPage() {
                                 >
                                   <Camera className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                                   <span>Uploaded Photos</span>
-                                  <span className="ml-1 px-1.5 py-0.2 rounded-sm text-[10px] font-semibold bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                                  <span className="ml-1 px-1.5 py-0.2 rounded-sm text-[10px] font-semibold bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-300">
                                     {item.reporterPhotos?.length || 0}
                                   </span>
                                 </TabsTrigger>
@@ -933,7 +921,7 @@ export default function AdminReportsPage() {
                                 >
                                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                                   <span>Completion Proof</span>
-                                  <span className="ml-1 px-1.5 py-0.2 rounded-sm text-[10px] font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                                  <span className="ml-1 px-1.5 py-0.2 rounded-sm text-[10px] font-semibold bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300">
                                     {item.completionPhotos?.length || 0}
                                   </span>
                                 </TabsTrigger>
@@ -958,7 +946,7 @@ export default function AdminReportsPage() {
                           </div>
                         </div>
                         <div className="flex justify-end mt-2">
-                          <Button className="bg-slate-600 hover:bg-slate-700 text-white rounded-md" onClick={() => setResolvedOpen(null)}>Close</Button>
+                          <Button variant="outline" className="rounded-md" onClick={() => setResolvedOpen(null)}>Close</Button>
                         </div>
                       </DialogContent>
                     </Dialog>
@@ -975,7 +963,7 @@ export default function AdminReportsPage() {
                       <div className="grid gap-4 py-4">
                         <div className="rounded-md bg-slate-50 dark:bg-slate-900 border p-3">
                           <div className="font-medium text-sm text-slate-900 dark:text-slate-100">{item.title}</div>
-                          <div className="text-xs text-muted-foreground mt-1 flex gap-3">
+                          <div className="text-xs text-slate-600 mt-1 flex gap-3">
                             <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {item.zone}</span>
                             <span className="flex items-center gap-1 capitalize"><AlertCircle className="h-3 w-3" /> {item.urgency || 'Low'}</span>
                           </div>
@@ -1018,11 +1006,11 @@ export default function AdminReportsPage() {
                       </div>
                       
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-                        <Button className="w-full bg-[#13b6ec] hover:bg-[#0fa6d8] text-white" onClick={() => setDelegationOpen(null)}>Cancel</Button>
+                        <Button variant="outline" className="w-full" onClick={() => setDelegationOpen(null)}>Cancel</Button>
                         <Button 
                           onClick={() => { handleDelegate(item.id) }}
                           disabled={!delegateDepartmentId || !delegateAssignee}
-                          className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                          className="w-full bg-primary hover:bg-primary-dark text-white"
                         >
                           Confirm Delegation
                         </Button>

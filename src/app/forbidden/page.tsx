@@ -12,23 +12,21 @@ export default function ForbiddenPage() {
       <div className="max-w-md w-full text-center space-y-6">
         <div className="flex justify-center">
           <Image 
-            src="/assets/forbidden.svg" 
+            src="/assets/forbidden.webp" 
             alt="Forbidden Access" 
             width={300} 
             height={300} 
             className="mb-8"
           />
         </div>
-        <h1 className="text-4xl font-black text-gray-900 dark:text-white">Access Denied</h1>
-        <p className="text-gray-600 dark:text-gray-400 text-lg">
+        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">Access Denied</h1>
+        <p className="text-slate-600 dark:text-gray-400 text-lg">
           You don't have permission to view this page. Please log in with the appropriate credentials.
         </p>
         <div className="pt-6">
-          <Link href="/auth/login">
-            <Button size="lg" className="w-full bg-primary hover:bg-primary-dark text-white font-bold h-14 rounded-full text-lg">
-              Log In to Continue
-            </Button>
-          </Link>
+          <Button asChild size="lg" className="w-full bg-primary hover:bg-primary-dark text-white font-bold h-14 rounded-full text-lg">
+            <Link href="/auth/login">Log In to Continue</Link>
+          </Button>
         </div>
       </div>
     </div>

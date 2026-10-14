@@ -1,12 +1,19 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { LayoutDashboard, UserPlus, User, ClipboardList } from "lucide-react";
 import Dock from "@/components/ui/dock";
 
+const ROUTES = ['/workforce-admin', '/workforce-admin/add-officer', '/workforce-admin/tasks', '/workforce-admin/profile'];
+
 export default function WorkforceAdminDock() {
   const router = useRouter();
   const pathname = usePathname();
+
+  useEffect(() => {
+    ROUTES.forEach((r) => router.prefetch(r));
+  }, [router]);
 
   const items = [
     { icon: <LayoutDashboard className={`w-5 h-5 ${pathname === '/workforce-admin' ? 'text-white' : ''}`} />, label: "Dashboard", onClick: () => router.push('/workforce-admin'), className: pathname === '/workforce-admin' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },

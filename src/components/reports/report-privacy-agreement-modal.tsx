@@ -16,6 +16,7 @@ interface ReportPrivacyAgreementModalProps {
   onClose: () => void;
   onConfirm: () => void;
   isSubmitting: boolean;
+  submittingLabel?: string;
 }
 
 export function ReportPrivacyAgreementModal({
@@ -23,6 +24,7 @@ export function ReportPrivacyAgreementModal({
   onClose,
   onConfirm,
   isSubmitting,
+  submittingLabel = 'Submitting…',
 }: ReportPrivacyAgreementModalProps) {
   const [agreed, setAgreed] = useState(true);
 
@@ -33,20 +35,20 @@ export function ReportPrivacyAgreementModal({
           <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-1">
             <ShieldCheck className="w-6 h-6" />
           </div>
-          <DialogTitle className="text-xl font-bold text-gray-900 dark:text-white">
+          <DialogTitle className="text-xl font-bold text-slate-900">
             Privacy & Submission Agreement
           </DialogTitle>
-          <DialogDescription className="text-sm text-gray-600 dark:text-gray-400">
+          <DialogDescription className="text-sm text-slate-700">
             Please review this quick privacy notice before submitting your report.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3 my-2 text-sm">
           <div className="p-4 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl space-y-2.5">
-            <p className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed">
+            <p className="text-sm text-slate-700 leading-relaxed">
               By submitting this report, you confirm that your provided information and attached photos are accurate and free of identifiable persons, vehicle license plates, or confidential personal data.
             </p>
-            <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 pt-1 border-t border-slate-200 dark:border-slate-700">
+            <div className="flex items-center gap-2 text-xs text-slate-700 pt-1 border-t border-slate-200 dark:border-slate-700">
               <Lock className="w-3.5 h-3.5 text-primary shrink-0" />
               <span>Information is securely shared only with authorized local response units.</span>
             </div>
@@ -58,9 +60,9 @@ export function ReportPrivacyAgreementModal({
               checked={agreed}
               onChange={(e) => setAgreed(e.target.checked)}
               disabled={isSubmitting}
-              className="mt-0.5 w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary dark:border-gray-600 dark:bg-gray-700"
+              className="mt-0.5 w-4 h-4 text-primary rounded border-slate-500 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             />
-            <span className="text-xs text-gray-600 dark:text-gray-400">
+            <span className="text-sm text-slate-700">
               I understand and agree to the privacy terms and confirm this submission is accurate.
             </span>
           </label>
@@ -71,7 +73,7 @@ export function ReportPrivacyAgreementModal({
             type="button"
             disabled={isSubmitting}
             onClick={onClose}
-            className="w-full flex items-center justify-center px-4 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium text-sm transition-colors shadow-sm disabled:opacity-50"
+            className="w-full flex items-center justify-center h-11 px-4 rounded-lg border-2 border-slate-400 bg-white hover:bg-slate-50 text-slate-700 font-medium text-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             Cancel
           </button>
@@ -79,12 +81,12 @@ export function ReportPrivacyAgreementModal({
             type="button"
             disabled={!agreed || isSubmitting}
             onClick={onConfirm}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-white font-medium text-sm transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full flex items-center justify-center gap-2 h-11 px-4 rounded-lg bg-primary hover:bg-primary/90 text-white font-semibold text-sm transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             {isSubmitting ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Submitting...
+                <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                {submittingLabel}
               </>
             ) : (
               <>

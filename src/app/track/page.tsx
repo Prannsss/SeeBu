@@ -8,6 +8,7 @@ import { gooeyToast } from "goey-toast";
 import Image from "next/image";
 
 import { useRouter, useSearchParams } from "next/navigation";
+import { statusBadgeClass } from "@/lib/status-styles";
 
 type TrackResult = {
   id: string;
@@ -46,6 +47,7 @@ export default function TrackPage() {
   const [trackingNumber, setTrackingNumber] = useState(normalizeTrackingId(searchParams.get("id") || ""));
   const [isSearching, setIsSearching] = useState(false);
   const [result, setResult] = useState<TrackResult | null>(null);
+  const [error, setError] = useState<{ notFound: boolean; message: string } | null>(null);
 
   const fetchTracking = async (id: string) => {
     const { apiClient } = await import("@/lib/api");
@@ -87,7 +89,7 @@ export default function TrackPage() {
   const getStatusIcon = (status: string) => {
     const kind = getStatusKind(status);
     if (kind === "success") return <CheckCircle className="h-5 w-5 text-green-600" />;
-    if (kind === "rejected") return <XCircle className="h-5 w-5 text-red-600" />;
+    if (kind === "rejected") return <XCircle className="h-5 w-5 text-red-700" />;
     return <Clock className="h-5 w-5 text-amber-600" />;
   };
 
@@ -113,7 +115,7 @@ export default function TrackPage() {
   const getTimelineIcon = (status: string, index: number) => {
     const kind = getTimelineDisplayKind(status, index);
     if (kind === "success") return <CheckCircle className="h-5 w-5 text-green-600" />;
-    if (kind === "rejected") return <XCircle className="h-5 w-5 text-red-600" />;
+    if (kind === "rejected") return <XCircle className="h-5 w-5 text-red-700" />;
     return <Clock className="h-5 w-5 text-amber-600" />;
   };
 
@@ -137,8 +139,10 @@ export default function TrackPage() {
         }
         const record = await fetchTracking(normalizedId);
         setResult(record);
-      } catch {
+        setError(null);
+      } catch (err: any) {
         setResult(null);
+        setError({ notFound: err?.status === 404, message: err?.status === 404 ? `No report found for ${normalizeTrackingId(initialId)}. Check the tracking number and try again.` : "Could not check the status right now. Please try again." });
       }
     })();
   }, [searchParams]);
@@ -152,6 +156,7 @@ export default function TrackPage() {
     try {
       const record = await fetchTracking(id);
       setResult(record);
+      setError(null);
       setTrackingNumber(id);
       router.replace(`/track?id=${id}`);
 
@@ -159,11 +164,9 @@ export default function TrackPage() {
         description: `Showing status for ${id}.`,
       });
 
-    } catch {
+    } catch (err: any) {
       setResult(null);
-      gooeyToast.error("Error", {
-        description: "Failed to find the tracking number."
-      });
+      setError({ notFound: err?.status === 404, message: err?.status === 404 ? `No report found for ${id}. Check the tracking number and try again.` : "Could not check the status right now. Please try again." });
     } finally {
       setIsSearching(false);
     }
@@ -176,10 +179,10 @@ export default function TrackPage() {
       <div className="flex-1 flex flex-col items-center p-6 w-full max-w-2xl mx-auto pt-24 pb-12">
         <div className="bg-white dark:bg-gray-900 shadow-xl rounded-3xl p-8 w-full border border-gray-100 dark:border-gray-800 text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="w-20 h-20 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Search className="w-10 h-10 text-primary" />
+            <Search className="w-10 h-10 text-primary" aria-hidden="true" />
           </div>
 
-          <h1 className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-white mb-2">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 dark:text-white mb-2">
             Track Issue
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mb-8 text-sm sm:text-base">
@@ -190,12 +193,13 @@ export default function TrackPage() {
           <form onSubmit={handleSearch} className="space-y-4">
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <Search className="h-5 w-5 text-gray-400" />
+                <Search className="h-5 w-5 text-gray-500" aria-hidden="true" />
               </div>
               <input
                 type="text"
                 placeholder="e.g. RPT-1234"
-                className="w-full pl-11 pr-4 py-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none text-gray-900 dark:text-white uppercase font-mono tracking-wider"
+                aria-label="Tracking number"
+                className="w-full pl-11 pr-4 py-4 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none text-gray-900 placeholder:text-gray-500 dark:text-white uppercase font-mono tracking-wider"
                 value={trackingNumber}
                 onChange={(e) => setTrackingNumber(e.target.value)}
                 maxLength={20}
@@ -213,7 +217,17 @@ export default function TrackPage() {
           </form>
         </div>
 
-        <div className="mt-8 text-center text-sm text-gray-500 dark:text-gray-400">
+        {error ? (
+          <div role="alert" className="mt-6 w-full flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-left text-red-700">
+            <XCircle className="h-5 w-5 shrink-0 mt-0.5" aria-hidden="true" />
+            <div>
+              <p className="font-semibold">{error.notFound ? "Report not found" : "Couldn't check status right now"}</p>
+              <p className="text-sm">{error.message}</p>
+            </div>
+          </div>
+        ) : null}
+
+        <div className="mt-8 text-center text-sm text-gray-600 dark:text-gray-400">
           <p>Need help finding your tracking number?</p>
           <p>
             Check the email address you provided when submitting the report.
@@ -225,8 +239,8 @@ export default function TrackPage() {
             <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 text-left shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-gray-500">Tracking ID</p>
-                  <p className="font-mono font-semibold text-primary">{result.id}</p>
+                  <p className="text-xs uppercase tracking-wide text-gray-600">Tracking ID</p>
+                  <p className="font-mono font-semibold text-slate-900">{result.id}</p>
                 </div>
                 <div className={`h-10 w-10 rounded-full border flex items-center justify-center ${getStatusCircleClass(result.status)}`}>
                   {getStatusIcon(result.status)}
@@ -235,16 +249,16 @@ export default function TrackPage() {
 
               <div className="mt-4 space-y-2">
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-gray-500">Title</p>
+                  <p className="text-xs uppercase tracking-wide text-gray-600">Title</p>
                   <p className="text-sm font-semibold text-gray-900 dark:text-white">{result.title}</p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-gray-500">Location</p>
+                  <p className="text-xs uppercase tracking-wide text-gray-600">Location</p>
                   <p className="text-sm text-gray-700 dark:text-gray-300">{result.location || "No location details available."}</p>
                 </div>
               </div>
 
-              <div className="mt-4 inline-flex items-center px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-sm font-medium">
+              <div className={`mt-4 inline-flex items-center px-3 py-1 rounded-full border text-sm font-medium ${statusBadgeClass(result.status)}`}>
                 Status: <span className="ml-1 font-bold">{result.status}</span>
               </div>
 
@@ -260,12 +274,12 @@ export default function TrackPage() {
               {(result.status === "Completed" || result.status === "Resolved") && result.completionPhotos.length > 0 ? (
                 <div className="space-y-3 pt-4 mt-4 border-t border-slate-100 dark:border-slate-800">
                   <h3 className="font-bold flex items-center gap-2 text-slate-900 dark:text-white">
-                    <CheckCircle className="h-4 w-4 text-green-500" /> Completion Proof
+                    <CheckCircle className="h-4 w-4 text-green-600" /> Completion Proof
                   </h3>
                   <div className="grid grid-cols-2 gap-2">
                     {result.completionPhotos.map((url, i) => (
                       <div key={`${url}-${i}`} className="relative aspect-video rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
-                        <Image src={url} alt="Completion" fill className="object-cover" />
+                        <Image src={url} alt={`Completion proof ${i + 1}`} fill sizes="(max-width: 768px) 50vw, 33vw" className="object-cover" />
                       </div>
                     ))}
                   </div>
@@ -274,7 +288,10 @@ export default function TrackPage() {
             </div>
 
             <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 shadow-sm relative text-left">
-              <h3 className="font-bold text-lg mb-6 text-slate-900 dark:text-white">Timeline History</h3>
+              <h3 className="font-semibold text-lg mb-6 text-slate-900 dark:text-white">Timeline History</h3>
+              {result.timeline.length === 0 ? (
+                <p className="text-sm text-slate-600">No timeline updates yet.</p>
+              ) : null}
               <div className="relative space-y-6 before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-slate-200 dark:before:bg-slate-800">
                 {result.timeline.map((event, index) => (
                   <div key={event.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
@@ -285,7 +302,7 @@ export default function TrackPage() {
                     <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-1 gap-2">
                         <h4 className="font-bold text-slate-900 dark:text-white">{event.status}</h4>
-                        <time className="text-xs font-medium text-slate-500">{event.date}</time>
+                        <time className="text-xs font-medium text-slate-600">{event.date}</time>
                       </div>
                       {event.notes ? <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">{event.notes}</p> : null}
                     </div>

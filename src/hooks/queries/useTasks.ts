@@ -31,7 +31,6 @@ export function useTasks(filters?: { assigned_to?: string; delegated_to?: string
       const data = await apiFetchClient<{ data: Task[] }>(`/api/v1/tasks?${params.toString()}`);
       return data.data || [];
     },
-    refetchInterval: 5000, // 5s fallback polling ensuring near-instant sync alongside Supabase realtime
   });
 }
 

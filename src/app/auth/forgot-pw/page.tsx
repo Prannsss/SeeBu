@@ -229,10 +229,10 @@ export default function ForgotPasswordPage() {
           </p>
           <div className="rounded-2xl overflow-hidden">
             <Image
-              src="/gifs/verify.gif"
+              src="/gifs/verify.webp"
               alt="Password reset process"
               width={800}
-              height={600}
+              height={800}
               unoptimized
               className="w-full h-auto"
             />
@@ -254,7 +254,7 @@ export default function ForgotPasswordPage() {
                       ? "bg-primary text-white shadow-md"
                       : ["email", "code", "password"].indexOf(step) > i
                       ? "bg-green-500 text-white"
-                      : "bg-gray-200 dark:bg-gray-700 text-gray-400"
+                      : "bg-gray-200 dark:bg-gray-700 text-slate-600"
                   }`}
                 >
                   {["email", "code", "password"].indexOf(step) > i ? "✓" : i + 1}
@@ -274,7 +274,7 @@ export default function ForgotPasswordPage() {
 
           <div className="text-center lg:text-left">
             <div className="md:hidden mb-4 flex justify-center">
-              <Image src="/assets/logo.svg" alt="SeeBu Logo" width={60} height={60} />
+              <Image src="/assets/logo-128.png" alt="SeeBu Logo" width={60} height={60} />
             </div>
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-text-main dark:text-white mb-2 sm:mb-3">
               {stepTitles[step]}

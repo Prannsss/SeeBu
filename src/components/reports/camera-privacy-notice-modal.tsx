@@ -29,10 +29,10 @@ export function CameraPrivacyNoticeModal({
           <div className="w-12 h-12 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-1">
             <ShieldAlert className="w-6 h-6" />
           </div>
-          <DialogTitle className="text-xl font-bold text-gray-900 dark:text-white">
+          <DialogTitle className="text-xl font-bold text-slate-900">
             Photo Privacy & Guidelines
           </DialogTitle>
-          <DialogDescription className="text-sm text-gray-600 dark:text-gray-400">
+          <DialogDescription className="text-sm text-slate-700">
             To protect community privacy and ensure rapid resolution, please follow these photo capture guidelines:
           </DialogDescription>
         </DialogHeader>
@@ -43,23 +43,23 @@ export function CameraPrivacyNoticeModal({
               <span className="w-2 h-2 rounded-full bg-red-500 inline-block" />
               Do NOT include in your photo:
             </p>
-            <ul className="space-y-1.5 text-xs text-red-700 dark:text-red-300/90 pl-1">
+            <ul className="space-y-1.5 text-sm text-red-800 pl-1">
               <li className="flex items-start gap-2">
-                <UserX className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                <UserX className="w-4 h-4 text-red-700 shrink-0 mt-0.5" aria-hidden="true" />
                 <span><strong>People or faces:</strong> Avoid photographing identifiable individuals or bystanders.</span>
               </li>
               <li className="flex items-start gap-2">
-                <Hash className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                <Hash className="w-4 h-4 text-red-700 shrink-0 mt-0.5" aria-hidden="true" />
                 <span><strong>Vehicle plate numbers:</strong> Do not capture visible license plates.</span>
               </li>
               <li className="flex items-start gap-2">
-                <FileWarning className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                <FileWarning className="w-4 h-4 text-red-700 shrink-0 mt-0.5" aria-hidden="true" />
                 <span><strong>Sensitive documents:</strong> Avoid personal IDs, house addresses, or private papers.</span>
               </li>
             </ul>
           </div>
 
-          <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 rounded-xl flex items-start gap-2.5 text-emerald-800 dark:text-emerald-300 text-xs">
+          <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 rounded-xl flex items-start gap-2.5 text-emerald-800 text-sm">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
             <span><strong>Tip:</strong> Keep the camera centered on the infrastructure defect, damage, or hazard.</span>
           </div>
@@ -69,7 +69,7 @@ export function CameraPrivacyNoticeModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-full flex items-center justify-center px-4 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium text-sm transition-colors shadow-sm"
+            className="w-full flex items-center justify-center h-11 px-4 rounded-lg border-2 border-slate-400 bg-white hover:bg-slate-50 text-slate-700 font-medium text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             Cancel
           </button>
@@ -79,7 +79,7 @@ export function CameraPrivacyNoticeModal({
               onClose();
               onProceed();
             }}
-            className="w-full flex items-center justify-center px-4 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-white font-medium text-sm transition-colors shadow-sm"
+            className="w-full flex items-center justify-center h-11 px-4 rounded-lg bg-primary hover:bg-primary/90 text-white font-semibold text-sm transition-colors shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             I Understand
           </button>

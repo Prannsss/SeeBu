@@ -30,15 +30,25 @@ async function verifyAuthAndGetSession() {
   const reqCookies = await cookies();
 
   // 1. Check CSRF / Origin headers if applicable
+  // Server components call these without an Origin header, so absent => allowed.
   const origin = reqHeaders.get("origin");
-  const allowedOrigins = [
-    process.env.NEXT_PUBLIC_APP_URL,
-    "localhost",
-    "seebucommunity.vercel.app"
-  ].filter(Boolean) as string[];
-  
-  if (origin && !allowedOrigins.some(allowed => origin.includes(allowed))) {
-    throw new Error("Unauthorized Origin");
+  if (origin) {
+    const hostnameOf = (url?: string) => {
+      try { return url ? new URL(url).hostname : null; } catch { return null; }
+    };
+    const ownHost = (reqHeaders.get("x-forwarded-host") ?? reqHeaders.get("host"))?.split(",")[0].trim().split(":")[0];
+    const allowedHosts = [
+      "localhost",
+      "127.0.0.1",
+      "seebucommunity.vercel.app",
+      hostnameOf(process.env.NEXT_PUBLIC_APP_URL),
+      ownHost,
+    ].filter(Boolean);
+    const originHost = hostnameOf(origin);
+
+    if (!originHost || !allowedHosts.includes(originHost)) {
+      throw new Error("Unauthorized Origin");
+    }
   }
 
   // 2. Validate session token presence

@@ -3,7 +3,6 @@
 import { useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import gsap from "gsap";
 
 export function Hero() {
   const containerRef = useRef<HTMLElement>(null);
@@ -12,7 +11,12 @@ export function Hero() {
   const dotsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const ctx = gsap.context(() => {
+    // gsap is loaded lazily so it stays out of the landing page's initial bundle.
+    let ctx: { revert: () => void } | undefined;
+    let cancelled = false;
+    import("gsap").then(({ gsap }) => {
+      if (cancelled) return;
+      ctx = gsap.context(() => {
       // Animate text elements with a smooth staggered bottom-to-top entrance
       if (textContentRef.current) {
         gsap.from(Array.from(textContentRef.current.children), {
@@ -50,9 +54,13 @@ export function Hero() {
           });
         });
       }
-    }, containerRef);
+      }, containerRef);
+    });
 
-    return () => ctx.revert();
+    return () => {
+      cancelled = true;
+      ctx?.revert();
+    };
   }, []);
 
   return (
@@ -125,11 +133,12 @@ export function Hero() {
             <div className="absolute top-12 left-1/4 w-2 h-2 bg-primary/40 rounded-full"></div>
           </div>
           <Image
-            src="/gifs/build.gif"
+            src="/gifs/build.webp"
             alt="Cebu City Civic Development Illustration"
             width={800}
-            height={600}
+            height={800}
             unoptimized
+            priority
             className="w-full h-full object-contain relative z-10"
           />
         </div>

@@ -1,12 +1,19 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Home, History, Search, AlertCircle, User } from "lucide-react";
 import Dock from "@/components/ui/dock";
 
+const ROUTES = ['/client', '/client/history', '/client/tracking', '/client/report', '/client/profile'];
+
 export default function ClientDock() {
   const router = useRouter();
   const pathname = usePathname();
+
+  useEffect(() => {
+    ROUTES.forEach((r) => router.prefetch(r));
+  }, [router]);
 
   const items = [
     { icon: <Home className={`w-5 h-5 ${pathname === '/client' ? 'text-white' : ''}`} />, label: "Home", onClick: () => router.push('/client'), className: pathname === '/client' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },

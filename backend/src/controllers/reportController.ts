@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
 import { supabase } from '../config/db';
 import { serverErrorMessage } from '../utils/errorResponse';
-import { persistImageInputs } from '../utils/mediaStorage';
+import { persistImageInputs, insertPhotoRows, isTrustedStorageUrl } from '../utils/mediaStorage';
+import { invalidateWorkflowCaches } from '../utils/cache';
 import { moderateImage } from '../utils/imageModeration';
 import { sendReportTrackingEmail } from '../utils/emailService';
 import { sendReportTrackingSms } from '../utils/smsService';
@@ -10,15 +11,6 @@ import crypto from 'crypto';
 import { z } from 'zod';
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
-
-function trustedStorageHost(): string | null {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
-  try {
-    return supabaseUrl ? new URL(supabaseUrl).host : null;
-  } catch {
-    return null;
-  }
-}
 
 const reportSchema = z.object({
   reporter_id: z.string().uuid().optional().nullable().or(z.literal('')),
@@ -44,12 +36,7 @@ const reportSchema = z.object({
       return sizeInBytes <= 5 * 1024 * 1024;
     }
     if (val.startsWith('http://') || val.startsWith('https://')) {
-      const storageHost = trustedStorageHost();
-      try {
-        return !!storageHost && new URL(val).host === storageHost;
-      } catch {
-        return false;
-      }
+      return isTrustedStorageUrl(val);
     }
     return false;
   }, { message: 'Photo must be a base64 image under 5MB or a URL hosted on our storage domain' })).max(10).optional().nullable(),
@@ -168,15 +155,14 @@ export const reportController = {
 
       // Check photos for sensitive data (people/faces, license plates, sensitive docs)
       if (photos && Array.isArray(photos) && photos.length > 0) {
-        for (let i = 0; i < photos.length; i++) {
-          const modResult = await moderateImage(photos[i]);
-          if (!modResult.safe) {
-            return res.status(422).json({
-              error: modResult.reason || 'Image might contain sensitive data/information please retake the image',
-              details: modResult.details,
-              flaggedPhotoIndex: i,
-            });
-          }
+        const mod = await Promise.all((photos as string[]).map((photo) => moderateImage(photo)));
+        const i = mod.findIndex((m) => !m.safe);
+        if (i !== -1) {
+          return res.status(422).json({
+            error: mod[i].reason || 'Image might contain sensitive data/information please retake the image',
+            details: mod[i].details,
+            flaggedPhotoIndex: i,
+          });
         }
       }
 
@@ -222,7 +208,14 @@ export const reportController = {
       // Report ID is always generated server-side — never trust a client-supplied id.
       const reportId = `RPT-${crypto.randomUUID().slice(0, 8).toUpperCase()}-${Date.now().toString().slice(-4)}`;
 
-      // 1. Insert into reports
+      // 1. Persist photos first so a report never ends up silently photo-less.
+      const photoInputs: string[] = Array.isArray(photos) ? photos : [];
+      const stored = photoInputs.length ? await persistImageInputs(photoInputs, `reports/${reportId}/initial`) : [];
+      if (photoInputs.length > 0 && stored.length === 0) {
+        return res.status(502).json({ error: "We couldn't upload your photos. Please try again." });
+      }
+
+      // 2. Insert into reports
       const { data: report, error } = await supabase
         .from('reports')
         .insert([{
@@ -248,30 +241,28 @@ export const reportController = {
 
       if (error) throw error;
 
-      // 2. Insert into report_photos if photo URLs exist
-      if (photos && Array.isArray(photos) && photos.length > 0) {
-        const storedPhotoUrls = await persistImageInputs(photos as string[], `reports/${reportId}/initial`);
-        const photoInserts = storedPhotoUrls.map((url: string) => ({
+      // 3. Insert stored photo URLs into report_photos
+      if (stored.length > 0) {
+        const photoErr = await insertPhotoRows('report_photos', stored.map((s) => ({
           report_id: reportId,
-          photo_url: url,
+          photo_url: s.storedUrl,
+          original_photo_url: s.originalPath,
           is_completion_photo: false
-        }));
-
-        const { error: photoErr } = await supabase
-          .from('report_photos')
-          .insert(photoInserts);
-        
+        })));
         if (photoErr) console.error("Error inserting photos:", photoErr);
       }
 
-        // 3. Add to timeline
+        // 4. Add to timeline
         await supabase.from('report_timeline').insert([{
           report_id: reportId,
           status: 'In Review',
           notes: 'Report created and submitted.'
         }]);
 
-        // 4. Send tracking email to reporters who provided an email
+        // Invalidate before the slow email/SMS sends so realtime-triggered refetches see the new report
+        await invalidateWorkflowCaches();
+
+        // 5. Send tracking email to reporters who provided an email
         let emailSent = false;
         const emailUsed = effectiveReporterEmail || null;
 
@@ -290,7 +281,7 @@ export const reportController = {
           }
         }
 
-        // 5. Send tracking SMS to reporters who provided a phone number
+        // 6. Send tracking SMS to reporters who provided a phone number
         if (effectiveReporterPhone && allowNotification(effectiveReporterPhone)) {
           try {
             await sendReportTrackingSms(effectiveReporterPhone, reportId);
@@ -305,6 +296,7 @@ export const reportController = {
           data: report,
           email_sent: emailSent,
           email_used: emailUsed,
+          photos_stored: stored.length,
         });
     } catch (err: any) {
       return res.status(500).json({ error: serverErrorMessage(err) });
@@ -662,7 +654,8 @@ export const reportController = {
               assigned_to: assignedOfficerId,
               delegated_to: assignedOfficerId,
               related_report_id: id,
-              created_by: req.user?.id || admin_id || null,
+              // tasks.created_by references admins(id); superadmin ids would violate the FK.
+              created_by: req.user?.role === 'admin' ? req.user.id : null,
             }]);
 
           if (taskCreateError) {
@@ -685,6 +678,8 @@ export const reportController = {
           created_by: admin_id
         }]);
       }
+
+      await invalidateWorkflowCaches();
 
       return res.status(200).json({ message: 'Report updated', data });
     } catch (err: any) {

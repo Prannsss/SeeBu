@@ -12,9 +12,12 @@ import { GoogleLogin, CredentialResponse } from "@react-oauth/google";
 import FacebookLogin from "react-facebook-login/dist/facebook-login-render-props";
 import { Eye, EyeOff } from "lucide-react";
 import { gooeyToast } from "goey-toast";
+import { useQueryClient } from "@tanstack/react-query";
+import { clearClientCaches } from "@/lib/client-cache";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [contactNumber, setContactNumber] = useState("+63");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -44,6 +47,7 @@ export default function RegisterPage() {
     if (!res.ok) throw new Error(data.error || 'OAuth Registration failed');
     if (!data.user?.role) throw new Error('OAuth registration response missing user role');
 
+    await clearClientCaches(queryClient);
     await clearSession();
     await establishSession(data.token, data.user.role);
 
@@ -178,10 +182,10 @@ export default function RegisterPage() {
           {/* GIF */}
           <div className="rounded-2xl overflow-hidden">
             <Image 
-              src="/gifs/auth.gif" 
+              src="/gifs/auth.webp" 
               alt="SeeBu in action" 
               width={800}
-              height={600}
+              height={800}
               unoptimized
               className="w-full h-auto"
             />
@@ -194,7 +198,7 @@ export default function RegisterPage() {
         <div className="w-full max-w-md space-y-6 sm:space-y-8 animate-in fade-in duration-500">
           <div className="text-center lg:text-left">
             <div className="md:hidden mb-4 flex justify-center">
-              <Image src="/assets/logo.svg" alt="SeeBu Logo" width={60} height={60} />
+              <Image src="/assets/logo-128.png" alt="SeeBu Logo" width={60} height={60} />
             </div>
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-text-main dark:text-white mb-2 sm:mb-3">
               <span className="lg:hidden">Be Part of the <span className="font-display italic text-yellow-500">Solution</span></span>
@@ -305,7 +309,7 @@ export default function RegisterPage() {
             
             <div className="mt-8 flex items-center justify-center space-x-4">
               <span className="h-px bg-gray-300 dark:bg-gray-700 w-full"></span>
-              <span className="text-gray-500 font-medium text-sm">OR</span>
+              <span className="text-slate-600 font-medium text-sm">OR</span>
               <span className="h-px bg-gray-300 dark:bg-gray-700 w-full"></span>
             </div>
 

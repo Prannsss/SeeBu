@@ -2,73 +2,69 @@ import { Request, Response } from 'express';
 import { supabase } from '../config/db';
 import { serverErrorMessage } from '../utils/errorResponse';
 
+// PostgREST caps responses at 1000 rows, so page through them. `build` must return a FRESH query
+// with a stable order. No RPC needed: responses are cached 60s by the cacheResponse('analytics')
+// route middleware and invalidated on every report/task mutation.
+async function fetchAllRows<T = any>(build: () => any, pageSize = 1000): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await build().range(from, from + pageSize - 1);
+    if (error) throw error;
+    out.push(...(data || []));
+    if (!data || data.length < pageSize) break;
+  }
+  return out;
+}
+
 export const analyticsController = {
   // SUPERADMIN: General overview across ALL municipalities
   async getSuperadminAnalytics(req: Request, res: Response) {
     try {
       const { municipality_id, barangay_id } = req.query;
 
-      let queryStatus = supabase.from('reports').select('status');
-      let queryIssue = supabase.from('reports').select('issue_type, other_type_specification, municipality_id, status');
-      let queryRec = supabase.from('reports').select(`
-          issue_type,
-          other_type_specification,
-          count:id,
-          municipalities(name)
-        `);
-      let queryTime = supabase.from('reports').select('created_at, status').order('created_at', { ascending: true });
+      const applyFilters = (query: any) => {
+        if (municipality_id && municipality_id !== 'all') query = query.eq('municipality_id', municipality_id);
+        if (barangay_id && barangay_id !== 'all') query = query.eq('barangay_id', barangay_id);
+        return query;
+      };
 
-      if (municipality_id && municipality_id !== 'all') {
-        queryStatus = queryStatus.eq('municipality_id', municipality_id);
-        queryIssue = queryIssue.eq('municipality_id', municipality_id);
-        queryRec = queryRec.eq('municipality_id', municipality_id);
-        queryTime = queryTime.eq('municipality_id', municipality_id);
-      }
-      if (barangay_id && barangay_id !== 'all') {
-        queryStatus = queryStatus.eq('barangay_id', barangay_id);
-        queryIssue = queryIssue.eq('barangay_id', barangay_id);
-        queryRec = queryRec.eq('barangay_id', barangay_id);
-        queryTime = queryTime.eq('barangay_id', barangay_id);
-      }
-
-      const [
-        { data: statusCounts, error: statusErr },
-        { data: reportsWithIssueType, error: issueTypeErr },
-        { data: allMunicipalities, error: munErr },
-        { data: allBarangays, error: brgyErr },
-        { data: recurringData, error: recErr },
-        { data: reportsOverTime, error: reportsOverTimeErr },
-      ] = await Promise.all([
-        queryStatus,
-        queryIssue,
+      const [reports, { data: allMunicipalities, error: munErr }, allBarangays] = await Promise.all([
+        fetchAllRows(() =>
+          applyFilters(
+            supabase
+              .from('reports')
+              .select('status, issue_type, other_type_specification, municipality_id, created_at, municipalities(name)')
+          )
+            .order('created_at', { ascending: true })
+            .order('id', { ascending: true })
+        ),
         supabase.from('municipalities').select('id, name').order('name', { ascending: true }),
-        supabase.from('barangays').select('id, name, municipality_id').order('name', { ascending: true }),
-        queryRec,
-        queryTime,
+        fetchAllRows(() =>
+          supabase
+            .from('barangays')
+            .select('id, name, municipality_id')
+            .order('name', { ascending: true })
+            .order('id', { ascending: true })
+        ),
       ]);
-      if (statusErr) throw statusErr;
-      if (issueTypeErr) throw issueTypeErr;
       if (munErr) throw munErr;
-      if (brgyErr) throw brgyErr;
-      if (recErr) throw recErr;
-      if (reportsOverTimeErr) throw reportsOverTimeErr;
 
-      const totalReports = statusCounts.length;
-      const reportedIssues = statusCounts.filter(r => r.status === 'In Review').length;
-      const completedTasks = statusCounts.filter(r => r.status === 'Completed' || r.status === 'Resolved').length;
+      const totalReports = reports.length;
+      const reportedIssues = reports.filter(r => r.status === 'In Review').length;
+      const completedTasks = reports.filter(r => r.status === 'Completed' || r.status === 'Resolved').length;
 
       // Format Chart Data & Recurring Data dynamically from SQL grouping instead of JSON!
       const groupedByMun: Record<string, number> = {};
       const groupedByIssueType: Record<string, { resolved: number; unresolved: number; municipalityId: string }> = {};
       const reportsByDate: Record<string, { reports: number; resolved: number }> = {};
 
-      recurringData.forEach((row: any) => {
+      reports.forEach((row: any) => {
         const area = row.municipalities?.name || 'Unknown';
         groupedByMun[area] = (groupedByMun[area] || 0) + 1;
       });
 
       // Group by issue_type for bar chart with resolved/unresolved split
-      (reportsWithIssueType || []).forEach((row: any) => {
+      reports.forEach((row: any) => {
         const issueLabel = row.issue_type === 'other' && row.other_type_specification
           ? row.other_type_specification
           : (row.issue_type || 'Unknown');
@@ -85,7 +81,7 @@ export const analyticsController = {
       });
 
       // Build chartData with resolved/unresolved split per date
-      (reportsOverTime || []).forEach((row: any) => {
+      reports.forEach((row: any) => {
         const dateKey = new Date(row.created_at).toISOString().split('T')[0];
         if (!reportsByDate[dateKey]) reportsByDate[dateKey] = { reports: 0, resolved: 0 };
         reportsByDate[dateKey].reports++;
@@ -155,36 +151,33 @@ export const analyticsController = {
         }
       }
 
-      let reportsQuery = supabase
-        .from('reports')
-        .select(`
-          status,
-          issue_type,
-          other_type_specification,
-          created_at,
-          barangays(name)
-        `)
-        .eq('municipality_id', municipality_id);
-
-      if (barangay_id && barangay_id !== 'all') {
-        reportsQuery = reportsQuery.eq('barangay_id', barangay_id);
-      }
+      const buildReportsQuery = () => {
+        let query: any = supabase
+          .from('reports')
+          .select(`
+            status,
+            issue_type,
+            other_type_specification,
+            created_at,
+            barangays(name)
+          `)
+          .eq('municipality_id', municipality_id);
+        if (barangay_id && barangay_id !== 'all') query = query.eq('barangay_id', barangay_id);
+        return query.order('created_at', { ascending: true }).order('id', { ascending: true });
+      };
 
       // Fetch barangays for this municipality for the frontend filter
-      const [
-        { data: allBarangays, error: brgyErr },
-        { data: reports, error },
-      ] = await Promise.all([
-        supabase
-          .from('barangays')
-          .select('id, name, municipality_id')
-          .eq('municipality_id', municipality_id)
-          .order('name', { ascending: true }),
-        reportsQuery,
+      const [allBarangays, reports] = await Promise.all([
+        fetchAllRows(() =>
+          supabase
+            .from('barangays')
+            .select('id, name, municipality_id')
+            .eq('municipality_id', municipality_id)
+            .order('name', { ascending: true })
+            .order('id', { ascending: true })
+        ),
+        fetchAllRows(buildReportsQuery),
       ]);
-
-      if (brgyErr) throw brgyErr;
-      if (error) throw error;
 
       const totalReports = reports.length;
       const reportedIssues = reports.filter(r => r.status === 'In Review').length;

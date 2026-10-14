@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { supabase } from '../config/db';
 import { serverErrorMessage } from '../utils/errorResponse';
+import { emailExists } from '../utils/accounts';
+import { cacheDel, cacheDelPrefix, authStatusKey } from '../utils/cache';
 
 export const userController = {
   async getCurrentUser(req: Request, res: Response) {
@@ -64,6 +66,10 @@ export const userController = {
       if (email !== undefined) updates.email = email;
       if (contact_number !== undefined) updates.contact_number = contact_number;
 
+      if (email && await emailExists(email, userReq.id)) {
+        return res.status(409).json({ error: 'This email is already in use.' });
+      }
+
       const { error } = await supabase
         .from(tableName)
         .update(updates)
@@ -73,6 +79,7 @@ export const userController = {
         return res.status(500).json({ error: serverErrorMessage(error) });
       }
 
+      await cacheDelPrefix('users:');
       return res.status(200).json({ message: 'Profile updated successfully' });
     } catch (err: any) {
       return res.status(500).json({ error: serverErrorMessage(err) });
@@ -83,7 +90,14 @@ export const userController = {
     try {
       const tables = ['clients', 'admins', 'superadmins', 'workforce_admins', 'workforce_officers'];
       let allUsers: any[] = [];
-      
+
+      // Fetch municipality names once for mapping
+      const { data: municipalities } = await supabase.from('municipalities').select('id, name');
+      const munNameMap: Record<string, string> = {};
+      (municipalities || []).forEach((m: any) => {
+        munNameMap[m.id] = m.name;
+      });
+
       for (const table of tables) {
         // Handle varying column names across tables, carefully alias them
         let selectQuery = 'id, email, status';
@@ -99,13 +113,6 @@ export const userController = {
         const { data: tbData, error } = await supabase.from(table).select(selectQuery).limit(100);
         
         if (tbData) {
-          // Fetch municipality names for mapping
-          const { data: municipalities } = await supabase.from('municipalities').select('id, name');
-          const munNameMap: Record<string, string> = {};
-          (municipalities || []).forEach((m: any) => {
-            munNameMap[m.id] = m.name;
-          });
-
           allUsers = [...allUsers, ...tbData.map((u: any) => {
             // Format area: convert 'cebu-city' to 'Cebu City'
             let areaDisplay = 'Global';
@@ -165,6 +172,10 @@ export const userController = {
       if (error) {
         return res.status(500).json({ error: serverErrorMessage(error) });
       }
+
+      // Drop the cached withAuth status so the deactivated account can't stay usable for the TTL
+      await cacheDel(authStatusKey(userReq.role, userReq.id));
+      await cacheDelPrefix('users:', 'departments:');
 
       return res.status(200).json({ message: 'Account deleted successfully' });
     } catch (err: any) {

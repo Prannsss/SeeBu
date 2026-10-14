@@ -1,17 +1,21 @@
 ﻿"use client";
 
-import { useState, type ChangeEvent } from "react";
+import { useRef, useState, type ChangeEvent } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Clock, MapPin, AlertTriangle, Link2, Camera, CheckCircle2 } from "lucide-react";
+import { Clock, MapPin, AlertTriangle, Link2, Camera, CheckCircle2, Inbox } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { gooeyToast } from "goey-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTasks, useUpdateTaskStatus, useCompleteTask } from "@/hooks/queries/useTasks";
 import { ReportMediaGallery } from "@/components/reports/report-media-gallery";
 import { useRealtimeReports } from "@/hooks/useRealtimeReports";
+import { compressToDataUrl } from "@/lib/image-compress";
+import { isOfflineQueuedError } from "@/lib/api";
+import { statusBadgeClass, urgencyBadgeClass } from "@/lib/status-styles";
 
 type LinkedReport = {
   id: string;
@@ -39,8 +43,20 @@ type TaskItem = {
   related_report: LinkedReport | null;
 };
 
+const TAB_STATUSES: Record<string, string[]> = {
+  Assigned: ["Assigned", "Pending"],
+  Accepted: ["Accepted", "In Progress"],
+  Completed: ["Completed"],
+};
+
+const EMPTY_TEXT: Record<string, { title: string; hint: string }> = {
+  Assigned: { title: "No assigned tasks right now", hint: "New tasks from your department will appear here." },
+  Accepted: { title: "No tasks in progress", hint: "Accept an assigned task to start working on it." },
+  Completed: { title: "No completed tasks yet", hint: "Tasks you finish with proof photos will be listed here." },
+};
+
 export function WorkforceTasksWidget({ userId }: { userId: string }) {
-  useRealtimeReports({ enableToasts: true, userRole: "workforce" });
+  useRealtimeReports({ enableToasts: true, userRole: "workforce", userId });
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("Assigned");
 
@@ -51,6 +67,7 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
   const [completionPhotoUrls, setCompletionPhotoUrls] = useState<string[]>([]);
   const [proofFileNames, setProofFileNames] = useState<string[]>([]);
   const [selectedTaskForReport, setSelectedTaskForReport] = useState<TaskItem | null>(null);
+  const [isProcessingPhotos, setIsProcessingPhotos] = useState(false);
 
   const { data: tasksData, isLoading } = useTasks({ assigned_to: userId });
   const { mutate: mutateTaskStatus, isPending: isUpdatingStatus } = useUpdateTaskStatus();
@@ -80,7 +97,21 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
     } : null,
   })) : [];
 
-  const filteredTasks = tasksList.filter((task: TaskItem) => task.status === activeTab);
+  const filteredTasks = tasksList.filter((task: TaskItem) => TAB_STATUSES[activeTab].includes(task.status));
+  const tabCount = (tab: string) => tasksList.filter((task) => TAB_STATUSES[tab].includes(task.status)).length;
+  const canAccept = (status?: string) => status === "Assigned" || status === "Pending";
+  const canComplete = (status?: string) => status === "Accepted" || status === "In Progress";
+
+  // Bumped when the modal closes/reopens so a photo run still compressing is dropped.
+  const proofRunRef = useRef(0);
+
+  const resetCompletionModal = () => {
+    proofRunRef.current++;
+    setIsProcessingPhotos(false);
+    setCompletionModalOpen(false);
+    setCompletionPhotoUrls([]);
+    setProofFileNames([]);
+  };
 
   const handleAcceptTask = (taskId: string) => {
     mutateTaskStatus({ taskId, status: 'Accepted' }, {
@@ -90,6 +121,8 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
   };
 
   const handleOpenCompleteModal = (taskId: string) => {
+    proofRunRef.current++;
+    setIsProcessingPhotos(false);
     setSelectedTaskId(taskId);
     setCompletionPhotoUrls([]);
     setProofFileNames([]);
@@ -113,29 +146,24 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
       return;
     }
 
-    try {
-      const readAsDataUrl = (file: File) =>
-        new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => {
-            if (typeof reader.result === "string") {
-              resolve(reader.result);
-              return;
-            }
-            reject(new Error("Invalid image format"));
-          };
-          reader.onerror = () => reject(new Error("Failed to read image"));
-          reader.readAsDataURL(file);
-        });
-
-      const photoUrls = await Promise.all(files.map(readAsDataUrl));
-      setCompletionPhotoUrls(photoUrls);
-      setProofFileNames(files.map((file) => file.name));
-    } catch {
-      gooeyToast.error("Error", { description: "Failed to read selected images. Please try again." });
-      setCompletionPhotoUrls([]);
-      setProofFileNames([]);
+    // Compress one at a time: keeps memory low on phones and the request under the upload limit.
+    const run = ++proofRunRef.current;
+    setIsProcessingPhotos(true);
+    const photoUrls: string[] = [];
+    const names: string[] = [];
+    for (const file of files) {
+      try {
+        photoUrls.push(await compressToDataUrl(file));
+        names.push(file.name);
+      } catch (err: any) {
+        gooeyToast.error(`Could not use ${file.name}`, { description: err?.message || "Failed to process image." });
+      }
     }
+    event.target.value = "";
+    if (run !== proofRunRef.current) return;
+    setCompletionPhotoUrls(photoUrls);
+    setProofFileNames(names);
+    setIsProcessingPhotos(false);
   };
 
   const handleViewLinkedReport = (task: TaskItem) => {
@@ -158,22 +186,18 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
       photo_urls: completionPhotoUrls 
     }, {
       onSuccess: () => {
-        setCompletionModalOpen(false);
-        setCompletionPhotoUrls([]);
-        setProofFileNames([]);
+        resetCompletionModal();
         gooeyToast.success("Task Completed!", { description: "Great work! Proof submitted successfully." });
       },
-      onError: (err: any) => gooeyToast.error("Error", { description: err?.message?.trim() || "Failed to submit completion proof." })
+      onError: (err: any) => {
+        if (isOfflineQueuedError(err)) {
+          resetCompletionModal();
+          gooeyToast.info("You are offline", { description: "Your proof will upload automatically when you reconnect." });
+          return;
+        }
+        gooeyToast.error("Error", { description: err?.message?.trim() || "Failed to submit completion proof." });
+      }
     });
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Assigned": return "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400";
-      case "Accepted": return "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400";
-      case "Completed": return "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400";
-      default: return "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300";
-    }
   };
 
   return (
@@ -181,23 +205,33 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
       <div className="container mx-auto max-w-5xl px-4 py-8">
         <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">My Tasks</h1>
-            <p className="text-muted-foreground mt-1">Manage and update your assigned operational tasks.</p>
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">My Tasks</h1>
+            <p className="text-slate-600 mt-1">Manage and update your assigned operational tasks.</p>
           </div>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="mb-6 grid w-full grid-cols-3 h-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md p-1">
-            <TabsTrigger value="Assigned" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-amber-600 data-[state=active]:text-white transition-all">Assigned Tasks</TabsTrigger>
-            <TabsTrigger value="Accepted" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-blue-600 data-[state=active]:text-white transition-all">In Progress</TabsTrigger>
-            <TabsTrigger value="Completed" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-emerald-600 data-[state=active]:text-white transition-all">Completed Tasks</TabsTrigger>
+            <TabsTrigger value="Assigned" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-amber-600 data-[state=active]:text-white transition-all">Assigned ({tabCount("Assigned")})</TabsTrigger>
+            <TabsTrigger value="Accepted" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-blue-600 data-[state=active]:text-white transition-all">In Progress ({tabCount("Accepted")})</TabsTrigger>
+            <TabsTrigger value="Completed" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-emerald-600 data-[state=active]:text-white transition-all">Completed ({tabCount("Completed")})</TabsTrigger>
           </TabsList>
 
           <TabsContent value={activeTab} className="m-0 focus-visible:outline-none">
             <div className="grid gap-4">
-              {filteredTasks.length === 0 ? (
-                <div className="text-center py-12 text-slate-500 bg-white dark:bg-slate-900 rounded-md border border-dashed">
-                  No tasks found for this status.
+              {isLoading && !tasksData ? (
+                [0, 1, 2].map((i) => (
+                  <Card key={i} className="p-6 space-y-3" aria-hidden="true">
+                    <Skeleton className="h-4 w-32 bg-slate-200" />
+                    <Skeleton className="h-6 w-2/3 bg-slate-200" />
+                    <Skeleton className="h-4 w-1/2 bg-slate-200" />
+                  </Card>
+                ))
+              ) : filteredTasks.length === 0 ? (
+                <div className="flex flex-col items-center text-center py-12 px-4 bg-white rounded-md border border-dashed border-slate-300">
+                  <Inbox className="w-10 h-10 text-slate-500 mb-3" aria-hidden="true" />
+                  <p className="text-base font-semibold text-slate-900">{EMPTY_TEXT[activeTab].title}</p>
+                  <p className="text-sm text-slate-600 mt-1">{EMPTY_TEXT[activeTab].hint}</p>
                 </div>
               ) : (
                 filteredTasks.map((task: TaskItem) => (
@@ -206,52 +240,48 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
                       <div className="flex-1 p-6">
                         <div className="flex items-center justify-between mb-3">
                           <Badge variant="outline" className="font-mono text-xs">{task.id}</Badge>
-                          <Badge variant="secondary" className={getStatusColor(task.status)}>
+                          <Badge variant="outline" className={statusBadgeClass(task.status)}>
                             {task.status === "Accepted" ? "In Progress" : task.status}
                           </Badge>
                         </div>
-                        <h3 className="text-xl font-semibold">{task.title}</h3>
-                        <p className="text-slate-600 dark:text-slate-400 mt-2 text-sm">{task.location}</p>
+                        <h3 className="text-base font-semibold text-slate-900">{task.title}</h3>
+                        <p className="text-slate-600 mt-2 text-sm">{task.location}</p>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6 border-t pt-4 text-sm">
-                          <div className="flex items-center text-slate-500">
+                          <div className="flex items-center text-slate-600">
                             <Clock className="w-4 h-4 mr-2" /> Logged: {task.date}
                           </div>
                           {task.related_report_id && (
-                            <div className="flex items-center text-slate-500">
+                            <div className="flex items-center text-slate-600">
                               <Link2 className="w-4 h-4 mr-2" /> Report: <span className="font-medium text-blue-600 ml-1">{task.related_report_id}</span>
                             </div>
                           )}
                           {(task.related_report?.urgency || task.priority) && (
-                            <div className="flex items-center text-slate-500">
-                              <AlertTriangle className="w-4 h-4 mr-2" /> Priority: <span className={`ml-1 font-medium capitalize ${
-                                (task.related_report?.urgency || task.priority || '').toLowerCase() === 'high' ? 'text-red-600 dark:text-red-400' :
-                                (task.related_report?.urgency || task.priority || '').toLowerCase() === 'medium' ? 'text-amber-600 dark:text-amber-400' :
-                                'text-emerald-600 dark:text-emerald-400'
-                              }`}>{task.related_report?.urgency || task.priority}</span>
+                            <div className="flex items-center text-slate-600">
+                              <AlertTriangle className="w-4 h-4 mr-2" /> Priority: <Badge variant="outline" className={`ml-1 capitalize ${urgencyBadgeClass(task.related_report?.urgency || task.priority)}`}>{task.related_report?.urgency || task.priority}</Badge>
                             </div>
                           )}
                           {task.status === "Completed" && task.completed_at && (
-                            <div className="flex items-center text-slate-500">
-                              <CheckCircle2 className="w-4 h-4 mr-2 text-emerald-500" /> Completed: <span className="font-medium text-emerald-600 ml-1">{task.completed_at}</span>
+                            <div className="flex items-center text-slate-600">
+                              <CheckCircle2 className="w-4 h-4 mr-2 text-emerald-600" /> Completed: <span className="font-medium text-emerald-600 ml-1">{task.completed_at}</span>
                             </div>
                           )}
                         </div>
                       </div>
 
                       <div className="bg-slate-50 dark:bg-slate-950 p-6 border-t md:border-t-0 md:border-l flex flex-col justify-center gap-3 min-w-[240px]">
-                        {task.status === "Assigned" && (
+                        {canAccept(task.status) && (
                           <Button
-                            className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-sm font-semibold rounded-md h-9"
+                            className="w-full bg-primary hover:bg-primary-dark text-white shadow-sm font-semibold rounded-md h-9"
                             onClick={() => setConfirmAcceptTask(task)}
                           >
                             Accept Task
                           </Button>
                         )}
 
-                        {task.status === "Accepted" && (
+                        {canComplete(task.status) && (
                           <Button
-                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm font-semibold rounded-md h-9"
+                            className="w-full bg-primary hover:bg-primary-dark text-white shadow-sm font-semibold rounded-md h-9"
                             onClick={() => handleOpenCompleteModal(task.id)}
                           >
                             Upload &amp; Mark as Complete
@@ -260,7 +290,8 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
 
                         {task.related_report_id && (
                           <Button
-                            className="w-full bg-slate-800 hover:bg-slate-900 text-white shadow-sm font-semibold rounded-md h-9"
+                            variant="outline"
+                            className="w-full border-slate-300 text-slate-900 font-semibold rounded-md h-9"
                             onClick={() => handleViewLinkedReport(task)}
                           >
                             View Linked Report
@@ -293,13 +324,7 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
                       {confirmAcceptTask.id}
                     </span>
                     {(confirmAcceptTask.related_report?.urgency || confirmAcceptTask.priority) && (
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border capitalize ${
-                        (confirmAcceptTask.related_report?.urgency || confirmAcceptTask.priority || '').toLowerCase() === 'high'
-                          ? 'text-red-600 bg-red-50 border-red-200 dark:bg-red-950/50 dark:border-red-800'
-                          : (confirmAcceptTask.related_report?.urgency || confirmAcceptTask.priority || '').toLowerCase() === 'medium'
-                            ? 'text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-950/50 dark:border-amber-800'
-                            : 'text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-950/50 dark:border-emerald-800'
-                      }`}>
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border capitalize ${urgencyBadgeClass(confirmAcceptTask.related_report?.urgency || confirmAcceptTask.priority)}`}>
                         {confirmAcceptTask.related_report?.urgency || confirmAcceptTask.priority} Priority
                       </span>
                     )}
@@ -308,7 +333,7 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
                     {confirmAcceptTask.title}
                   </div>
                   {confirmAcceptTask.location && (
-                    <div className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1 truncate">
+                    <div className="text-xs text-slate-600 flex items-center gap-1.5 mt-1 truncate">
                       <MapPin className="h-3 w-3 shrink-0" />
                       <span>{confirmAcceptTask.location}</span>
                     </div>
@@ -329,7 +354,7 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
               <Button
                 type="button"
                 disabled={isUpdatingStatus}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-sm rounded-md"
+                className="w-full bg-primary hover:bg-primary-dark text-white font-semibold shadow-sm rounded-md"
                 onClick={() => {
                   if (confirmAcceptTask) {
                     handleAcceptTask(confirmAcceptTask.id);
@@ -344,7 +369,7 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
         </Dialog>
 
         {/* Proof of Completion Modal */}
-        <Dialog open={completionModalOpen} onOpenChange={setCompletionModalOpen}>
+        <Dialog open={completionModalOpen} onOpenChange={(open) => (open ? setCompletionModalOpen(true) : resetCompletionModal())}>
           <DialogContent className="w-[calc(100%-2rem)] sm:max-w-md rounded-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-5 sm:p-6">
             <DialogHeader>
               <DialogTitle className="text-xl">Submit Proof of Completion</DialogTitle>
@@ -355,21 +380,24 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
             <div className="grid gap-4 py-3">
               <div className="space-y-2">
                 <label htmlFor="proof-photo-upload" className="text-sm font-medium flex items-center gap-2">
-                  <Camera className="w-4 h-4 text-slate-500" /> Upload Proof Photos (up to 5)
+                  <Camera className="w-4 h-4 text-slate-600" /> Upload Proof Photos (up to 5)
                 </label>
                 <input
                   id="proof-photo-upload"
                   type="file"
                   accept="image/*"
                   multiple
+                  disabled={isProcessingPhotos || isCompletingTask}
                   onChange={handleProofFileChange}
                   title="Upload proof photos"
-                  className="block w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-blue-600 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-blue-700"
+                  className="block w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-slate-800 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 />
-                {proofFileNames.length > 0 ? (
-                  <p className="text-xs text-muted-foreground">Selected: {proofFileNames.length} image(s)</p>
+                {isProcessingPhotos ? (
+                  <p className="text-xs text-slate-600" role="status">Preparing photos…</p>
+                ) : proofFileNames.length > 0 ? (
+                  <p className="text-xs text-slate-600">Selected: {proofFileNames.length} image(s)</p>
                 ) : (
-                  <p className="text-xs text-muted-foreground">Choose up to 5 images to submit as completion proof.</p>
+                  <p className="text-xs text-slate-600">Choose up to 5 images to submit as completion proof.</p>
                 )}
                 {completionPhotoUrls.length > 0 ? (
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
@@ -387,15 +415,15 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2 sm:gap-3 mt-2">
-              <Button variant="outline" className="w-full" onClick={() => setCompletionModalOpen(false)}>
+              <Button variant="outline" className="w-full" onClick={resetCompletionModal}>
                 Cancel
               </Button>
               <Button
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                className="w-full bg-primary hover:bg-primary-dark text-white"
                 onClick={handleConfirmComplete}
-                disabled={isCompletingTask || completionPhotoUrls.length === 0}
+                disabled={isProcessingPhotos || isCompletingTask || completionPhotoUrls.length === 0}
               >
-                {isCompletingTask ? "Submitting..." : "Submit Proof"}
+                {isProcessingPhotos ? "Preparing photos…" : isCompletingTask ? "Submitting…" : "Submit Proof"}
               </Button>
             </div>
           </DialogContent>
@@ -415,39 +443,33 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
               <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
                 <div className="rounded-lg border bg-slate-50 p-4 dark:bg-slate-900 h-fit">
                   <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2">Report Details</h4>
-                  <div className="text-sm text-muted-foreground grid gap-2">
+                  <div className="text-sm text-slate-600 grid gap-2">
                     <div className="flex justify-between border-b pb-2 gap-4">
-                      <span className="text-slate-500">Urgency Level:</span>
-                      <span className={`font-medium text-right capitalize ${
-                        (selectedTaskForReport?.related_report?.urgency || '').toLowerCase() === "high"
-                          ? "text-red-600 dark:text-red-400"
-                          : (selectedTaskForReport?.related_report?.urgency || '').toLowerCase() === "medium"
-                            ? "text-amber-600 dark:text-amber-400"
-                            : "text-emerald-600 dark:text-emerald-400"
-                      }`}>{selectedTaskForReport?.related_report?.urgency || "Low"}</span>
+                      <span className="text-slate-600">Urgency Level:</span>
+                      <Badge variant="outline" className={`capitalize ${urgencyBadgeClass(selectedTaskForReport?.related_report?.urgency || "Low")}`}>{selectedTaskForReport?.related_report?.urgency || "Low"}</Badge>
                     </div>
                     <div className="flex justify-between border-b pb-2 gap-4">
-                      <span className="text-slate-500">Title:</span>
+                      <span className="text-slate-600">Title:</span>
                       <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{selectedTaskForReport?.related_report?.title || selectedTaskForReport?.title || "N/A"}</span>
                     </div>
                     <div className="grid border-b pb-2 gap-1">
-                      <span className="text-slate-500">Description:</span>
+                      <span className="text-slate-600">Description:</span>
                       <span className="font-medium text-slate-700 dark:text-slate-300 leading-relaxed">{selectedTaskForReport?.related_report?.description || "No report description available."}</span>
                     </div>
                     <div className="flex justify-between border-b pb-2 gap-4">
-                      <span className="text-slate-500">Municipality/City:</span>
+                      <span className="text-slate-600">Municipality/City:</span>
                       <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{selectedTaskForReport?.related_report?.municipality || "Unknown"}</span>
                     </div>
                     <div className="flex justify-between border-b pb-2 gap-4">
-                      <span className="text-slate-500">Barangay:</span>
+                      <span className="text-slate-600">Barangay:</span>
                       <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{selectedTaskForReport?.related_report?.barangay || "Unknown"}</span>
                     </div>
                     <div className="grid border-b pb-2 gap-1">
-                      <span className="text-slate-500">Street Address:</span>
+                      <span className="text-slate-600">Street Address:</span>
                       <span className="font-medium text-slate-700 dark:text-slate-300">{selectedTaskForReport?.related_report?.streetAddress || "N/A"}</span>
                     </div>
                     <div className="grid gap-1">
-                      <span className="text-slate-500">Landmark:</span>
+                      <span className="text-slate-600">Landmark:</span>
                       <span className="font-medium text-slate-700 dark:text-slate-300">{selectedTaskForReport?.related_report?.landmark || "N/A"}</span>
                     </div>
                   </div>
@@ -487,10 +509,10 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
             </div>
 
             <div className="grid grid-cols-2 gap-2 sm:gap-3 mt-4">
-              {selectedTaskForReport?.status === "Assigned" ? (
+              {canAccept(selectedTaskForReport?.status) ? (
                 <Button
                   type="button"
-                  className="col-span-full w-full bg-blue-600 hover:bg-blue-700 text-white"
+                  className="col-span-full w-full bg-primary hover:bg-primary-dark text-white"
                   onClick={() => {
                     const task = selectedTaskForReport;
                     setSelectedTaskForReport(null);
@@ -499,12 +521,12 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
                 >
                   Accept Task
                 </Button>
-              ) : selectedTaskForReport?.status === "Accepted" ? (
+              ) : canComplete(selectedTaskForReport?.status) ? (
                 <Button
                   type="button"
-                  className="col-span-full w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                  className="col-span-full w-full bg-primary hover:bg-primary-dark text-white"
                   onClick={() => {
-                    const task = selectedTaskForReport;
+                    const task = selectedTaskForReport!;
                     setSelectedTaskForReport(null);
                     handleOpenCompleteModal(task.id);
                   }}

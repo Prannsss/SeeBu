@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { supabase } from '../config/db';
+import { cacheGet, cacheSet, authStatusKey } from '../utils/cache';
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
 
@@ -37,9 +38,15 @@ export const withAuth = async (req: Request, res: Response, next: NextFunction) 
       return res.status(401).json({ error: 'Unauthorized Access' });
     }
 
-    const { data: account } = decoded.role === 'admin'
-      ? await supabase.from(tableName).select('status, municipality_id').eq('id', decoded.id).maybeSingle()
-      : await supabase.from(tableName).select('status').eq('id', decoded.id).maybeSingle();
+    const key = authStatusKey(decoded.role, decoded.id);
+    let account = await cacheGet<{ status: string; municipality_id?: string | null }>(key);
+    if (account === undefined) {
+      const { data } = decoded.role === 'admin'
+        ? await supabase.from(tableName).select('status, municipality_id').eq('id', decoded.id).maybeSingle()
+        : await supabase.from(tableName).select('status').eq('id', decoded.id).maybeSingle();
+      account = data ?? undefined;
+      if (account) await cacheSet(key, account, 60);
+    }
 
     if (!account || account.status !== 'Active') {
       return res.status(401).json({ error: 'Account is no longer active' });

@@ -55,6 +55,21 @@ export default function GooeyToasterProvider() {
     isPatchedRef.current = true;
   }, []);
 
+  // The service worker reports queued offline submissions that the server rejected on replay
+  useEffect(() => {
+    const sw = navigator.serviceWorker;
+    if (!sw) return;
+    const onMessage = (event: MessageEvent) => {
+      if (event.data?.type !== "BG_SYNC_FAILED") return;
+      const isTask = String(event.data.url).includes("/tasks/");
+      gooeyToast.error(isTask ? "Queued task completion failed" : "Queued report failed to send", {
+        description: `The server rejected your offline submission (${event.data.status}). Please submit it again.`,
+      });
+    };
+    sw.addEventListener("message", onMessage);
+    return () => sw.removeEventListener("message", onMessage);
+  }, []);
+
   return (
     <GooeyToaster
       position="top-center"
