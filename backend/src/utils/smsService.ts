@@ -38,6 +38,7 @@ const sendSynermaxxSms = async (payload: { to: string; message: string }) => {
         fullmesg: message,
         format: 'json',
       }),
+      signal: AbortSignal.timeout(15_000),
     });
 
     const bodyText = await response.text();

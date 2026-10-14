@@ -25,9 +25,17 @@ async function forward(request: NextRequest, path: string[]) {
       headers,
       body: hasBody ? await request.text() : undefined,
       cache: "no-store",
+      // Stay under maxDuration so the client gets a JSON error instead of a platform kill.
+      signal: AbortSignal.timeout(55_000),
     });
     body = await response.text();
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.name === "TimeoutError") {
+      return NextResponse.json(
+        { error: "The server took too long to respond. Please try again." },
+        { status: 504 }
+      );
+    }
     return NextResponse.json(
       { error: "The server is temporarily unavailable. Please try again in a moment." },
       { status: 502 }

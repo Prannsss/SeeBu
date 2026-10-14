@@ -591,6 +591,8 @@ export function ReportWizard() {
         method: 'POST',
         body: JSON.stringify(payload),
         requireAuth: isLoggedIn,
+        // Never leave the modal spinning forever if the backend stalls.
+        signal: AbortSignal.timeout(90_000),
       });
       const reportData = result.data;
       console.log('Form submitted successfully:', reportData);
@@ -614,12 +616,14 @@ export function ReportWizard() {
 
       gooeyToast.success("Report submitted!", {
         description: result.email_sent
-          ? `Your tracking ID has been sent to ${emailUsed}.`
+          ? `Your tracking ID is being sent to ${emailUsed}.`
           : "Use your tracking ID to check your report status anytime."
       });
     } catch (error) {
       // Only proxied (logged-in) submissions are queued by the service worker.
-      if (isLoggedIn && isOfflineQueuedError(error)) {
+      const errText = error instanceof Error ? error.message : '';
+      const timedOut = /TimeoutError|timed out|timeout/i.test(errText);
+      if (isLoggedIn && !timedOut && isOfflineQueuedError(error)) {
         gooeyToast.info('You are offline', {
           description: 'Your report was saved and will be sent automatically when you reconnect.',
         });
@@ -643,6 +647,8 @@ export function ReportWizard() {
         errorMessage = 'Your photos are too large. Remove a photo and try again.';
       } else if (status === 429 || message.includes('429')) {
         errorMessage = 'Too many submissions from your network. Please try again in a few minutes.';
+      } else if (timedOut || status === 504) {
+        errorMessage = 'The server took too long to respond. Please try again.';
       } else if (message.startsWith('API network error') && !navigator.onLine) {
         errorMessage = 'You are offline. Reconnect to the internet and try again.';
       }

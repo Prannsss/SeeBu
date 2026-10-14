@@ -262,42 +262,29 @@ export const reportController = {
         // Invalidate before the slow email/SMS sends so realtime-triggered refetches see the new report
         await invalidateWorkflowCaches();
 
-        // 5. Send tracking email to reporters who provided an email
-        let emailSent = false;
+        // 5–6. Tracking email/SMS are sent AFTER responding: a slow or blocked SMTP/SMS
+        // provider must never hold the submission open (the client was spinning for minutes).
         const emailUsed = effectiveReporterEmail || null;
+        const emailQueued = Boolean(emailUsed && allowNotification(emailUsed));
+        const smsQueued = Boolean(effectiveReporterPhone && allowNotification(effectiveReporterPhone));
 
-        if (emailUsed && allowNotification(emailUsed)) {
-          try {
-            await sendReportTrackingEmail(
-              emailUsed,
-              effectiveReporterName || 'Anonymous User',
-              reportId,
-              title
-            );
-            emailSent = true;
-          } catch (emailErr) {
-            // Non-fatal: log but don't roll back report creation
-            console.error('[createReport] Failed to send tracking email:', emailErr);
-          }
-        }
-
-        // 6. Send tracking SMS to reporters who provided a phone number
-        if (effectiveReporterPhone && allowNotification(effectiveReporterPhone)) {
-          try {
-            await sendReportTrackingSms(effectiveReporterPhone, reportId);
-          } catch (smsErr) {
-            // Non-fatal: log but don't roll back report creation
-            console.error('[createReport] Failed to send tracking SMS:', smsErr);
-          }
-        }
-
-        return res.status(201).json({
+        res.status(201).json({
           message: 'Report created successfully',
           data: report,
-          email_sent: emailSent,
+          email_sent: emailQueued,
           email_used: emailUsed,
           photos_stored: stored.length,
         });
+
+        if (emailQueued) {
+          sendReportTrackingEmail(emailUsed!, effectiveReporterName || 'Anonymous User', reportId, title)
+            .catch((emailErr) => console.error('[createReport] Failed to send tracking email:', emailErr));
+        }
+        if (smsQueued) {
+          sendReportTrackingSms(effectiveReporterPhone!, reportId)
+            .catch((smsErr) => console.error('[createReport] Failed to send tracking SMS:', smsErr));
+        }
+        return;
     } catch (err: any) {
       return res.status(500).json({ error: serverErrorMessage(err) });
     }

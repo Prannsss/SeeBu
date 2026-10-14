@@ -18,9 +18,20 @@ function parseDataUrl(value: string): { mimeType: string; base64Data: string } |
 
 // The EgoBlur sidecar handles one request at a time, so /detect and /blur calls share
 // one queue; each timeout starts when that request is actually sent.
+// Circuit breaker: after a network failure/timeout, skip the sidecar for EGO_COOLDOWN_MS so a
+// down or sleeping sidecar can't stall every photo of every submission by its full timeout.
+const EGO_COOLDOWN_MS = 5 * 60_000;
+let egoDownUntil = 0;
 let egoQueue: Promise<unknown> = Promise.resolve();
 export function serializeEgoBlur<T>(fn: () => Promise<T>): Promise<T> {
-  const run = egoQueue.then(fn, fn);
+  const guarded = () => {
+    if (Date.now() < egoDownUntil) return Promise.reject(new Error('EgoBlur sidecar cooling down'));
+    return fn().catch((err) => {
+      egoDownUntil = Date.now() + EGO_COOLDOWN_MS;
+      throw err;
+    });
+  };
+  const run = egoQueue.then(guarded, guarded);
   egoQueue = run.catch(() => {});
   return run;
 }
