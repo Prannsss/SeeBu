@@ -21,6 +21,7 @@ export default function RegisterPage() {
   const [contactNumber, setContactNumber] = useState("+63");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [agreed, setAgreed] = useState(false);
   const clearSession = async () => {
     // Evict any stale session cookie before establishing the new one.
     await fetch('/api/session', { method: 'DELETE' }).catch(() => {});
@@ -110,6 +111,7 @@ export default function RegisterPage() {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!agreed) return;
     setIsLoading(true);
     
     // Get form values
@@ -295,7 +297,7 @@ export default function RegisterPage() {
               <p className="text-xs text-text-muted dark:text-gray-400 -mt-3 ml-1">Minimum 8 characters with at least one number.</p>
 
               <div className="flex items-start space-x-2 pt-2">
-                <Checkbox id="terms" required />
+                <Checkbox id="terms" checked={agreed} onCheckedChange={(v) => setAgreed(v === true)} />
                 <label htmlFor="terms" className="text-xs leading-relaxed peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-text-muted dark:text-gray-400">
                   I agree to SeeBu's <Link href="/terms" target="_blank" className="text-primary underline hover:text-primary-dark">Terms of Service</Link> and <Link href="/privacy" target="_blank" className="text-primary underline hover:text-primary-dark">Privacy Policy</Link>.
                 </label>
@@ -303,7 +305,7 @@ export default function RegisterPage() {
               <Button
                 className="w-full h-12 text-lg bg-primary hover:bg-primary-dark text-white font-bold shadow-lg disabled:opacity-60"
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || !agreed}
               >
                 {isLoading ? "Creating account…" : "Create Account"}
               </Button>
