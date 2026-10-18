@@ -146,7 +146,9 @@ export default function RegisterPage() {
       sessionStorage.setItem('verification_email', email);
       sessionStorage.setItem('verification_code', data.data?.id || ''); // Using id as placeholder, actual code sent via email
       gooeyToast.success("Account Created!", {
-        description: "Check your email to verify your account.",
+        description: data.data?.email_sent === false
+          ? "We couldn't send the verification email. Use \"Resend verification code\" on the next page."
+          : "Check your email to verify your account.",
       });
 
       // Navigate to verification page

@@ -114,9 +114,11 @@ export const authController = {
 
       // The account already exists past this point, so email failures must not 500 —
       // otherwise the retry hits 409. The user can use /resend-verification instead.
+      let emailSent = false;
       try {
         const verificationCode = await issueVerificationToken(email, 'email_verify');
         await sendVerificationEmail(email, full_name, verificationCode);
+        emailSent = true;
       } catch (mailErr) {
         console.error('[registerClient] verification email failed:', mailErr);
       }
@@ -128,6 +130,7 @@ export const authController = {
           id: data.id,
           email: data.email,
           email_verified: false,
+          email_sent: emailSent,
         },
       });
     } catch (err: any) {
