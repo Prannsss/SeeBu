@@ -3,7 +3,7 @@ import { LegalLayout, LegalSection } from "@/components/legal/LegalLayout";
 const sections: LegalSection[] = [
   { id: "overview", title: "1. Overview" },
   { id: "information-we-collect", title: "2. Information We Collect" },
-  { id: "photos-redaction", title: "3. Photos & Face Redaction" },
+  { id: "photos-redaction", title: "3. Photo Privacy Screening" },
   { id: "how-we-use", title: "4. How We Use Information" },
   { id: "sharing", title: "5. How We Share Information" },
   { id: "third-party-login", title: "6. Third-Party Sign-In" },
@@ -67,16 +67,18 @@ export default function PrivacyPolicyPage() {
         <li>Cookies and similar technologies as described in <a href="#cookies">Section 11</a>.</li>
       </ul>
 
-      <h2 id="photos-redaction">3. Photos &amp; Face Redaction</h2>
+      <h2 id="photos-redaction">3. Photo Privacy Screening</h2>
       <p>
         Photos submitted with a report often depict streets, infrastructure, or public spaces and
-        may incidentally include bystanders. To reduce the privacy impact of this, SeeBu processes
-        uploaded images through an automated face-redaction service (EgoBlur) that detects and
-        blurs faces before images are stored for review or shown to administrators, workforce
-        accounts, or through the public tracking page. This redaction is automated and intended to
-        reduce identifiability of bystanders; it is not a guarantee that every face will be
-        detected in every image, particularly in low-quality, low-light, or heavily obscured
-        photos.
+        may incidentally include bystanders. To reduce the privacy impact of this, SeeBu screens
+        each photo on your own device before it is uploaded: photos in which a face is detected
+        cannot be submitted and must be retaken or replaced, and areas that appear to be vehicle
+        license plates are automatically blurred. This screening runs in your browser, so photos
+        are not sent to a separate service for it. Uploaded photos are stored as submitted after
+        this screening and may be shown to administrators, workforce accounts, or through the
+        public tracking page. Screening is automated and is not a guarantee that every face or
+        license plate will be detected, particularly in low-quality, low-light, or heavily
+        obscured photos.
       </p>
 
       <h2 id="how-we-use">4. How We Use Information</h2>
@@ -95,7 +97,7 @@ export default function PrivacyPolicyPage() {
       <ul>
         <li><strong>With government administrators and workforce personnel</strong> responsible for reviewing, verifying, assigning, and resolving the specific reports you submit;</li>
         <li><strong>Publicly, in limited form,</strong> when a report&apos;s status is looked up using its tracking ID, which does not require login;</li>
-        <li><strong>With service providers</strong> who help us operate the Service (for example, hosting, email delivery, and the automated face-redaction service), under obligations to protect your information and use it only for the purposes we specify;</li>
+        <li><strong>With service providers</strong> who help us operate the Service (for example, hosting and email delivery), under obligations to protect your information and use it only for the purposes we specify;</li>
         <li><strong>With map geocoding services,</strong> only when you use &quot;Use my location&quot;: your device&apos;s coordinates are sent directly from your browser to the OpenStreetMap Foundation&apos;s Nominatim service and to komoot&apos;s Photon service to convert them into a street address. No account or report details are sent with them. Their handling of these requests is governed by the <a href="https://osmfoundation.org/wiki/Privacy_Policy" target="_blank" rel="noopener noreferrer">OSMF Privacy Policy</a> and <a href="https://www.komoot.com/privacy" target="_blank" rel="noopener noreferrer">komoot&apos;s Privacy Policy</a>; and</li>
         <li><strong>When required by law,</strong> such as in response to a valid legal process, or to protect the rights, safety, or property of SeeBu, our users, or the public.</li>
       </ul>

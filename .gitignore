@@ -27,7 +27,6 @@
 .env.test.local
 .env.production.local
 backend/.env*
-egoblur-service/.env*
 *.pem
 *.key
 *serviceAccount*.json
@@ -61,11 +60,6 @@ package-lock.json
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-
-# egoblur models (large, license-gated download from projectaria.com)
-/egoblur-service/models/
-/egoblur-service/__pycache__/
-/egoblur-service/.venv/
 
 # ide & agent configs
 .github

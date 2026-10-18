@@ -204,8 +204,6 @@ function buildApiObject(fetcher: ApiFetcher) {
       getByIdPublic: (id: string) => fetcher(`/api/v1/reports/${id}`, { requireAuth: false }),
       create: (data: any) =>
         fetcher("/api/v1/reports", { method: "POST", body: JSON.stringify(data), requireAuth: true }),
-      scanImage: (data: { photo: string }) =>
-        fetcher("/api/v1/reports/scan-image", { method: "POST", body: JSON.stringify(data), requireAuth: false }),
       update: (id: string, data: any) =>
         fetcher(`/api/v1/reports/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     },

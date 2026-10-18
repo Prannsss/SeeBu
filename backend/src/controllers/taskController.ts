@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { supabase } from '../config/db';
 import { serverErrorMessage } from '../utils/errorResponse';
-import { persistImageInputs, insertPhotoRows, isTrustedStorageUrl } from '../utils/mediaStorage';
+import { persistImageInputs, isTrustedStorageUrl } from '../utils/mediaStorage';
 import { invalidateWorkflowCaches } from '../utils/cache';
 
 const MAX_PROOF_PHOTO_BYTES = 8 * 1024 * 1024;
@@ -293,10 +293,9 @@ export const taskController = {
 
       if (error) throw error;
 
-      const taskPhotoErr = await insertPhotoRows('task_proof_photos', stored.map((s) => ({
+      const { error: taskPhotoErr } = await supabase.from('task_proof_photos').insert(stored.map((url) => ({
         task_id: id,
-        photo_url: s.storedUrl,
-        original_photo_url: s.originalPath
+        photo_url: url
       })));
 
       if (taskPhotoErr) {
@@ -304,10 +303,9 @@ export const taskController = {
       }
 
       if (existingTask.related_report_id) {
-        const reportPhotoErr = await insertPhotoRows('report_photos', stored.map((s) => ({
+        const { error: reportPhotoErr } = await supabase.from('report_photos').insert(stored.map((url) => ({
           report_id: existingTask.related_report_id,
-          photo_url: s.storedUrl,
-          original_photo_url: s.originalPath,
+          photo_url: url,
           is_completion_photo: true
         })));
 

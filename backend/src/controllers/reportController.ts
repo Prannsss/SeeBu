@@ -1,9 +1,8 @@
 import { Request, Response } from 'express';
 import { supabase } from '../config/db';
 import { serverErrorMessage } from '../utils/errorResponse';
-import { persistImageInputs, insertPhotoRows, isTrustedStorageUrl } from '../utils/mediaStorage';
+import { persistImageInputs, isTrustedStorageUrl } from '../utils/mediaStorage';
 import { invalidateWorkflowCaches } from '../utils/cache';
-import { moderateImage } from '../utils/imageModeration';
 import { sendReportTrackingEmail } from '../utils/emailService';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
@@ -152,19 +151,6 @@ export const reportController = {
         return res.status(400).json({ error: 'Validation failed', details: validation.error.format() });
       }
 
-      // Check photos for sensitive data (people/faces, license plates, sensitive docs)
-      if (photos && Array.isArray(photos) && photos.length > 0) {
-        const mod = await Promise.all((photos as string[]).map((photo) => moderateImage(photo)));
-        const i = mod.findIndex((m) => !m.safe);
-        if (i !== -1) {
-          return res.status(422).json({
-            error: mod[i].reason || 'Image might contain sensitive data/information please retake the image',
-            details: mod[i].details,
-            flaggedPhotoIndex: i,
-          });
-        }
-      }
-
       const locationsValid = await municipalityAndBarangayExist(municipality_id, barangay_id);
       if (!locationsValid) {
         return res.status(400).json({ error: 'Invalid municipality_id or barangay_id' });
@@ -242,10 +228,9 @@ export const reportController = {
 
       // 3. Insert stored photo URLs into report_photos
       if (stored.length > 0) {
-        const photoErr = await insertPhotoRows('report_photos', stored.map((s) => ({
+        const { error: photoErr } = await supabase.from('report_photos').insert(stored.map((url) => ({
           report_id: reportId,
-          photo_url: s.storedUrl,
-          original_photo_url: s.originalPath,
+          photo_url: url,
           is_completion_photo: false
         })));
         if (photoErr) console.error("Error inserting photos:", photoErr);
@@ -665,26 +650,6 @@ export const reportController = {
       return res.status(200).json({ message: 'Report updated', data });
     } catch (err: any) {
       return res.status(500).json({ error: serverErrorMessage(err) });
-    }
-  },
-
-  // SCAN IMAGE FOR SENSITIVE DATA
-  async scanImage(req: Request, res: Response) {
-    try {
-      const { photo } = req.body;
-      if (!photo) {
-        return res.status(400).json({ error: 'Photo is required' });
-      }
-
-      const result = await moderateImage(photo);
-      return res.status(200).json(result);
-    } catch (err: any) {
-      console.error('Error in scanImage:', err);
-      return res.status(200).json({
-        safe: true,
-        reason: null,
-        details: { hasPerson: false, hasPlateNumber: false, hasSensitiveData: false }
-      });
     }
   }
 };

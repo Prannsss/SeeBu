@@ -27,8 +27,6 @@ The system aims to improve transparency, efficiency, and citizen engagement by d
 - **Client-Side Face Detection:** Uses lightweight `face-api.js` (SSD MobileNet V1) to scan images locally before upload, prompting a Privacy Agreement modal when human faces or sensitive info are detected.
 - **Camera Privacy Notice Modal:** Interactive guidelines educating users on data privacy, avoiding capturing bystanders, identification documents, and sensitive PII.
 - **Sensitive Data Detection:** Automated heuristics for detecting sensitive strings (TIN, SSS numbers, contact info, credit card patterns).
-- **EgoBlur Automated Redaction:** Backend integration with Meta's **EgoBlur** service to redact human faces and vehicle license plates before public or administrative storage.
-- **Dual-Tier Storage Architecture:** Anonymized/redacted photos are placed in accessible storage buckets for daily operational dashboards, while unredacted copies are archived in secure, access-controlled buckets for legal and audit compliance.
 
 ### 3. Administrator Operations & Report Management
 
@@ -71,7 +69,6 @@ The system aims to improve transparency, efficiency, and citizen engagement by d
 - **Client-Side AI/ML:** `face-api.js` (TensorFlow.js SSD MobileNet V1)
 - **Backend API:** Express.js, TypeScript, Next.js Server Actions
 - **Database & Storage:** Supabase (PostgreSQL, Row-Level Security, Supabase Storage)
-- **Image Redaction Sidecar:** FastAPI, Python, PyTorch, Meta EgoBlur
 - **Hosting:** Vercel (Frontend), Render (Backend), Supabase (Database)
 
 ---
@@ -82,7 +79,6 @@ The system aims to improve transparency, efficiency, and citizen engagement by d
 
 - **Node.js 20+**
 - **npm** or **pnpm**
-- **Python 3.10–3.12** (optional, for EgoBlur redaction service)
 - **Supabase Account & Project**
 
 ### Environment Configuration
@@ -101,7 +97,6 @@ Create a `backend/.env` file for the Express backend API:
 PORT=5000
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-EGOBLUR_SERVICE_URL=http://localhost:8228
 ```
 
 > **Security Note:** Never commit `.env*` files or service role credentials to source control. They are safeguarded in `.gitignore`.
@@ -112,20 +107,7 @@ EGOBLUR_SERVICE_URL=http://localhost:8228
 
 Open separate terminals for each service:
 
-#### Terminal 1 — EgoBlur Redaction Service (Optional for local testing)
-
-```bash
-cd egoblur-service
-python -m venv .venv
-# Windows:
-.venv\Scripts\activate
-# macOS / Linux:
-# source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn main:app --port 8228
-```
-
-#### Terminal 2 — Backend API
+#### Terminal 1 — Backend API
 
 ```bash
 npm install --prefix backend
@@ -133,7 +115,7 @@ npm run backend:watch
 # Server running at http://localhost:5000
 ```
 
-#### Terminal 3 — Next.js Frontend
+#### Terminal 2 — Next.js Frontend
 
 ```bash
 npm install
@@ -153,10 +135,7 @@ SEEBU/
 │       ├── controllers/      # Report, Task, and Department route controllers
 │       ├── middlewares/      # Authentication, JWT, and role-based guards
 │       ├── routes/           # REST endpoints
-│       └── utils/            # Image moderation, media storage & EgoBlur client
-├── egoblur-service/          # Python FastAPI sidecar for EgoBlur AI redaction
-│   ├── main.py               # Face and license plate detection server
-│   └── requirements.txt      # Python dependencies (torch, torchvision, opencv)
+│       └── utils/            # Media storage, email & helpers
 ├── public/                   # Static assets, PWA icons, and face-api weights
 │   └── models/face-api/      # Pretrained SSD MobileNet V1 models
 ├── src/                      # Next.js Frontend (App Router)
@@ -185,14 +164,12 @@ SEEBU/
 - **Data Privacy Act Compliance:** Minimizes retention of unnecessary personal information and anonymizes public displays.
 - **Encrypted Transmission:** All network traffic is encrypted via HTTPS/TLS.
 - **Row-Level Security (RLS):** Supabase database tables enforce role-based access policies.
-- **Automated Redaction:** EgoBlur AI automatically blurs identifiable faces and vehicle plates prior to public publication.
-- **Confidential Storage:** Original unblurred images are isolated in secured storage buckets with strict access logging.
+- **On-Device Face Screening:** Photos are checked for faces in the browser before upload; flagged photos require the user's acknowledgement.
 
 ---
 
 ## License & Attribution
 
 - This project is developed for academic and civic innovation purposes.
-- **EgoBlur** integration is licensed under **Apache 2.0** by Meta.
 
 **SEEBU — Report. Connect. Resolve.** 🚀

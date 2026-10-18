@@ -2,8 +2,7 @@
  * Client-Side Face / Person Sensitive Data Detector
  *
  * Detection pipeline:
- * 1. face-api.js (SSD MobileNet, runs fully in-browser) — detects faces/people.
- * 2. Backend /scan-image endpoint — secondary check (EgoBlur or AI if configured).
+ * face-api.js (SSD MobileNet, runs fully in-browser) — detects faces/people.
  *
  * NOTE: License plate detection is handled by a completely separate module:
  * `plateRedactor.ts` (stackblur-canvas heuristic pipeline). The two modules
@@ -77,10 +76,8 @@ export async function scanImageForSensitiveData(
 
   try {
     let imageElement: HTMLImageElement;
-    let dataUrl: string | null = null;
 
     if (typeof imageSource === 'string') {
-      dataUrl = imageSource;
       imageElement = new Image();
       await new Promise<void>((res, rej) => {
         imageElement.onload = () => res();
@@ -107,45 +104,8 @@ export async function scanImageForSensitiveData(
         }
       }
     } catch (faceErr) {
-      // Model failed to load or inference error — continue to other checks.
+      // Model failed to load or inference error — fail open.
       console.warn('[SensitiveDataDetector] face-api detection failed:', faceErr);
-    }
-
-    // ------------------------------------------------------------------
-    // 2. Prepare downscaled canvas for backend scan
-    // ------------------------------------------------------------------
-    const canvas = document.createElement('canvas');
-    const maxDim = 640;
-    const natW = imageElement.naturalWidth || imageElement.width;
-    const natH = imageElement.naturalHeight || imageElement.height;
-    const scale = Math.min(1, maxDim / Math.max(natW, natH, 1));
-    canvas.width = Math.max(1, Math.round(natW * scale));
-    canvas.height = Math.max(1, Math.round(natH * scale));
-
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.drawImage(imageElement, 0, 0, canvas.width, canvas.height);
-      if (!dataUrl) dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-    }
-
-    // ------------------------------------------------------------------
-    // 3. Backend scan-image (EgoBlur / AI — secondary, non-blocking)
-    // ------------------------------------------------------------------
-    if (dataUrl) {
-      try {
-        const { apiClient } = await import('@/lib/api');
-        const result = await apiClient.reports.scanImage({ photo: dataUrl });
-        if (result?.safe === false) {
-          return {
-            safe: false,
-            reason: SENSITIVE_REASON,
-            hasPerson: Boolean(result.details?.hasPerson),
-            hasPlateNumber: Boolean(result.details?.hasPlateNumber),
-          };
-        }
-      } catch {
-        // Backend offline or rate-limited — not fatal, local checks already passed.
-      }
     }
 
     return { safe: true, reason: null, hasPerson: false, hasPlateNumber: false };

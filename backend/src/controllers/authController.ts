@@ -112,11 +112,15 @@ export const authController = {
       }
       await cacheDelPrefix('users:');
 
-      // Issue OTP and send emails
-      const verificationCode = await issueVerificationToken(email, 'email_verify');
-
-      await sendWelcomeEmail(email, full_name);
-      await sendVerificationEmail(email, full_name, verificationCode);
+      // The account already exists past this point, so email failures must not 500 —
+      // otherwise the retry hits 409. The user can use /resend-verification instead.
+      try {
+        const verificationCode = await issueVerificationToken(email, 'email_verify');
+        await sendVerificationEmail(email, full_name, verificationCode);
+      } catch (mailErr) {
+        console.error('[registerClient] verification email failed:', mailErr);
+      }
+      sendWelcomeEmail(email, full_name).catch((e) => console.error('[registerClient] welcome email failed:', e));
 
       return res.status(201).json({
         message: 'Registration successful. Please verify your email.',

@@ -80,7 +80,7 @@ export default function TermsOfServicePage() {
       <ul>
         <li>The information you provide, including the description, location, and any photos, is truthful and accurate to the best of your knowledge;</li>
         <li>You will not knowingly submit false, misleading, duplicate, or malicious reports;</li>
-        <li>Photos you upload may depict public spaces, infrastructure, and, incidentally, members of the public. SeeBu applies automated face-redaction (EgoBlur) to uploaded images to reduce the visibility of bystanders' faces before they are reviewed or published, but you should still avoid intentionally photographing identifiable individuals where it is not necessary to illustrate the issue; and</li>
+        <li>Photos you upload may depict public spaces, infrastructure, and, incidentally, members of the public. SeeBu automatically screens photos on your device before upload, rejecting photos in which a face is detected and blurring detected license plates, but this screening is not perfect and you should still avoid intentionally photographing identifiable individuals where it is not necessary to illustrate the issue; and</li>
         <li>Reports and their status updates may be visible to relevant government administrators, workforce personnel, and, where a tracking ID is used, to anyone with that tracking ID.</li>
       </ul>
 

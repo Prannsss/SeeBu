@@ -64,13 +64,3 @@ export const reportLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
-
-// Separate budget for pre-submit image scans so re-taking photos doesn't block submission
-export const scanLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 120,
-  keyGenerator: rateLimitKey,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many image scans, please wait a few minutes and try again' },
-});
