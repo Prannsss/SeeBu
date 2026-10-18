@@ -1,14 +1,11 @@
 "use strict";
 /**
  * emailService.ts
- * Utilities for sending emails via AWS SES (SMTP) using nodemailer.
+ * Utilities for sending emails via the Brevo HTTP API.
+ * (HTTPS, not SMTP — Render's free tier blocks outbound SMTP ports.)
  */
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendReportTrackingEmail = exports.sendClientUpdateEmail = exports.sendVerificationEmail = exports.sendWelcomeEmail = void 0;
-const nodemailer_1 = __importDefault(require("nodemailer"));
 /** Escape user-controlled values before interpolating into HTML email templates. */
 function escapeHtml(value) {
     return String(value)
@@ -18,31 +15,35 @@ function escapeHtml(value) {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
 }
-const transporter = nodemailer_1.default.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT) || 587,
-    secure: false,
-    auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-    },
-});
-const FROM_EMAIL = process.env.SMTP_FROM_EMAIL;
-const FROM_NAME = process.env.SMTP_FROM_NAME;
+const FROM_EMAIL = process.env.EMAIL_FROM;
+const FROM_NAME = process.env.EMAIL_FROM_NAME;
 const sendSmtpEmail = async (payload) => {
     const { to, subject, html, text } = payload;
     try {
-        return await transporter.sendMail({
-            from: `${FROM_NAME} <${FROM_EMAIL}>`,
-            to,
-            subject,
-            html,
-            ...(text ? { text } : {}),
+        const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+            method: 'POST',
+            headers: {
+                'api-key': process.env.BREVO_API_KEY,
+                'content-type': 'application/json',
+                accept: 'application/json',
+            },
+            body: JSON.stringify({
+                sender: { name: FROM_NAME, email: FROM_EMAIL },
+                to: [{ email: to }],
+                subject,
+                htmlContent: html,
+                ...(text ? { textContent: text } : {}),
+            }),
+            // Fail fast if Brevo is slow/unreachable.
+            signal: AbortSignal.timeout(15_000),
         });
+        if (!res.ok)
+            throw new Error(`${res.status} ${await res.text()}`);
+        return await res.json();
     }
     catch (error) {
-        console.error('SMTP Send Error:', error);
-        throw new Error(`SMTP Send Error: ${error.message}`);
+        console.error('Brevo Send Error:', error);
+        throw new Error(`Brevo Send Error: ${error.message}`);
     }
 };
 const sendWelcomeEmail = async (toEmail, toName) => {
@@ -103,7 +104,7 @@ const sendClientUpdateEmail = async (toEmail, toName, title, message) => {
 };
 exports.sendClientUpdateEmail = sendClientUpdateEmail;
 const sendReportTrackingEmail = async (toEmail, toName, trackingId, reportTitle) => {
-    const frontendUrl = process.env.FRONTEND_URL || 'https://seebucommunity.vercel.app';
+    const frontendUrl = process.env.FRONTEND_URL || 'https://seebu.prannsss.dev';
     const safeName = escapeHtml(toName || 'Anonymous User');
     const safeTitle = escapeHtml(reportTitle);
     return sendSmtpEmail({

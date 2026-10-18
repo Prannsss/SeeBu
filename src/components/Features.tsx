@@ -148,7 +148,7 @@ export function Features() {
             </div>
             <h3 className="text-xl font-bold text-text-main dark:text-white mb-3">Instant Notifications</h3>
             <p className="text-text-muted dark:text-gray-400 leading-relaxed text-sm">
-              Receive push notifications or SMS alerts whenever there is an update on your request.
+              Receive push notifications or email alerts whenever there is an update on your request.
             </p>
           </div>
 

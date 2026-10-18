@@ -4,6 +4,8 @@ exports.taskController = void 0;
 const db_1 = require("../config/db");
 const errorResponse_1 = require("../utils/errorResponse");
 const mediaStorage_1 = require("../utils/mediaStorage");
+const cache_1 = require("../utils/cache");
+const MAX_PROOF_PHOTO_BYTES = 8 * 1024 * 1024;
 exports.taskController = {
     // READ TASKS
     async getTasks(req, res) {
@@ -61,6 +63,25 @@ exports.taskController = {
             const { id } = req.params;
             const { status, assigned_to } = req.body;
             let assignedOfficerName = null;
+            // Officers may only update their own tasks and cannot reassign them.
+            if (req.user?.role === 'workforce') {
+                const { data: ownTask, error: ownTaskError } = await db_1.supabase
+                    .from('tasks')
+                    .select('assigned_to')
+                    .eq('id', id)
+                    .maybeSingle();
+                if (ownTaskError)
+                    throw ownTaskError;
+                if (!ownTask) {
+                    return res.status(404).json({ error: 'Task not found' });
+                }
+                if (ownTask.assigned_to !== req.user.id) {
+                    return res.status(403).json({ error: 'You can only update tasks assigned to you' });
+                }
+                if (assigned_to !== undefined) {
+                    return res.status(403).json({ error: 'Workforce officers cannot reassign tasks' });
+                }
+            }
             if (assigned_to) {
                 const { data: officer, error: officerError } = await db_1.supabase
                     .from('workforce_officers')
@@ -171,6 +192,7 @@ exports.taskController = {
                         created_by: req.user?.id
                     }]);
             }
+            await (0, cache_1.invalidateWorkflowCaches)();
             return res.status(200).json({ message: 'Task updated successfully', data });
         }
         catch (err) {
@@ -191,9 +213,24 @@ exports.taskController = {
             if (normalizedPhotoInputs.length > 5) {
                 return res.status(400).json({ error: 'You can upload up to 5 proof photos only' });
             }
+            for (const val of normalizedPhotoInputs) {
+                if (val.startsWith('data:image/')) {
+                    if (val.length * 0.75 > MAX_PROOF_PHOTO_BYTES) {
+                        return res.status(400).json({ error: 'Each proof photo must be under 8MB' });
+                    }
+                }
+                else if (val.startsWith('http://') || val.startsWith('https://')) {
+                    if (!(0, mediaStorage_1.isTrustedStorageUrl)(val)) {
+                        return res.status(400).json({ error: 'Proof photo URL must be hosted on our storage domain' });
+                    }
+                }
+                else {
+                    return res.status(400).json({ error: 'Proof photo must be a base64 image or a storage URL' });
+                }
+            }
             const { data: existingTask, error: taskLookupError } = await db_1.supabase
                 .from('tasks')
-                .select('id, assigned_to, related_report_id')
+                .select('id, assigned_to, related_report_id, status')
                 .eq('id', id)
                 .single();
             if (taskLookupError || !existingTask) {
@@ -204,6 +241,15 @@ exports.taskController = {
             }
             if (!existingTask.assigned_to || existingTask.assigned_to !== req.user?.id) {
                 return res.status(403).json({ error: 'Only the assigned officer can complete this task' });
+            }
+            // Idempotency: SW replays / client retries must not re-complete or duplicate photos.
+            if (existingTask.status === 'Completed') {
+                return res.status(409).json({ error: 'This task is already completed.' });
+            }
+            // Upload proof first; the task is only completed once at least one photo is stored.
+            const stored = await (0, mediaStorage_1.persistImageInputs)(normalizedPhotoInputs, `reports/${existingTask.related_report_id || id}/completion`);
+            if (stored.length === 0) {
+                return res.status(502).json({ error: "We couldn't upload your proof photos. Please try again." });
             }
             // Update Task status to Completed
             const { data: task, error } = await db_1.supabase
@@ -217,33 +263,19 @@ exports.taskController = {
                 .single();
             if (error)
                 throw error;
-            const storedProofUrls = [];
-            for (const inputUrl of normalizedPhotoInputs) {
-                let storedProofUrl = inputUrl;
-                try {
-                    const storedProof = await (0, mediaStorage_1.persistImageInput)(inputUrl, `reports/${existingTask.related_report_id || id}/completion`);
-                    storedProofUrl = storedProof.storedUrl;
-                }
-                catch (storageErr) {
-                    console.error('Completion proof upload failed, using original value:', storageErr);
-                }
-                storedProofUrls.push(storedProofUrl);
-            }
-            const { error: taskPhotoErr } = await db_1.supabase
-                .from('task_proof_photos')
-                .insert(storedProofUrls.map((url) => ({
+            const taskPhotoErr = await (0, mediaStorage_1.insertPhotoRows)('task_proof_photos', stored.map((s) => ({
                 task_id: id,
-                photo_url: url
+                photo_url: s.storedUrl,
+                original_photo_url: s.originalPath
             })));
             if (taskPhotoErr) {
                 console.error('Error inserting task proof photos:', taskPhotoErr);
             }
             if (existingTask.related_report_id) {
-                const { error: reportPhotoErr } = await db_1.supabase
-                    .from('report_photos')
-                    .insert(storedProofUrls.map((url) => ({
+                const reportPhotoErr = await (0, mediaStorage_1.insertPhotoRows)('report_photos', stored.map((s) => ({
                     report_id: existingTask.related_report_id,
-                    photo_url: url,
+                    photo_url: s.storedUrl,
+                    original_photo_url: s.originalPath,
                     is_completion_photo: true
                 })));
                 if (reportPhotoErr) {
@@ -282,7 +314,7 @@ exports.taskController = {
                         created_by: req.user?.id
                     }]);
             }
-            // If tied to a report, optionally we could log to report_timeline here
+            await (0, cache_1.invalidateWorkflowCaches)();
             return res.status(200).json({ message: 'Task completed successfully', data: task });
         }
         catch (err) {

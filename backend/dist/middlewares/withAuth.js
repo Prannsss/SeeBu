@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.withAuth = void 0;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const db_1 = require("../config/db");
+const cache_1 = require("../utils/cache");
 const JWT_SECRET = process.env.JWT_SECRET;
 const ROLE_TABLES = {
     client: 'clients',
@@ -26,9 +27,16 @@ const withAuth = async (req, res, next) => {
         if (!tableName || !decoded?.id) {
             return res.status(401).json({ error: 'Unauthorized Access' });
         }
-        const { data: account } = decoded.role === 'admin'
-            ? await db_1.supabase.from(tableName).select('status, municipality_id').eq('id', decoded.id).maybeSingle()
-            : await db_1.supabase.from(tableName).select('status').eq('id', decoded.id).maybeSingle();
+        const key = (0, cache_1.authStatusKey)(decoded.role, decoded.id);
+        let account = await (0, cache_1.cacheGet)(key);
+        if (account === undefined) {
+            const { data } = decoded.role === 'admin'
+                ? await db_1.supabase.from(tableName).select('status, municipality_id').eq('id', decoded.id).maybeSingle()
+                : await db_1.supabase.from(tableName).select('status').eq('id', decoded.id).maybeSingle();
+            account = data ?? undefined;
+            if (account)
+                await (0, cache_1.cacheSet)(key, account, 60);
+        }
         if (!account || account.status !== 'Active') {
             return res.status(401).json({ error: 'Account is no longer active' });
         }

@@ -5,9 +5,10 @@ const taskController_1 = require("../controllers/taskController");
 const withAuth_1 = require("../middlewares/withAuth");
 const requireRole_1 = require("../middlewares/requireRole");
 const rateLimiter_1 = require("../middlewares/rateLimiter");
+const cacheResponse_1 = require("../middlewares/cacheResponse");
 const router = (0, express_1.Router)();
 // Retrieve tasks
-router.get('/', withAuth_1.withAuth, (0, requireRole_1.requireRole)(['admin', 'superadmin', 'workforce-admin', 'workforce']), taskController_1.taskController.getTasks);
+router.get('/', withAuth_1.withAuth, (0, requireRole_1.requireRole)(['admin', 'superadmin', 'workforce-admin', 'workforce']), (0, cacheResponse_1.cacheResponse)('tasks', 15), taskController_1.taskController.getTasks);
 // Update status (Assigned -> Accepted)
 router.put('/:id', withAuth_1.withAuth, (0, requireRole_1.requireRole)(['admin', 'superadmin', 'workforce-admin', 'workforce']), taskController_1.taskController.updateTaskStatus);
 router.patch('/:id', withAuth_1.withAuth, (0, requireRole_1.requireRole)(['admin', 'superadmin', 'workforce-admin', 'workforce']), taskController_1.taskController.updateTaskStatus);

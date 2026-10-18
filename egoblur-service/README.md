@@ -13,8 +13,8 @@ The Node backend calls it from `persistImageInput` before storing the public cop
 
 1. **Download models** from https://www.projectaria.com/tools/egoblur/:
    - Extract and place in `egoblur-service/models/`:
-     - `ego_blur_face.jit`
-     - `ego_blur_lp.jit`
+     - `ego_blur_face_gen1.jit`
+     - `ego_blur_lp_gen1.jit`
 
 2. **Create virtual environment** (one-time):
    ```bash
@@ -59,8 +59,8 @@ python egoblur-service/main.py
 
 | Env Variable | Default | Notes |
 |---|---|---|
-| `FACE_MODEL_PATH` | `models/ego_blur_face.jit` | Path to face detection model |
-| `LP_MODEL_PATH` | `models/ego_blur_lp.jit` | Path to license plate detection model |
+| `FACE_MODEL_PATH` | `models/ego_blur_face_gen1.jit` | Path to face detection model |
+| `LP_MODEL_PATH` | `models/ego_blur_lp_gen1.jit` | Path to license plate detection model |
 | `SCORE_THRESHOLD` | `0.9` | Detection confidence threshold (0–1) |
 | `NMS_IOU_THRESHOLD` | `0.3` | Non-maximum suppression overlap threshold |
 

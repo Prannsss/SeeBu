@@ -23,7 +23,7 @@ export const metadata = {
 
 export default function PrivacyPolicyPage() {
   return (
-    <LegalLayout title="Privacy Policy" effectiveDate="July 4, 2026" sections={sections}>
+    <LegalLayout title="Privacy Policy" effectiveDate="October 18, 2026" sections={sections}>
       <p>
         This Privacy Policy explains how SeeBu (&quot;we,&quot; &quot;us,&quot; or &quot;our&quot;)
         collects, uses, discloses, and safeguards information when you use our website, mobile
@@ -47,13 +47,16 @@ export default function PrivacyPolicyPage() {
       <ul>
         <li>Name, email address, and password (when you register directly);</li>
         <li>Profile information from Google or Facebook if you sign in with those providers (see <a href="#third-party-login">Section 6</a>);</li>
-        <li>Contact number, when provided for SMS-based verification or password recovery; and</li>
+        <li>Contact number, when provided; and</li>
         <li>Role information (Client, Admin, Workforce, Superadmin) used to control access within the Service.</li>
       </ul>
       <h3>Report Information</h3>
       <ul>
         <li>The description, category, and status of issues you report;</li>
-        <li>Location data (such as an address or map coordinates) associated with a report;</li>
+        <li>Location data (such as an address or map coordinates) associated with a report. If you
+          tap &quot;Use my location,&quot; your device&apos;s GPS coordinates are collected only with your
+          browser&apos;s location permission and only at that moment, to look up your street address
+          (see <a href="#sharing">Section 5</a>);</li>
         <li>Photos submitted as evidence of the reported issue; and</li>
         <li>A generated tracking ID used to look up a report&apos;s status without logging in.</li>
       </ul>
@@ -82,7 +85,7 @@ export default function PrivacyPolicyPage() {
         <li>Create and maintain your account and authenticate your sign-ins;</li>
         <li>Receive, route, and display reports to the appropriate administrators and workforce personnel;</li>
         <li>Provide status updates and enable tracking-ID lookups;</li>
-        <li>Send transactional communications, such as verification codes, password-reset emails or SMS, and report status notifications;</li>
+        <li>Send transactional communications, such as verification codes, password-reset emails, and report status notifications;</li>
         <li>Maintain the security and integrity of the Service, including detecting abuse and enforcing rate limits; and</li>
         <li>Comply with legal obligations and respond to lawful requests from public authorities.</li>
       </ul>
@@ -92,7 +95,8 @@ export default function PrivacyPolicyPage() {
       <ul>
         <li><strong>With government administrators and workforce personnel</strong> responsible for reviewing, verifying, assigning, and resolving the specific reports you submit;</li>
         <li><strong>Publicly, in limited form,</strong> when a report&apos;s status is looked up using its tracking ID, which does not require login;</li>
-        <li><strong>With service providers</strong> who help us operate the Service (for example, hosting, email/SMS delivery, and the automated face-redaction service), under obligations to protect your information and use it only for the purposes we specify; and</li>
+        <li><strong>With service providers</strong> who help us operate the Service (for example, hosting, email delivery, and the automated face-redaction service), under obligations to protect your information and use it only for the purposes we specify;</li>
+        <li><strong>With map geocoding services,</strong> only when you use &quot;Use my location&quot;: your device&apos;s coordinates are sent directly from your browser to the OpenStreetMap Foundation&apos;s Nominatim service and to komoot&apos;s Photon service to convert them into a street address. No account or report details are sent with them. Their handling of these requests is governed by the <a href="https://osmfoundation.org/wiki/Privacy_Policy" target="_blank" rel="noopener noreferrer">OSMF Privacy Policy</a> and <a href="https://www.komoot.com/privacy" target="_blank" rel="noopener noreferrer">komoot&apos;s Privacy Policy</a>; and</li>
         <li><strong>When required by law,</strong> such as in response to a valid legal process, or to protect the rights, safety, or property of SeeBu, our users, or the public.</li>
       </ul>
 
@@ -107,12 +111,21 @@ export default function PrivacyPolicyPage() {
 
       <h2 id="retention">7. Data Retention</h2>
       <p>
-        We retain account and report information for as long as reasonably necessary to provide the
-        Service, resolve reports, maintain accurate records of government action taken, and comply
-        with legal and recordkeeping obligations. If you request account deletion, we will delete or
-        anonymize your personal information, except where retention is required for legal,
-        security, or legitimate recordkeeping purposes (for example, maintaining historical records
-        of resolved public infrastructure reports).
+        We keep personal information for no longer than <strong>one (1) year</strong>, measured as follows:
+      </p>
+      <ul>
+        <li><strong>Reports and photos:</strong> one year from the date the report is resolved or closed;</li>
+        <li><strong>Accounts:</strong> one year from your last sign-in, or until you request deletion, whichever comes first; and</li>
+        <li><strong>Server logs and security records:</strong> one year from the date they are created.</li>
+      </ul>
+      <p>
+        When the retention period ends, we delete the information or anonymize it so it can no longer
+        identify you. Anonymized, non-personal records of resolved public infrastructure issues (such
+        as the issue type, barangay, and resolution date) may be kept for statistics and
+        government recordkeeping. We may keep specific information longer only where the law
+        requires it or to resolve an ongoing dispute, legal claim, or security investigation, and only
+        for as long as that purpose lasts. If you request account deletion, we will delete or
+        anonymize your personal information without waiting for the retention period to end.
       </p>
 
       <h2 id="security">8. Data Security</h2>

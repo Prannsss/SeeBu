@@ -24,6 +24,8 @@ if (!process.env.JWT_SECRET) {
     process.exit(1);
 }
 const app = (0, express_1.default)();
+// Behind Render/Vercel proxies: use the first X-Forwarded-For hop as req.ip (rate limiting)
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 5000;
 app.use((0, helmet_1.default)({
     crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" }
@@ -31,7 +33,7 @@ app.use((0, helmet_1.default)({
 // Apply rate limiting to all requests
 app.use(rateLimiter_1.limiter);
 const allowedOrigins = [
-    'https://seebucommunity.vercel.app',
+    'https://seebu.prannsss.dev',
     'http://localhost:3000',
     ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : []),
     process.env.FRONTEND_URL
@@ -47,10 +49,14 @@ app.use((0, cors_1.default)({
     },
     credentials: true
 }));
-// Body limits: Allow up to 50MB payloads for base64 image uploads (reports/tasks)
-app.use(express_1.default.json({ limit: '50mb' }));
-app.use(express_1.default.urlencoded({ extended: true, limit: '50mb' }));
-const imageUploadBodyLimit = express_1.default.json({ limit: '50mb' });
+// Body limits: up to 50MB for base64 image uploads (reports/tasks), 1MB elsewhere.
+// The upload parser runs first; the global parser then skips already-parsed bodies.
+const uploadJson = express_1.default.json({ limit: '50mb' });
+app.use('/api/v1/reports', uploadJson);
+app.use('/api/v1/tasks', uploadJson);
+app.use(express_1.default.json({ limit: '1mb' }));
+app.use(express_1.default.urlencoded({ extended: true, limit: '1mb' }));
+console.log(`[cache] REDIS_URL ${process.env.REDIS_URL ? 'set' : 'unset (in-memory cache)'}`);
 // Health check endpoint for Render/Root URL
 app.get('/health', (req, res) => {
     res.status(200).json({
@@ -71,10 +77,10 @@ app.get('/', (req, res) => {
 // API Routes
 app.use('/api/v1/auth', authRoutes_1.default);
 app.use('/api/v1/locations', locationRoutes_1.default);
-app.use('/api/v1/reports', imageUploadBodyLimit, reportRoutes_1.default);
+app.use('/api/v1/reports', reportRoutes_1.default);
 app.use('/api/v1/analytics', analyticsRoutes_1.default);
 app.use('/api/v1/users', userRoutes_1.default);
-app.use('/api/v1/tasks', imageUploadBodyLimit, taskRoutes_1.default);
+app.use('/api/v1/tasks', taskRoutes_1.default);
 app.use('/api/v1/departments', departmentRoutes_1.default);
 // API health check
 app.get('/api/v1/health', (req, res) => {
@@ -82,6 +88,18 @@ app.get('/api/v1/health', (req, res) => {
         status: 'OK',
         timestamp: new Date().toISOString()
     });
+});
+// JSON error responses (instead of Express's default HTML page)
+app.use((err, req, res, _next) => {
+    if (err?.type === 'entity.too.large')
+        return res.status(413).json({ error: 'Upload too large. Please use fewer or smaller photos.' });
+    if (err?.message === 'Not allowed by CORS')
+        return res.status(403).json({ error: 'Origin not allowed' });
+    const status = err?.status || 500;
+    if (status < 500)
+        return res.status(status).json({ error: 'Invalid request' });
+    console.error('[unhandled]', err);
+    return res.status(status).json({ error: 'Internal server error' });
 });
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);

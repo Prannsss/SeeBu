@@ -3,6 +3,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.userController = void 0;
 const db_1 = require("../config/db");
 const errorResponse_1 = require("../utils/errorResponse");
+const accounts_1 = require("../utils/accounts");
+const cache_1 = require("../utils/cache");
 exports.userController = {
     async getCurrentUser(req, res) {
         try {
@@ -80,6 +82,9 @@ exports.userController = {
                 updates.email = email;
             if (contact_number !== undefined)
                 updates.contact_number = contact_number;
+            if (email && await (0, accounts_1.emailExists)(email, userReq.id)) {
+                return res.status(409).json({ error: 'This email is already in use.' });
+            }
             const { error } = await db_1.supabase
                 .from(tableName)
                 .update(updates)
@@ -87,6 +92,7 @@ exports.userController = {
             if (error) {
                 return res.status(500).json({ error: (0, errorResponse_1.serverErrorMessage)(error) });
             }
+            await (0, cache_1.cacheDelPrefix)('users:');
             return res.status(200).json({ message: 'Profile updated successfully' });
         }
         catch (err) {
@@ -97,6 +103,12 @@ exports.userController = {
         try {
             const tables = ['clients', 'admins', 'superadmins', 'workforce_admins', 'workforce_officers'];
             let allUsers = [];
+            // Fetch municipality names once for mapping
+            const { data: municipalities } = await db_1.supabase.from('municipalities').select('id, name');
+            const munNameMap = {};
+            (municipalities || []).forEach((m) => {
+                munNameMap[m.id] = m.name;
+            });
             for (const table of tables) {
                 // Handle varying column names across tables, carefully alias them
                 let selectQuery = 'id, email, status';
@@ -111,12 +123,6 @@ exports.userController = {
                 }
                 const { data: tbData, error } = await db_1.supabase.from(table).select(selectQuery).limit(100);
                 if (tbData) {
-                    // Fetch municipality names for mapping
-                    const { data: municipalities } = await db_1.supabase.from('municipalities').select('id, name');
-                    const munNameMap = {};
-                    (municipalities || []).forEach((m) => {
-                        munNameMap[m.id] = m.name;
-                    });
                     allUsers = [...allUsers, ...tbData.map((u) => {
                             // Format area: convert 'cebu-city' to 'Cebu City'
                             let areaDisplay = 'Global';
@@ -182,6 +188,9 @@ exports.userController = {
             if (error) {
                 return res.status(500).json({ error: (0, errorResponse_1.serverErrorMessage)(error) });
             }
+            // Drop the cached withAuth status so the deactivated account can't stay usable for the TTL
+            await (0, cache_1.cacheDel)((0, cache_1.authStatusKey)(userReq.role, userReq.id));
+            await (0, cache_1.cacheDelPrefix)('users:', 'departments:');
             return res.status(200).json({ message: 'Account deleted successfully' });
         }
         catch (err) {

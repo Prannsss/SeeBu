@@ -2,7 +2,6 @@ import { Request, Response } from 'express';
 import { supabase } from '../config/db';
 import { serverErrorMessage } from '../utils/errorResponse';
 import { sendWelcomeEmail, sendVerificationEmail } from '../utils/emailService';
-import { sendPasswordResetSms } from '../utils/smsService';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
@@ -561,28 +560,16 @@ export const authController = {
   // ── Forgot Password ──────────────────────────────────────────────────────
   async forgotPassword(req: Request, res: Response) {
     try {
-      const { email, contact_number, channel = 'email' } = req.body;
+      const { email } = req.body;
 
-      if (channel !== 'email' && channel !== 'sms') {
-        return res.status(400).json({ error: 'Invalid channel' });
-      }
-
-      if (channel === 'email' && !email) {
+      if (!email) {
         return res.status(400).json({ error: 'Missing email' });
-      }
-
-      if (channel === 'sms' && !contact_number) {
-        return res.status(400).json({ error: 'Missing contact number' });
       }
 
       let user = null;
 
       for (const table of USER_TABLES) {
-        const query = supabase.from(table).select('id, email, full_name, contact_number');
-
-        const { data } = channel === 'sms'
-          ? await query.eq('contact_number', contact_number).single()
-          : await query.eq('email', email).single();
+        const { data } = await supabase.from(table).select('id, email, full_name').eq('email', email).single();
 
         if (data) {
           user = data;
@@ -590,9 +577,7 @@ export const authController = {
         }
       }
 
-      const genericMessage = channel === 'sms'
-        ? 'If an account with that number exists, a verification code has been sent.'
-        : 'If an account with that email exists, a verification code has been sent.';
+      const genericMessage = 'If an account with that email exists, a verification code has been sent.';
 
       if (!user) {
         return res.status(200).json({ message: genericMessage });
@@ -600,17 +585,10 @@ export const authController = {
 
       const otp = await issueVerificationToken(user.email, 'password_reset');
 
-      if (channel === 'sms') {
-        // Fire-and-forget — don't block response on SMS delivery
-        sendPasswordResetSms(user.contact_number, otp).catch((err) =>
-          console.error('[forgotPassword] SMS send failed:', err)
-        );
-      } else {
-        // Fire-and-forget — don't block response on email delivery
-        sendVerificationEmail(user.email, user.full_name || 'SeeBu User', otp).catch((err) =>
-          console.error('[forgotPassword] Email send failed:', err)
-        );
-      }
+      // Fire-and-forget — don't block response on email delivery
+      sendVerificationEmail(user.email, user.full_name || 'SeeBu User', otp).catch((err) =>
+        console.error('[forgotPassword] Email send failed:', err)
+      );
 
       return res.status(200).json({ message: genericMessage });
     } catch (err: any) {

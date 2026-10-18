@@ -9,4 +9,4 @@ services:
       - key: NODE_ENV
         value: production
       - key: FRONTEND_URL
-        value: https://seebucommunity.vercel.app
+        value: https://seebu.prannsss.dev

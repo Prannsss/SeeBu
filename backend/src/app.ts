@@ -34,7 +34,7 @@ app.use(helmet({
 app.use(limiter);
 
 const allowedOrigins = [
-  'https://seebucommunity.vercel.app',
+  'https://seebu.prannsss.dev',
   'http://localhost:3000',
   ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : []),
   process.env.FRONTEND_URL

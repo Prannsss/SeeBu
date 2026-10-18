@@ -40,7 +40,7 @@ async function verifyAuthAndGetSession() {
     const allowedHosts = [
       "localhost",
       "127.0.0.1",
-      "seebucommunity.vercel.app",
+      "seebu.prannsss.dev",
       hostnameOf(process.env.NEXT_PUBLIC_APP_URL),
       ownHost,
     ].filter(Boolean);

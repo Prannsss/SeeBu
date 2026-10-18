@@ -1,6 +1,6 @@
 # SeeBu Backend
 
-Express + TypeScript API for the SeeBu platform. Uses Supabase for data storage, AWS SES (SMTP) for transactional email, and Synermaxx for SMS.
+Express + TypeScript API for the SeeBu platform. Uses Supabase for data storage, and the Brevo HTTP API for transactional email.
 
 ## Prerequisites
 
@@ -14,9 +14,8 @@ Express + TypeScript API for the SeeBu platform. Uses Supabase for data storage,
 | `CORS_ORIGIN` | Allowed origin for local frontend dev |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_CALLBACK_URL` | Google OAuth |
 | `FACEBOOK_APP_ID` / `FACEBOOK_APP_SECRET` / `FACEBOOK_CALLBACK_URL` | Facebook OAuth |
-| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` | AWS SES SMTP credentials (transactional email — see `src/utils/emailService.ts`) |
-| `SMTP_FROM_EMAIL` / `SMTP_FROM_NAME` | "From" address/name used on outgoing email |
-| `SMS_SYNERMAXX_API_URL` / `SMS_SYNERMAXX_APP_KEY` / `SMS_SYNERMAXX_ORIGINATOR` | Synermaxx SMS gateway (see `src/utils/smsService.ts`) |
+| `BREVO_API_KEY` | Brevo API key (`xkeysib-...`) for transactional email — see `src/utils/emailService.ts`. Sent over HTTPS because Render free tier blocks SMTP ports |
+| `EMAIL_FROM` / `EMAIL_FROM_NAME` | "From" address/name on outgoing email; must be a verified Brevo sender |
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | Supabase project connection (service role — server-side only) |
 | `SUPABASE_STORAGE_BUCKET` | Public bucket for stored photos (default: `report-photos`) |
 | `SUPABASE_STORAGE_ORIGINALS_BUCKET` | Private bucket for unblurred originals (default: `report-photos-originals`); created manually in Supabase dashboard |
@@ -78,16 +77,14 @@ backend/
 │   ├── middlewares/          # Rate limiter, etc.
 │   ├── routes/                # Express routers, one per resource
 │   └── utils/
-│       ├── emailService.ts   # Transactional email via AWS SES (SMTP/nodemailer)
-│       ├── smsService.ts     # SMS via Synermaxx gateway
+│       ├── emailService.ts   # Transactional email via Brevo HTTP API
 │       └── mediaStorage.ts   # Image/photo persistence
 └── dist/                      # Compiled output (npm run build:backend)
 ```
 
 ## Notes
 
-- Email and SMS sends are fire-and-forget where used for notifications (e.g. password reset, report tracking) — failures are logged but never roll back the underlying operation (registration, report creation, etc.).
-- The Synermaxx request shape in `smsService.ts` is a best-effort implementation based on the gateway's URL convention; confirm exact query parameter names against Synermaxx's docs before relying on it in production.
+- Email sends are fire-and-forget where used for notifications (e.g. password reset, report tracking) — failures are logged but never roll back the underlying operation (registration, report creation, etc.).
 
 ## Caching & image compression
 

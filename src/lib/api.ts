@@ -169,7 +169,7 @@ function buildApiObject(fetcher: ApiFetcher) {
         fetcher("/api/v1/auth/google", { method: "POST", body: JSON.stringify(data), requireAuth: false }),
       facebook: (data: any) =>
         fetcher("/api/v1/auth/facebook", { method: "POST", body: JSON.stringify(data), requireAuth: false }),
-      forgotPassword: (identifier: { email: string; channel?: "email" } | { contact_number: string; channel: "sms" }) =>
+      forgotPassword: (identifier: { email: string }) =>
         fetcher("/api/v1/auth/forgot-password", { method: "POST", body: JSON.stringify(identifier), requireAuth: false }),
       verifyEmail: (email: string, code: string) =>
         fetcher("/api/v1/auth/verify-email", { method: "POST", body: JSON.stringify({ email, code }), requireAuth: false }),

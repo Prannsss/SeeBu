@@ -5,7 +5,6 @@ import { persistImageInputs, insertPhotoRows, isTrustedStorageUrl } from '../uti
 import { invalidateWorkflowCaches } from '../utils/cache';
 import { moderateImage } from '../utils/imageModeration';
 import { sendReportTrackingEmail } from '../utils/emailService';
-import { sendReportTrackingSms } from '../utils/smsService';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { z } from 'zod';
@@ -83,7 +82,7 @@ async function getAdminMunicipality(adminId: string) {
   return data?.municipality_id || null;
 }
 
-// Per-recipient notification throttle: caps tracking emails/SMS sent to any single
+// Per-recipient notification throttle: caps tracking emails sent to any single
 // email/phone within a window, independent of the per-IP reportLimiter. Prevents the
 // public, unauthenticated report form from being used to spam a third party's contact
 // info. In-memory is fine here — a restart just resets the window, no security regression.
@@ -259,14 +258,13 @@ export const reportController = {
           notes: 'Report created and submitted.'
         }]);
 
-        // Invalidate before the slow email/SMS sends so realtime-triggered refetches see the new report
+        // Invalidate before the slow email send so realtime-triggered refetches see the new report
         await invalidateWorkflowCaches();
 
-        // 5–6. Tracking email/SMS are sent AFTER responding: a slow or blocked SMTP/SMS
+        // 5. Tracking email is sent AFTER responding: a slow or blocked email
         // provider must never hold the submission open (the client was spinning for minutes).
         const emailUsed = effectiveReporterEmail || null;
         const emailQueued = Boolean(emailUsed && allowNotification(emailUsed));
-        const smsQueued = Boolean(effectiveReporterPhone && allowNotification(effectiveReporterPhone));
 
         res.status(201).json({
           message: 'Report created successfully',
@@ -279,10 +277,6 @@ export const reportController = {
         if (emailQueued) {
           sendReportTrackingEmail(emailUsed!, effectiveReporterName || 'Anonymous User', reportId, title)
             .catch((emailErr) => console.error('[createReport] Failed to send tracking email:', emailErr));
-        }
-        if (smsQueued) {
-          sendReportTrackingSms(effectiveReporterPhone!, reportId)
-            .catch((smsErr) => console.error('[createReport] Failed to send tracking SMS:', smsErr));
         }
         return;
     } catch (err: any) {

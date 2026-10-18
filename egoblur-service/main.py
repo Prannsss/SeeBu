@@ -13,8 +13,8 @@ import torch
 import torchvision
 from fastapi import FastAPI, HTTPException, Request, Response
 
-FACE_MODEL_PATH = os.getenv("FACE_MODEL_PATH", "models/ego_blur_face.jit")
-LP_MODEL_PATH = os.getenv("LP_MODEL_PATH", "models/ego_blur_lp.jit")
+FACE_MODEL_PATH = os.getenv("FACE_MODEL_PATH", "models/ego_blur_face_gen1.jit")
+LP_MODEL_PATH = os.getenv("LP_MODEL_PATH", "models/ego_blur_lp_gen1.jit")
 SCORE_THRESHOLD = float(os.getenv("SCORE_THRESHOLD", "0.9"))
 NMS_IOU_THRESHOLD = float(os.getenv("NMS_IOU_THRESHOLD", "0.3"))
 
@@ -38,6 +38,12 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+
+
+def to_model_tensor(bgr_image: np.ndarray) -> torch.Tensor:
+    """EgoBlur models expect RGB CHW; cv2 decodes BGR (Meta's demo converts too)."""
+    rgb = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2RGB)
+    return torch.from_numpy(np.transpose(rgb, (2, 0, 1)))
 
 
 def get_detections(detector: torch.jit.ScriptModule, image_tensor: torch.Tensor) -> list[list[float]]:
@@ -82,7 +88,7 @@ async def detect(request: Request) -> dict:
     if image is None:
         raise HTTPException(status_code=422, detail="Could not decode image")
 
-    image_tensor = torch.from_numpy(np.transpose(image, (2, 0, 1)))
+    image_tensor = to_model_tensor(image)
     face_boxes: list[list[float]] = []
     lp_boxes: list[list[float]] = []
 
@@ -112,7 +118,7 @@ async def blur(request: Request) -> Response:
     if image is None:
         raise HTTPException(status_code=422, detail="Could not decode image")
 
-    image_tensor = torch.from_numpy(np.transpose(image, (2, 0, 1)))
+    image_tensor = to_model_tensor(image)
     boxes = [box for detector in detectors for box in get_detections(detector, image_tensor)]
     if boxes:
         image = blur_boxes(image, boxes)

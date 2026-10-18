@@ -7,11 +7,12 @@ exports.authController = void 0;
 const db_1 = require("../config/db");
 const errorResponse_1 = require("../utils/errorResponse");
 const emailService_1 = require("../utils/emailService");
-const smsService_1 = require("../utils/smsService");
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const crypto_1 = __importDefault(require("crypto"));
 const google_auth_library_1 = require("google-auth-library");
+const accounts_1 = require("../utils/accounts");
+const cache_1 = require("../utils/cache");
 const JWT_SECRET = process.env.JWT_SECRET;
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const FACEBOOK_APP_ID = process.env.FACEBOOK_APP_ID;
@@ -72,6 +73,9 @@ exports.authController = {
             if (!email || !password || !full_name) {
                 return res.status(400).json({ error: 'Missing required fields' });
             }
+            if (await (0, accounts_1.emailExists)(email)) {
+                return res.status(409).json({ error: 'An account with this email already exists.' });
+            }
             const salt = await bcryptjs_1.default.genSalt(10);
             const hashedPassword = await bcryptjs_1.default.hash(password, salt);
             const { data, error } = await db_1.supabase
@@ -89,6 +93,7 @@ exports.authController = {
             if (error) {
                 return res.status(500).json({ error: (0, errorResponse_1.serverErrorMessage)(error) });
             }
+            await (0, cache_1.cacheDelPrefix)('users:');
             // Issue OTP and send emails
             const verificationCode = await issueVerificationToken(email, 'email_verify');
             await (0, emailService_1.sendWelcomeEmail)(email, full_name);
@@ -140,6 +145,9 @@ exports.authController = {
                 const { password_hash, ...safeUser } = existingClient;
                 return res.status(200).json({ message: 'Login successful', user: { ...safeUser, role: 'client' }, token });
             }
+            if (await (0, accounts_1.emailExists)(email)) {
+                return res.status(409).json({ error: 'This email belongs to an existing staff account. Please sign in with your email and password.' });
+            }
             const salt = await bcryptjs_1.default.genSalt(10);
             const hashedPassword = await bcryptjs_1.default.hash(crypto_1.default.randomBytes(16).toString('hex'), salt);
             const { data: newClient, error } = await db_1.supabase
@@ -155,6 +163,7 @@ exports.authController = {
                 .single();
             if (error)
                 throw error;
+            await (0, cache_1.cacheDelPrefix)('users:');
             // Do NOT trigger the email service for OAuth registrations
             // const verificationCode = await issueVerificationToken(email, 'email_verify');
             // await sendWelcomeEmail(email, full_name || 'Google User');
@@ -200,6 +209,9 @@ exports.authController = {
                 const { password_hash, ...safeUser } = existingClient;
                 return res.status(200).json({ message: 'Login successful', user: { ...safeUser, role: 'client' }, token });
             }
+            if (await (0, accounts_1.emailExists)(email)) {
+                return res.status(409).json({ error: 'This email belongs to an existing staff account. Please sign in with your email and password.' });
+            }
             const salt = await bcryptjs_1.default.genSalt(10);
             const hashedPassword = await bcryptjs_1.default.hash(crypto_1.default.randomBytes(16).toString('hex'), salt);
             const { data: newClient, error } = await db_1.supabase
@@ -215,6 +227,7 @@ exports.authController = {
                 .single();
             if (error)
                 throw error;
+            await (0, cache_1.cacheDelPrefix)('users:');
             // Do NOT trigger the email service for OAuth registrations
             // const verificationCode = await issueVerificationToken(email, 'email_verify');
             // await sendWelcomeEmail(email, full_name || 'Facebook User');
@@ -239,33 +252,24 @@ exports.authController = {
             if (!email || !password) {
                 return res.status(400).json({ error: 'Missing email or password' });
             }
-            const tables = [
-                { name: 'clients', role: 'client' },
-                { name: 'admins', role: 'admin' },
-                { name: 'superadmins', role: 'superadmin' },
-                { name: 'workforce_admins', role: 'workforce-admin' },
-                { name: 'workforce_officers', role: 'workforce' },
-            ];
+            // The frontend sends role:'user', so a role param can't be required. Instead: staff tables are
+            // checked before clients and the account is chosen by password match, so a client account
+            // registered with a staff email can never shadow or take over the staff account.
+            const candidates = await (0, accounts_1.findAccountsByEmail)(email);
             let user = null;
             let userRole = null;
-            for (const table of tables) {
-                const { data } = await db_1.supabase
-                    .from(table.name)
-                    .select('*')
-                    .eq('email', email)
-                    .single();
-                if (data) {
-                    user = data;
-                    userRole = table.role;
+            for (const candidate of candidates) {
+                if (candidate.row.password_hash && await bcryptjs_1.default.compare(password, candidate.row.password_hash)) {
+                    user = candidate.row;
+                    userRole = candidate.role;
                     break;
                 }
             }
             if (!user) {
-                return res.status(401).json({ error: 'User not found' });
+                return res.status(401).json({ error: 'Invalid email or password' });
             }
-            const isMatch = await bcryptjs_1.default.compare(password, user.password_hash);
-            if (!isMatch) {
-                return res.status(401).json({ error: 'Invalid credentials' });
+            if (user.status && user.status !== 'Active') {
+                return res.status(403).json({ error: 'Your account is not active. Please contact your administrator.' });
             }
             const { password_hash, ...safeUser } = user;
             safeUser.role = userRole;
@@ -385,6 +389,9 @@ exports.authController = {
                     return res.status(400).json({ error: 'Department does not belong to the selected municipality' });
                 }
             }
+            if (await (0, accounts_1.emailExists)(email)) {
+                return res.status(409).json({ error: 'An account with this email already exists.' });
+            }
             // ── 1. Create user in Supabase Auth ─────────────────────────────────
             const { data: authData, error: authError } = await db_1.supabase.auth.admin.createUser({
                 email,
@@ -396,7 +403,7 @@ exports.authController = {
                 return res.status(500).json({ error: authError?.message || 'Failed to create auth user' });
             }
             const userId = authData.user.id;
-            // ── 2. Insert into generic users table ───────────────────────────────
+            // ── 2. Insert into generic users table (optional: the table may not exist) ──
             const { error: usersError } = await db_1.supabase.from('users').insert([{
                     id: userId,
                     email,
@@ -406,8 +413,7 @@ exports.authController = {
                     department_id: resolvedDepartmentId,
                 }]);
             if (usersError) {
-                console.error('[provision] Failed to insert into generic users table:', usersError);
-                return res.status(500).json({ error: usersError.message });
+                console.warn('[provision] optional users table insert skipped:', usersError.message);
             }
             // ── 3. Insert into role-specific table with HASHED password ──────────
             let table = '';
@@ -444,9 +450,12 @@ exports.authController = {
             if (table) {
                 const { error: roleError } = await db_1.supabase.from(table).insert([insertData]);
                 if (roleError) {
+                    // Fatal: without the role-table row the account can never log in
                     console.error(`[provision] Failed to insert into ${table}:`, roleError);
+                    return res.status(500).json({ error: (0, errorResponse_1.serverErrorMessage)(roleError) });
                 }
             }
+            await (0, cache_1.cacheDelPrefix)('users:', 'departments:');
             // ── 4. Issue OTP and send verification email ─────────────────────────
             try {
                 const verificationCode = await issueVerificationToken(email, 'email_verify');
@@ -470,42 +479,25 @@ exports.authController = {
     // ── Forgot Password ──────────────────────────────────────────────────────
     async forgotPassword(req, res) {
         try {
-            const { email, contact_number, channel = 'email' } = req.body;
-            if (channel !== 'email' && channel !== 'sms') {
-                return res.status(400).json({ error: 'Invalid channel' });
-            }
-            if (channel === 'email' && !email) {
+            const { email } = req.body;
+            if (!email) {
                 return res.status(400).json({ error: 'Missing email' });
-            }
-            if (channel === 'sms' && !contact_number) {
-                return res.status(400).json({ error: 'Missing contact number' });
             }
             let user = null;
             for (const table of USER_TABLES) {
-                const query = db_1.supabase.from(table).select('id, email, full_name, contact_number');
-                const { data } = channel === 'sms'
-                    ? await query.eq('contact_number', contact_number).single()
-                    : await query.eq('email', email).single();
+                const { data } = await db_1.supabase.from(table).select('id, email, full_name').eq('email', email).single();
                 if (data) {
                     user = data;
                     break;
                 }
             }
-            const genericMessage = channel === 'sms'
-                ? 'If an account with that number exists, a verification code has been sent.'
-                : 'If an account with that email exists, a verification code has been sent.';
+            const genericMessage = 'If an account with that email exists, a verification code has been sent.';
             if (!user) {
                 return res.status(200).json({ message: genericMessage });
             }
             const otp = await issueVerificationToken(user.email, 'password_reset');
-            if (channel === 'sms') {
-                // Fire-and-forget — don't block response on SMS delivery
-                (0, smsService_1.sendPasswordResetSms)(user.contact_number, otp).catch((err) => console.error('[forgotPassword] SMS send failed:', err));
-            }
-            else {
-                // Fire-and-forget — don't block response on email delivery
-                (0, emailService_1.sendVerificationEmail)(user.email, user.full_name || 'SeeBu User', otp).catch((err) => console.error('[forgotPassword] Email send failed:', err));
-            }
+            // Fire-and-forget — don't block response on email delivery
+            (0, emailService_1.sendVerificationEmail)(user.email, user.full_name || 'SeeBu User', otp).catch((err) => console.error('[forgotPassword] Email send failed:', err));
             return res.status(200).json({ message: genericMessage });
         }
         catch (err) {

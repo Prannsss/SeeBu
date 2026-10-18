@@ -10,7 +10,7 @@ import BackButton from '@/components/navigation/back-button';
 import { useCurrentUser } from '@/hooks/queries/useCurrentUser';
 import { CameraPrivacyNoticeModal } from '@/components/reports/camera-privacy-notice-modal';
 import { ReportPrivacyAgreementModal } from '@/components/reports/report-privacy-agreement-modal';
-import { scanImageForSensitiveData } from '@/lib/sensitiveDataDetector';
+import { scanImageForSensitiveData, type SensitiveDetectionResult } from '@/lib/sensitiveDataDetector';
 import { apiClient, apiFetchClient, isOfflineQueuedError } from '@/lib/api';
 import { compressToDataUrl } from '@/lib/image-compress';
 
@@ -149,15 +149,23 @@ export function ReportWizard() {
     };
   }, [showCamera, facingMode]);
 
-  const scanCache = useRef<WeakMap<File, boolean>>(new WeakMap());
+  const scanCache = useRef<WeakMap<File, SensitiveDetectionResult>>(new WeakMap());
 
-  const scanSinglePhoto = async (file: File): Promise<boolean> => {
-    if (scanCache.current.has(file)) {
-      return scanCache.current.get(file)!;
-    }
+  const scanSinglePhoto = async (file: File): Promise<SensitiveDetectionResult> => {
+    const cached = scanCache.current.get(file);
+    if (cached) return cached;
     const result = await scanImageForSensitiveData(file);
-    scanCache.current.set(file, result.safe);
-    return result.safe;
+    scanCache.current.set(file, result);
+    return result;
+  };
+
+  // "a person", "a license plate", or "a person and a license plate"
+  const describeDetections = (results: SensitiveDetectionResult[]) => {
+    const found = [
+      results.some(r => r.hasPerson) && 'a person',
+      results.some(r => r.hasPlateNumber) && 'a license plate',
+    ].filter(Boolean);
+    return found.length ? found.join(' and ') : 'sensitive information';
   };
 
   const scanPhotos = async (photos: File[], options?: { isNewAddition?: boolean; newFiles?: File[] }) => {
@@ -167,15 +175,17 @@ export function ReportWizard() {
     }
     setIsScanningPhotos(true);
     const flagged = new Set<number>();
-    let newlyFlaggedCount = 0;
+    const flaggedResults: SensitiveDetectionResult[] = [];
+    const newlyFlaggedResults: SensitiveDetectionResult[] = [];
 
     try {
       for (let i = 0; i < photos.length; i++) {
-        const isSafe = await scanSinglePhoto(photos[i]);
-        if (!isSafe) {
+        const result = await scanSinglePhoto(photos[i]);
+        if (!result.safe) {
           flagged.add(i);
+          flaggedResults.push(result);
           if (options?.newFiles && options.newFiles.includes(photos[i])) {
-            newlyFlaggedCount++;
+            newlyFlaggedResults.push(result);
           }
         }
       }
@@ -186,9 +196,9 @@ export function ReportWizard() {
 
     // If triggered by adding a new photo, only notify if the newly added photo is sensitive
     if (options?.isNewAddition) {
-      if (newlyFlaggedCount > 0) {
+      if (newlyFlaggedResults.length > 0) {
         gooeyToast.error("Sensitive Data Detected", {
-          description: "The captured photo contains sensitive information (e.g. people or license plates). Please retake the photo."
+          description: `We detected ${describeDetections(newlyFlaggedResults)} in this photo. Please retake it without them in frame.`
         });
         return false;
       }
@@ -197,7 +207,7 @@ export function ReportWizard() {
 
     if (flagged.size > 0) {
       gooeyToast.error("Sensitive Data Detected", {
-        description: "Please remove or retake the flagged photos before proceeding."
+        description: `We detected ${describeDetections(flaggedResults)} in your photos. Please remove or retake the flagged photos before proceeding.`
       });
       return false;
     }
@@ -400,6 +410,96 @@ export function ReportWizard() {
     // Otherwise, add +63 prefix
     const limited = digits.slice(0, 10); // Max 10 digits
     return limited ? '+63' + limited : '';
+  };
+
+  const [isLocating, setIsLocating] = useState(false);
+  const locationInputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Grow the street address box to fit its text (covers typing, autofill, and restored drafts)
+  useEffect(() => {
+    const el = locationInputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight + 4}px`; // + top/bottom 2px border
+  }, [formData.location, currentStep]);
+
+  // ponytail: free OSM Nominatim reverse geocoding (1 req/s policy, fine for a button); swap to a keyed provider if traffic grows
+  const handleUseMyLocation = () => {
+    if (!navigator.geolocation) {
+      gooeyToast.error("Location Unavailable", { description: "Your browser doesn't support location access." });
+      return;
+    }
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords }) => {
+        try {
+          const { latitude: lat, longitude: lon } = coords;
+          // Nominatim: boundary-accurate city/barangay. Photon: nearest *named* street, since in Cebu the
+          // closest OSM way is often an unnamed alley, which leaves Nominatim with no road at all.
+          const [res, photonStreet] = await Promise.all([
+            fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1&accept-language=en`),
+            fetch(`https://photon.komoot.io/reverse?lat=${lat}&lon=${lon}&osm_tag=highway&limit=1&radius=0.3&lang=en`)
+              .then(r => (r.ok ? r.json() : null))
+              .then(j => j?.features?.[0]?.properties?.name as string | undefined)
+              .catch(() => undefined),
+          ]);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          const a = data.address ?? {};
+          const houseNumber = a.house_number?.includes('+') ? undefined : a.house_number; // skip Plus Codes like "8WJ5+QC2"
+          const road = a.road || photonStreet;
+          // Sitio/neighbourhood after the street, e.g. "Fourth Street, Baca"; never a sitio alone as the "street"
+          const address = road ? [[houseNumber, road].filter(Boolean).join(' '), a.neighbourhood].filter(Boolean).join(', ') : '';
+
+          // Only auto-select municipality/barangay on an exact (normalized) name match with our own list
+          const norm = (s?: string) =>
+            (s ?? '').toLowerCase().replace(/\b(city of|municipality of|barangay|brgy\.?|city)\b/g, '').replace(/[^a-z0-9]/g, '');
+          const pick = <T extends { name: string }>(list: T[] | undefined, candidates: (string | undefined)[]) =>
+            list?.find(item => candidates.some(c => c && norm(c) === norm(item.name)));
+
+          if (!locationData?.municipalities?.length) {
+            gooeyToast.error("Please Try Again", { description: "Service areas are still loading. Try again in a moment." });
+            return;
+          }
+          // No `county`: in PH it can hold the province ("Cebu"), which would falsely match "Cebu City"
+          const municipality = pick(locationData.municipalities, [a.city, a.town, a.municipality]);
+          // Only accept locations inside a municipality SeeBu serves (currently Cebu City)
+          if (!municipality) {
+            gooeyToast.error("Outside Service Area", {
+              description: `SeeBu currently covers ${locationData.municipalities.map(m => m.name).join(', ')} only. Your location appears to be elsewhere.`,
+            });
+            return;
+          }
+          const barangay =
+            pick(municipality.barangays, [a.suburb, a.village, a.quarter, a.neighbourhood, a.hamlet, a.city_district]);
+
+          setFormData(prev => ({
+            ...prev,
+            location: address || prev.location,
+            municipality: municipality.id,
+            barangay: barangay?.id ?? '',
+          }));
+          if (!address) {
+            gooeyToast.info("Street Not Found", { description: "We set your area, but couldn't find a street name nearby. Please type it in." });
+          } else if (!barangay) {
+            gooeyToast.info("Select Your Barangay", { description: "We filled in your address, but please choose your barangay." });
+          }
+        } catch {
+          gooeyToast.error("Couldn't Find Address", { description: "Please type your street address manually." });
+        } finally {
+          setIsLocating(false);
+        }
+      },
+      (err) => {
+        setIsLocating(false);
+        gooeyToast.error("Location Unavailable", {
+          description: err.code === err.PERMISSION_DENIED
+            ? "Location permission was denied. Enable it in your browser settings or type the address."
+            : "Couldn't get your location. Please try again or type the address.",
+        });
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
+    );
   };
 
   const updateFormData = (field: keyof FormData, value: string | boolean | File[]) => {
@@ -900,16 +1000,32 @@ export function ReportWizard() {
                   )}
 
                   <div className="floating-input">
-                    <input
+                    {/* Textarea so long addresses wrap instead of being clipped; Enter/newlines are blocked */}
+                    <textarea
                       id="location"
-                      type="text"
+                      ref={locationInputRef}
+                      rows={1}
                       value={formData.location}
-                      onChange={(e) => updateFormData('location', e.target.value)}
+                      onChange={(e) => updateFormData('location', e.target.value.replace(/[\r\n]+/g, ' '))}
+                      onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
                       placeholder=" "
                       required
+                      className="block resize-none overflow-hidden !pr-12 leading-snug"
                     />
                     <label htmlFor="location">Street Address *</label>
                     <span className="material-symbols-outlined input-icon">location_on</span>
+                    <button
+                      type="button"
+                      onClick={handleUseMyLocation}
+                      disabled={isLocating}
+                      aria-label="Use my location"
+                      title="Use my location"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full text-primary hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-wait"
+                    >
+                      {isLocating
+                        ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+                        : <span className="material-symbols-outlined text-xl" aria-hidden>my_location</span>}
+                    </button>
                   </div>
 
                   <div className="floating-input">

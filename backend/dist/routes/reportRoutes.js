@@ -5,15 +5,16 @@ const reportController_1 = require("../controllers/reportController");
 const withAuth_1 = require("../middlewares/withAuth");
 const requireRole_1 = require("../middlewares/requireRole");
 const rateLimiter_1 = require("../middlewares/rateLimiter");
+const cacheResponse_1 = require("../middlewares/cacheResponse");
 const router = (0, express_1.Router)();
 // Retrieve multiple reports (filterable by query string: ?municipality_id=foo&status=In Review )
-router.get('/', reportController_1.reportController.getReports);
+router.get('/', (0, cacheResponse_1.cacheResponse)('reports', 30), reportController_1.reportController.getReports);
 // Retrieve a single report by ID
-router.get('/:id', reportController_1.reportController.getReportById);
+router.get('/:id', (0, cacheResponse_1.cacheResponse)('reports', 30), reportController_1.reportController.getReportById);
 // Create a new report
 router.post('/', rateLimiter_1.reportLimiter, reportController_1.reportController.createReport);
 // Scan image for sensitive data
-router.post('/scan-image', rateLimiter_1.reportLimiter, reportController_1.reportController.scanImage);
+router.post('/scan-image', rateLimiter_1.scanLimiter, reportController_1.reportController.scanImage);
 // Update a specific report (Status change)
 router.put('/:id', withAuth_1.withAuth, (0, requireRole_1.requireRole)(['admin', 'superadmin']), reportController_1.reportController.updateReportStatus);
 exports.default = router;

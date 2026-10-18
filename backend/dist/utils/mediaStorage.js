@@ -3,14 +3,29 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.isTrustedStorageUrl = isTrustedStorageUrl;
 exports.persistImageInput = persistImageInput;
 exports.persistImageInputs = persistImageInputs;
+exports.insertPhotoRows = insertPhotoRows;
 const crypto_1 = __importDefault(require("crypto"));
 const db_1 = require("../config/db");
+const imageCompression_1 = require("./imageCompression");
+const imageModeration_1 = require("./imageModeration");
 const DEFAULT_BUCKET = process.env.SUPABASE_STORAGE_BUCKET || 'report-photos';
 const ORIGINALS_BUCKET = process.env.SUPABASE_STORAGE_ORIGINALS_BUCKET || 'report-photos-originals';
 // Suppress repeated EgoBlur "unavailable" log noise — warn once per process start.
 let egoBlurUnavailableLogged = false;
+const MAX_DECODED_IMAGE_BYTES = 15 * 1024 * 1024;
+/** True only for URLs hosted on our own Supabase project (storage). */
+function isTrustedStorageUrl(url) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
+    try {
+        return !!supabaseUrl && new URL(url).host === new URL(supabaseUrl).host;
+    }
+    catch {
+        return false;
+    }
+}
 // Known image magic bytes — the sniffed signature decides the extension/content-type,
 // never the client-declared MIME string. SVG is deliberately not supported (script risk).
 const IMAGE_SIGNATURES = [
@@ -39,12 +54,12 @@ async function blurImage(buffer, mimeType) {
     if (!serviceUrl)
         return null;
     try {
-        const response = await fetch(`${serviceUrl}/blur`, {
+        const response = await (0, imageModeration_1.serializeEgoBlur)(() => fetch(`${serviceUrl}/blur`, {
             method: 'POST',
             headers: { 'Content-Type': mimeType },
             body: new Uint8Array(buffer),
             signal: AbortSignal.timeout(30_000),
-        });
+        }));
         if (!response.ok) {
             throw new Error(`EgoBlur service responded ${response.status}`);
         }
@@ -63,21 +78,29 @@ async function persistImageInput(input, folder) {
         throw new Error('Invalid image input');
     }
     if (input.startsWith('http://') || input.startsWith('https://')) {
-        return { original: input, storedUrl: input };
+        if (!isTrustedStorageUrl(input))
+            throw new Error('Untrusted image URL');
+        return { storedUrl: input, originalPath: null };
     }
     const parsed = parseDataUrl(input);
     if (!parsed) {
         throw new Error('Unsupported image input format');
     }
     const buffer = Buffer.from(parsed.base64Data, 'base64');
+    if (buffer.length > MAX_DECODED_IMAGE_BYTES) {
+        throw new Error('Image is too large');
+    }
     const signature = sniffImageSignature(buffer);
     if (!signature) {
         throw new Error('Image content does not match a supported image type');
     }
-    const blurred = await blurImage(buffer, signature.mimeType);
+    // Compress before EgoBlur: smaller payload to the sidecar and to storage.
+    const c = await (0, imageCompression_1.compressImage)(buffer);
+    const work = c.compressed ? c : { buffer, mimeType: signature.mimeType, ext: signature.ext };
+    const blurred = await blurImage(work.buffer, work.mimeType);
     // The blur service may re-encode (e.g. gif -> png), so re-sniff the result.
-    const publicBuffer = blurred ?? buffer;
-    const publicSignature = (blurred && sniffImageSignature(blurred)) || signature;
+    const publicBuffer = blurred ?? work.buffer;
+    const publicSignature = (blurred && sniffImageSignature(blurred)) || { mimeType: work.mimeType, ext: work.ext };
     const fileId = crypto_1.default.randomUUID();
     const filePath = `${folder}/${fileId}.${publicSignature.ext}`;
     const { error: uploadError } = await db_1.supabase.storage
@@ -89,33 +112,55 @@ async function persistImageInput(input, folder) {
     if (uploadError) {
         throw new Error(`Storage upload failed: ${uploadError.message}`);
     }
+    let originalPath = null;
     if (blurred) {
-        // Archive the unblurred original in a private bucket (evidence); never exposed.
+        // Archive the unblurred (compressed) copy in a private bucket (evidence); never exposed.
+        const originalObject = `${folder}/${fileId}.${work.ext}`;
         const { error: originalError } = await db_1.supabase.storage
             .from(ORIGINALS_BUCKET)
-            .upload(`${folder}/${fileId}.${signature.ext}`, buffer, {
-            contentType: signature.mimeType,
+            .upload(originalObject, work.buffer, {
+            contentType: work.mimeType,
             upsert: false,
         });
         if (originalError) {
             console.warn('Failed to archive original image:', originalError.message);
         }
+        else {
+            originalPath = `${ORIGINALS_BUCKET}/${originalObject}`;
+        }
     }
     const { data } = db_1.supabase.storage.from(DEFAULT_BUCKET).getPublicUrl(filePath);
-    return { original: input, storedUrl: data.publicUrl };
+    return { storedUrl: data.publicUrl, originalPath };
 }
-/** Persists each image; a failed upload drops that photo (logged) rather than
- * blocking report creation or falling back to storing raw input. */
+/** Persists all images in parallel; a failed upload drops that photo (logged) rather
+ * than falling back to storing raw input. Results keep input order. */
 async function persistImageInputs(inputs, folder) {
+    const settled = await Promise.allSettled(inputs.map((input) => persistImageInput(input, folder)));
     const results = [];
-    for (const input of inputs) {
-        try {
-            const persisted = await persistImageInput(input, folder);
-            results.push(persisted.storedUrl);
-        }
-        catch (error) {
-            console.error('Image persistence failed, dropping photo:', error);
-        }
-    }
+    settled.forEach((r, i) => {
+        if (r.status === 'fulfilled')
+            results.push(r.value);
+        else
+            console.error(`Image persistence failed for photo ${i}, dropping it:`, r.reason);
+    });
     return results;
+}
+// Set once we learn migration_003 (original_photo_url column) is not applied.
+let originalColumnMissing = false;
+const stripOriginal = (rows) => rows.map(({ original_photo_url, ...rest }) => rest);
+/** Inserts photo rows, dropping original_photo_url when the column does not exist yet. */
+async function insertPhotoRows(table, rows) {
+    if (rows.length === 0)
+        return null;
+    if (!originalColumnMissing) {
+        const { error } = await db_1.supabase.from(table).insert(rows);
+        if (!error)
+            return null;
+        if (error.code !== 'PGRST204' && error.code !== '42703' && !error.message?.includes('original_photo_url')) {
+            return error;
+        }
+        originalColumnMissing = true;
+    }
+    const { error } = await db_1.supabase.from(table).insert(stripOriginal(rows));
+    return error;
 }
