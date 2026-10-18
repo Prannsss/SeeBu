@@ -48,7 +48,7 @@ export default function AdminAnalyticsPage() {
               <p className="text-slate-600">Deep dive into report trends.</p>
             </div>
           </div>
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex flex-col sm:flex-row gap-3 self-end sm:self-auto">
             <Select value={barangayFilter} onValueChange={setBarangayFilter}>
               <SelectTrigger className="w-[180px] bg-white border-slate-200">
                 <SelectValue placeholder="All Barangays" />

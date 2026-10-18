@@ -101,7 +101,7 @@ export function ClientFeedWidget({ userId }: { userId: string }) {
             <CardContent className="mt-auto">
               <Button asChild variant={primary ? 'default' : 'outline'} className="w-full h-12 text-base font-bold">
                 <Link href={href}>
-                  {primary ? 'Report an issue' : 'Open'} <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="ml-1 leading-none" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+                  {primary ? 'Report' : 'Open'} <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="ml-1 leading-none" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
                 </Link>
               </Button>
             </CardContent>

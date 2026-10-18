@@ -153,7 +153,7 @@ export default function ClientHistoryPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 self-end sm:self-auto">
             <Button asChild variant="outline" size="sm" className="rounded-md border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-300">
               <Link href="/client/tracking" className="flex items-center gap-1.5">
                 <Search className="h-3.5 w-3.5" />
@@ -263,169 +263,96 @@ export default function ClientHistoryPage() {
                   const isInReview = item.status === 'In Review' || item.status === 'Pending';
 
                   return (
-                    <Card 
-                      key={item.id} 
-                      className="group relative overflow-hidden rounded-lg border border-slate-200/80 dark:border-slate-800 bg-white/95 dark:bg-slate-900/90 shadow-sm transition-all duration-200 hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700 flex flex-col justify-between"
+                    <Card
+                      key={item.id}
+                      className="group flex flex-col overflow-hidden rounded-lg border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm transition-shadow hover:shadow-md"
                     >
-                      <div className="p-4 sm:p-5 pb-3">
-                        {/* Top Meta Row: Urgency Pill, Category Pill, Report ID */}
-                        <div className="flex items-center justify-between gap-2 mb-2.5">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full capitalize border ${urgencyBadgeClass(item.urgency)}`}>
-                              <AlertCircle className="h-3 w-3 shrink-0" />
-                              {item.urgency || 'Low'}
-                            </span>
-
-                            {item.issueType && (
-                              <span className="inline-flex items-center text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700 capitalize">
-                                {item.issueType.replace(/_/g, ' ')}
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <span className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded-full bg-blue-50/70 text-blue-600 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/70 dark:border-blue-800">
-                              {item.id}
-                            </span>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 rounded text-slate-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-slate-800"
-                              onClick={(e) => handleCopyTracking(item.id, e)}
-                              title="Copy tracking ID"
-                              aria-label="Copy tracking ID"
-                            >
-                              {copiedId === item.id ? <CheckCircle2 className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
-                            </Button>
-                          </div>
+                      <div className="flex-1 p-4 sm:p-5">
+                        {/* Status first — it's what the reporter checks for */}
+                        <div className="flex items-center justify-between gap-2">
+                          <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${statusBadgeClass(item.status)}`}>
+                            {item.status}
+                          </span>
+                          <span className="flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400">
+                            <Calendar className="h-3.5 w-3.5" aria-hidden="true" />
+                            {item.date}
+                          </span>
                         </div>
 
-                        {/* Title */}
-                        <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100 line-clamp-1 group-hover:text-primary dark:group-hover:text-blue-400 transition-colors">
+                        <h3 className="mt-3 text-lg font-semibold leading-snug text-slate-900 dark:text-slate-100 line-clamp-2">
                           {item.title}
                         </h3>
 
-                        {/* Location & Date */}
-                        <div className="mt-1 flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-400 flex-wrap">
-                          <MapPin className="h-3.5 w-3.5 text-primary shrink-0" />
-                          <span className="font-medium text-slate-700 dark:text-slate-300">{item.barangay}</span>
-                          {item.municipality && item.municipality !== "Unknown Municipality" && (
-                            <span>, {item.municipality}</span>
-                          )}
-                          <span className="text-slate-600 dark:text-slate-700" aria-hidden="true">•</span>
-                          <Calendar className="h-3 w-3 text-slate-600 shrink-0" />
-                          <span>{item.date}</span>
+                        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-600 dark:text-slate-400">
+                          <span className="capitalize">{item.issueType.replace(/_/g, ' ')}</span>
+                          <span aria-hidden="true">·</span>
+                          <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-px text-[11px] font-semibold capitalize ${urgencyBadgeClass(item.urgency)}`}>
+                            <AlertCircle className="h-3 w-3" aria-hidden="true" />
+                            {item.urgency} urgency
+                          </span>
+                        </div>
+
+                        <div className="mt-1.5 flex items-start gap-1.5 text-sm text-slate-700 dark:text-slate-300">
+                          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                          <span className="min-w-0">
+                            {item.barangay}
+                            {item.municipality !== "Unknown Municipality" && <span className="text-slate-600 dark:text-slate-400">, {item.municipality}</span>}
+                          </span>
+                        </div>
+
+                        {item.description && (
+                          <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-400 line-clamp-2">
+                            {item.description}
+                          </p>
+                        )}
+
+                        {/* What's happening now — one line, coloured by stage */}
+                        <div className={`mt-3 flex items-start gap-2 rounded-md px-3 py-2 text-sm ${
+                          isResolved ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
+                          : isRejected ? 'bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-300'
+                          : isActionTaken ? 'bg-sky-50 text-sky-800 dark:bg-sky-950/40 dark:text-sky-300'
+                          : 'bg-slate-50 text-slate-700 dark:bg-slate-800/60 dark:text-slate-300'
+                        }`}>
+                          {isResolved ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                            : isRejected ? <XCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                            : <Clock className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />}
+                          <span className="min-w-0 line-clamp-2">
+                            {isResolved ? <>Resolved by <span className="font-semibold">{item.completedBy}</span></>
+                              : isRejected ? <><span className="font-semibold">Reason:</span> {item.rejectionReason || 'Spam or invalid details'}</>
+                              : isActionTaken ? 'A field team is working on this'
+                              : isInReview ? 'Waiting for verification by the local administration'
+                              : item.status}
+                          </span>
                         </div>
                       </div>
 
-                      <div className="px-4 sm:px-5 pb-3 space-y-2.5 flex-1 flex flex-col justify-between">
-                        {/* Description Preview */}
-                        <div>
-                          {item.description ? (
-                            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed bg-slate-50/70 dark:bg-slate-900/40 rounded-md p-2.5 border border-slate-100 dark:border-slate-800/80">
-                              {item.description}
-                            </p>
-                          ) : (
-                            <p className="text-xs text-slate-600 italic bg-slate-50/70 dark:bg-slate-900/40 rounded-md p-2 border border-slate-100 dark:border-slate-800/80">
-                              No description provided.
-                            </p>
-                          )}
-
-                          {/* Photos Badge Indicator */}
-                          {((item.reporterPhotos && item.reporterPhotos.length > 0) || (item.completionPhotos && item.completionPhotos.length > 0)) && (
-                            <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 pt-1.5">
-                              {item.reporterPhotos && item.reporterPhotos.length > 0 && (
-                                <span className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800/80 px-2 py-0.5 rounded-full text-[11px] font-medium">
-                                  <ImageIcon className="h-3 w-3 text-slate-600" />
-                                  {item.reporterPhotos.length} photo{item.reporterPhotos.length > 1 ? 's' : ''}
-                                </span>
-                              )}
-                              {item.completionPhotos && item.completionPhotos.length > 0 && (
-                                <span className="inline-flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60 px-2 py-0.5 rounded-full text-[11px] font-medium">
-                                  <CheckCircle2 className="h-3 w-3 text-emerald-600" />
-                                  {item.completionPhotos.length} proof photo{item.completionPhotos.length > 1 ? 's' : ''}
-                                </span>
-                              )}
-                            </div>
+                      {/* Footer: reference info left, action right */}
+                      <div className="flex items-center justify-between gap-3 border-t border-slate-100 dark:border-slate-800 px-4 py-3 sm:px-5">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={(e) => handleCopyTracking(item.id, e)}
+                            className="inline-flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 -ml-1.5 font-mono text-xs font-semibold text-blue-700 hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-slate-800"
+                            title="Copy tracking ID"
+                            aria-label={`Copy tracking ID ${item.id}`}
+                          >
+                            <span className="truncate">{item.id}</span>
+                            {copiedId === item.id ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" aria-hidden="true" /> : <Copy className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
+                          </button>
+                          {(item.reporterPhotos.length + item.completionPhotos.length) > 0 && (
+                            <span className="inline-flex shrink-0 items-center gap-1 text-xs text-slate-600 dark:text-slate-400" title="Photos">
+                              <ImageIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                              {item.reporterPhotos.length + item.completionPhotos.length}
+                            </span>
                           )}
                         </div>
-
-                        {/* Tab-Specific Context Callout Banner */}
-                        <div className="pt-1">
-                          {isResolved && (
-                            <div className="flex items-center justify-between text-xs bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 rounded-md p-2.5 text-emerald-600 dark:text-emerald-300">
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                                <span className="truncate">
-                                  Resolved by <span className="font-semibold">{item.completedBy}</span>
-                                </span>
-                              </div>
-                              <span className={`text-[10px] font-bold uppercase tracking-wider border px-1.5 py-0.5 rounded-full shrink-0 ml-2 ${statusBadgeClass(item.status)}`}>
-                                Resolved
-                              </span>
-                            </div>
-                          )}
-
-                          {isRejected && (
-                            <div className="flex items-start gap-2 text-xs bg-red-50/90 dark:bg-red-950/40 border border-red-200/80 dark:border-red-900/60 rounded-md p-2.5 text-red-700 dark:text-red-300">
-                              <XCircle className="h-4 w-4 text-red-700 shrink-0 mt-0.5" />
-                              <div className="min-w-0 flex-1">
-                                <span className="font-semibold text-red-800 dark:text-red-200">Rejection Reason: </span>
-                                <span className="text-red-700 dark:text-red-300 leading-snug">{item.rejectionReason || 'Spam or invalid details'}</span>
-                              </div>
-                            </div>
-                          )}
-
-                          {isActionTaken && (
-                            <div className="flex items-center justify-between text-xs bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-800/60 rounded-md p-2.5 text-blue-600 dark:text-blue-300">
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <Clock className="h-4 w-4 text-blue-600 shrink-0 animate-pulse" />
-                                <span className="truncate font-medium">In Progress with Assigned Workforce</span>
-                              </div>
-                              <span className={`text-[10px] font-bold uppercase tracking-wider border px-1.5 py-0.5 rounded-full shrink-0 ml-2 ${statusBadgeClass(item.status)}`}>
-                                Active
-                              </span>
-                            </div>
-                          )}
-
-                          {isInReview && (
-                            <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/60 rounded-md p-2 border border-slate-100 dark:border-slate-800">
-                              <div className="flex items-center gap-1.5 truncate">
-                                <Clock className="h-3.5 w-3.5 text-slate-600 shrink-0" />
-                                <span className="truncate">Under verification by Local Administration</span>
-                              </div>
-                              <span className={`text-[10px] font-semibold border px-1.5 py-0.5 rounded-full shrink-0 ml-2 ${statusBadgeClass(item.status)}`}>
-                                In Review
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Card Action Button Footer */}
-                      <div className="px-4 sm:px-5 pb-4 pt-2 border-t border-slate-100 dark:border-slate-800/80 mt-auto">
-                        <Button 
-                          size="sm" 
-                          className={`w-full font-semibold text-white shadow-sm transition-all flex items-center justify-center gap-2 h-9 rounded-md ${isRejected ? 'bg-slate-700 hover:bg-slate-800' : 'bg-primary hover:bg-primary-dark'}`}
+                        <Button
+                          size="sm"
+                          className="h-9 shrink-0 gap-1.5 rounded-md bg-primary font-semibold text-white hover:bg-primary-dark"
                           onClick={() => setSelectedReport(item)}
                         >
-                          {isResolved ? (
-                            <>
-                              <CheckCircle2 className="h-4 w-4 text-white" />
-                              <span>View Resolution &amp; Proof</span>
-                            </>
-                          ) : isRejected ? (
-                            <>
-                              <FileText className="h-4 w-4 text-white" />
-                              <span>View Rejection Details</span>
-                            </>
-                          ) : (
-                            <>
-                              <Eye className="h-4 w-4 text-white" />
-                              <span>View Full Details</span>
-                            </>
-                          )}
+                          <Eye className="h-4 w-4" aria-hidden="true" />
+                          Details
                         </Button>
                       </div>
                     </Card>

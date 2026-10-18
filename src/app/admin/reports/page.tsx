@@ -255,7 +255,7 @@ export default function AdminReportsPage() {
               <p className="text-slate-600">Prioritize reports by urgency and location impact.</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 z-10 relative">
+          <div className="flex items-center gap-2 z-10 relative self-end sm:self-auto">
             <Filter className="h-5 w-5 text-slate-600" />
             <Select value={urgencyFilter} onValueChange={setUrgencyFilter}>
               <SelectTrigger className="w-[140px] bg-white dark:bg-slate-900 border-slate-200 shadow-sm">
