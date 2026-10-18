@@ -4,6 +4,7 @@ import { serverErrorMessage } from '../utils/errorResponse';
 import { persistImageInputs, isTrustedStorageUrl } from '../utils/mediaStorage';
 import { invalidateWorkflowCaches } from '../utils/cache';
 import { sendReportTrackingEmail } from '../utils/emailService';
+import { notifyReportStatusChange } from '../utils/reportNotifications';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { z } from 'zod';
@@ -518,7 +519,7 @@ export const reportController = {
 
       const { data: existingReport, error: reportLookupError } = await supabase
         .from('reports')
-        .select('id, title, location, urgency, municipality_id')
+        .select('id, title, location, urgency, municipality_id, status')
         .eq('id', id)
         .single();
 
@@ -646,6 +647,10 @@ export const reportController = {
       }
 
       await invalidateWorkflowCaches();
+
+      if (status !== undefined && status !== existingReport.status) {
+        notifyReportStatusChange(existingReport.id, status);
+      }
 
       return res.status(200).json({ message: 'Report updated', data });
     } catch (err: any) {

@@ -345,8 +345,7 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
             <div className="grid grid-cols-2 gap-2 sm:gap-3 mt-4">
               <Button
                 type="button"
-                variant="outline"
-                className="w-full rounded-md"
+                className="w-full rounded-md bg-sky-700 hover:bg-sky-800 text-white hover:text-white border-sky-700 font-bold"
                 onClick={() => setConfirmAcceptTask(null)}
               >
                 Cancel
@@ -415,7 +414,7 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2 sm:gap-3 mt-2">
-              <Button variant="outline" className="w-full" onClick={resetCompletionModal}>
+              <Button className="w-full bg-sky-700 hover:bg-sky-800 text-white hover:text-white border-sky-700 font-bold" onClick={resetCompletionModal}>
                 Cancel
               </Button>
               <Button
@@ -536,8 +535,7 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
               ) : (
                 <Button
                   type="button"
-                  variant="outline"
-                  className="col-span-full w-full"
+                  className="col-span-full w-full bg-sky-700 hover:bg-sky-800 text-white hover:text-white border-sky-700 font-bold"
                   onClick={() => setSelectedTaskForReport(null)}
                 >
                   Close

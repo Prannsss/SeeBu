@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { supabase } from '../config/db';
 import { serverErrorMessage } from '../utils/errorResponse';
 import { persistImageInputs, isTrustedStorageUrl } from '../utils/mediaStorage';
+import { notifyReportStatusChange } from '../utils/reportNotifications';
 import { invalidateWorkflowCaches } from '../utils/cache';
 
 const MAX_PROOF_PHOTO_BYTES = 8 * 1024 * 1024;
@@ -151,13 +152,15 @@ export const taskController = {
 
       let departmentName: string | null = null;
       let actingOfficerName: string | null = null;
+      let previousReportStatus: string | null = null;
       if (data?.related_report_id) {
         const { data: reportRow } = await supabase
           .from('reports')
-          .select('delegated_to')
+          .select('delegated_to, status')
           .eq('id', data.related_report_id)
           .maybeSingle();
 
+        previousReportStatus = reportRow?.status || null;
         if (reportRow?.delegated_to) {
           const { data: departmentRow } = await supabase
             .from('departments')
@@ -186,6 +189,10 @@ export const taskController = {
           .from('reports')
           .update({ status: mappedReportStatus, updated_at: new Date() })
           .eq('id', data.related_report_id);
+
+        if (mappedReportStatus !== previousReportStatus) {
+          notifyReportStatusChange(data.related_report_id, mappedReportStatus);
+        }
 
         let reportTimelineNotes = `Task workflow updated to ${status}.`;
         if (status === 'Accepted') {
@@ -341,6 +348,8 @@ export const taskController = {
 
         if (reportStatusErr) {
           console.error('Error updating linked report status:', reportStatusErr);
+        } else {
+          notifyReportStatusChange(existingTask.related_report_id, 'Resolved');
         }
 
         await supabase.from('report_timeline').insert([{

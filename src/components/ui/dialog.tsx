@@ -44,10 +44,14 @@ const DialogContent = React.forwardRef<
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
-        <X className="h-4 w-4" />
-        <span className="sr-only">Close</span>
-      </DialogPrimitive.Close>
+      {/* Zero-height sticky row so the X stays pinned top-right while long dialogs scroll;
+          -mb-4 cancels the grid gap. Last in DOM (order-first) so it doesn't steal initial focus. */}
+      <div className="order-first sticky top-4 z-20 h-0 -mb-4">
+        <DialogPrimitive.Close className="absolute -right-2 -top-2 rounded-full bg-background/90 p-1.5 opacity-80 shadow-sm ring-offset-background backdrop-blur transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none">
+          <X className="h-4 w-4" />
+          <span className="sr-only">Close</span>
+        </DialogPrimitive.Close>
+      </div>
     </DialogPrimitive.Content>
   </DialogPortal>
 ))

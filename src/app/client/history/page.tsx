@@ -529,13 +529,13 @@ export default function ClientHistoryPage() {
                 </div>
 
                 {/* Dialog Action Buttons */}
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 pt-3 border-t">
-                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 mt-4 pt-3 border-t">
+                  <div className="grid grid-cols-2 gap-2 w-full sm:flex sm:w-auto">
                     <Button 
                       type="button" 
                       variant="outline" 
                       size="sm" 
-                      className="rounded-md flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300"
+                      className="w-full h-10 rounded-md flex items-center justify-center gap-1.5 text-xs text-slate-700 dark:text-slate-300"
                       onClick={() => handleCopyTracking(selectedReport.id)}
                     >
                       <Copy className="h-3.5 w-3.5" />
@@ -545,18 +545,17 @@ export default function ClientHistoryPage() {
                       asChild 
                       variant="outline" 
                       size="sm" 
-                      className="rounded-md flex items-center gap-1.5 text-xs text-blue-600 border-blue-200 hover:bg-blue-50 dark:border-blue-900"
+                      className="w-full h-10 rounded-md flex items-center justify-center gap-1.5 text-xs text-blue-600 border-blue-200 hover:bg-blue-50 dark:border-blue-900"
                     >
                       <Link href={`/client/tracking?id=${selectedReport.id}`}>
                         <ExternalLink className="h-3.5 w-3.5" />
-                        <span>Open Tracking Page</span>
+                        <span>Open Tracking</span>
                       </Link>
                     </Button>
                   </div>
 
                   <Button 
-                    variant="outline"
-                    className="w-full sm:w-auto rounded-md text-xs sm:text-sm"
+                    className="w-full sm:w-auto h-10 rounded-md bg-sky-700 hover:bg-sky-800 text-white font-bold"
                     onClick={() => setSelectedReport(null)}
                   >
                     Close

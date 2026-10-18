@@ -69,7 +69,7 @@ export function CameraPrivacyNoticeModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-full flex items-center justify-center h-11 px-4 rounded-lg border-2 border-slate-400 bg-white hover:bg-slate-50 text-slate-700 font-medium text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            className="w-full flex items-center justify-center h-11 px-4 rounded-lg border-2 border-sky-700 bg-sky-700 hover:bg-sky-800 text-white font-bold text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             Cancel
           </button>

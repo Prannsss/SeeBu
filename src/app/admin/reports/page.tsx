@@ -946,7 +946,7 @@ export default function AdminReportsPage() {
                           </div>
                         </div>
                         <div className="flex justify-end mt-2">
-                          <Button variant="outline" className="rounded-md" onClick={() => setResolvedOpen(null)}>Close</Button>
+                          <Button className="rounded-md bg-sky-700 hover:bg-sky-800 text-white hover:text-white border-sky-700 font-bold" onClick={() => setResolvedOpen(null)}>Close</Button>
                         </div>
                       </DialogContent>
                     </Dialog>
@@ -1006,7 +1006,7 @@ export default function AdminReportsPage() {
                       </div>
                       
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-                        <Button variant="outline" className="w-full" onClick={() => setDelegationOpen(null)}>Cancel</Button>
+                        <Button className="w-full bg-sky-700 hover:bg-sky-800 text-white hover:text-white border-sky-700 font-bold" onClick={() => setDelegationOpen(null)}>Cancel</Button>
                         <Button 
                           onClick={() => { handleDelegate(item.id) }}
                           disabled={!delegateDepartmentId || !delegateAssignee}

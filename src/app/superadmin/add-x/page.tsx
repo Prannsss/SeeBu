@@ -458,7 +458,7 @@ export default function SuperadminAddPage() {
                 setMunicipalityInput("")
                 municipalityInputRef.current?.focus()
               }}
-              className="flex-1 bg-red-600 hover:bg-red-700 text-white border-red-600"
+              className="flex-1 bg-sky-700 hover:bg-sky-800 text-white hover:text-white border-sky-700 font-bold"
             >
               Cancel
             </Button>

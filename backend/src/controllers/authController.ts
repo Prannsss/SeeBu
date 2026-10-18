@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { supabase } from '../config/db';
 import { serverErrorMessage } from '../utils/errorResponse';
-import { sendWelcomeEmail, sendVerificationEmail } from '../utils/emailService';
+import { sendWelcomeEmail, sendVerificationEmail, sendPasswordResetEmail } from '../utils/emailService';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
@@ -593,7 +593,7 @@ export const authController = {
       const otp = await issueVerificationToken(user.email, 'password_reset');
 
       // Fire-and-forget — don't block response on email delivery
-      sendVerificationEmail(user.email, user.full_name || 'SeeBu User', otp).catch((err) =>
+      sendPasswordResetEmail(user.email, user.full_name || 'SeeBu User', otp).catch((err) =>
         console.error('[forgotPassword] Email send failed:', err)
       );
 

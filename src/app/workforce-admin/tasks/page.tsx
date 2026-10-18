@@ -276,8 +276,7 @@ export default function WorkforceAdminTasksPage() {
                               <div className="grid grid-cols-2 gap-2 sm:gap-3 mt-2">
                                 <Button
                                   type="button"
-                                  variant="outline"
-                                  className="w-full"
+                                  className="w-full bg-sky-700 hover:bg-sky-800 text-white hover:text-white border-sky-700 font-bold"
                                   onClick={() => {
                                     setDialogOpen(null);
                                     setDelegateTo("");
@@ -570,8 +569,7 @@ export default function WorkforceAdminTasksPage() {
               ) : (
                 <Button
                   type="button"
-                  variant="outline"
-                  className="col-span-full w-full"
+                  className="col-span-full w-full bg-sky-700 hover:bg-sky-800 text-white hover:text-white border-sky-700 font-bold"
                   onClick={() => setSelectedTask(null)}
                 >
                   Close

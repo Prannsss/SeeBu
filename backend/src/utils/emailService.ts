@@ -16,6 +16,69 @@ function escapeHtml(value: string): string {
 
 const FROM_EMAIL = process.env.EMAIL_FROM as string;
 const FROM_NAME = process.env.EMAIL_FROM_NAME as string;
+const FRONTEND_URL = process.env.FRONTEND_URL || 'https://seebu.prannsss.dev';
+
+const BRAND = '#13b6ec';
+const FONT = "-apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+
+/** Shared email shell. Tables + inline styles because Gmail/Outlook ignore most CSS. */
+function layout(opts: { preheader: string; heading: string; body: string }): string {
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>${opts.heading}</title>
+</head>
+<body style="margin:0;padding:0;background:#f1f5f9;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">${opts.preheader}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;">
+  <tr><td align="center" style="padding:32px 16px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
+      <tr><td align="center" style="padding-bottom:20px;">
+        <a href="${FRONTEND_URL}" style="text-decoration:none;">
+          <img src="${FRONTEND_URL}/icons/icon-192x192.png" width="48" height="48" alt="SeeBu" style="display:block;border:0;border-radius:12px;">
+        </a>
+      </td></tr>
+      <tr><td style="background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;">
+        <div style="height:6px;background:${BRAND};"></div>
+        <div style="padding:32px 32px 28px;font-family:${FONT};color:#334155;font-size:15px;line-height:1.6;">
+          <h1 style="margin:0 0 16px;font-size:22px;line-height:1.3;color:#0f172a;">${opts.heading}</h1>
+          ${opts.body}
+          <p style="margin:28px 0 0;color:#475569;">— The SeeBu Team</p>
+        </div>
+      </td></tr>
+      <tr><td align="center" style="padding:20px 16px 0;font-family:${FONT};font-size:12px;line-height:1.5;color:#64748b;">
+        SeeBu · Report. Connect. Resolve. — Cebu City<br>
+        <a href="${FRONTEND_URL}" style="color:#64748b;">${FRONTEND_URL.replace(/^https?:\/\//, '')}</a>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`;
+}
+
+const p = (html: string) => `<p style="margin:0 0 14px;">${html}</p>`;
+
+const button = (href: string, label: string) => `
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0;">
+  <tr><td style="border-radius:10px;background:${BRAND};">
+    <a href="${href}" style="display:inline-block;padding:13px 26px;font-family:${FONT};font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:10px;">${label}</a>
+  </td></tr>
+</table>`;
+
+/** Large monospace box for OTPs and tracking IDs. */
+const codeBox = (value: string, caption: string) => `
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0;">
+  <tr><td align="center" style="background:#f0f9ff;border:1px dashed ${BRAND};border-radius:12px;padding:20px 12px;">
+    <div style="font-family:'SFMono-Regular',Consolas,'Courier New',monospace;font-size:${value.length > 8 ? '20px' : '30px'};font-weight:700;letter-spacing:${value.length > 8 ? '1px' : '6px'};white-space:nowrap;color:#0f172a;">${value}</div>
+    <div style="margin-top:6px;font-family:${FONT};font-size:12px;color:#64748b;">${caption}</div>
+  </td></tr>
+</table>`;
+
+const muted = (html: string) => `<p style="margin:0 0 14px;font-size:13px;color:#64748b;">${html}</p>`;
 
 const sendSmtpEmail = async (payload: {
   to: string;
@@ -56,16 +119,20 @@ export const sendWelcomeEmail = async (toEmail: string, toName: string) => {
   return sendSmtpEmail({
     to: toEmail,
     subject: `Welcome to SeeBu, ${toName}!`,
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
-        <h2>Welcome to SeeBu!</h2>
-        <p>Hi ${safeName},</p>
-        <p>Thank you for signing up to SeeBu. We are excited to have you onboard.</p>
-        <p>If you have any questions, feel free to reply to this email.</p>
-        <br/>
-        <p>Best regards,<br/>The SeeBu Team</p>
-      </div>
-    `,
+    text: `Hi ${toName},\n\nThanks for joining SeeBu. Spot a pothole, broken streetlight, or garbage pile-up? Report it and track it until it's fixed: ${FRONTEND_URL}/client/report\n\n— The SeeBu Team`,
+    html: layout({
+      preheader: 'Your account is ready — start reporting issues in your barangay.',
+      heading: `Welcome to SeeBu, ${safeName}!`,
+      body:
+        p('Thanks for joining. SeeBu connects you directly with your local government so community issues get seen and fixed.') +
+        p('<strong>Here’s how it works:</strong>') +
+        `<ol style="margin:0 0 14px;padding-left:20px;">
+          <li style="margin-bottom:6px;"><strong>Report</strong> — snap a photo and pin the location.</li>
+          <li style="margin-bottom:6px;"><strong>Track</strong> — follow progress with your tracking ID.</li>
+          <li><strong>Resolve</strong> — see proof once the job is done.</li>
+        </ol>` +
+        button(`${FRONTEND_URL}/client/report`, 'Report an issue'),
+    }),
   });
 };
 
@@ -73,38 +140,33 @@ export const sendVerificationEmail = async (toEmail: string, toName: string, cod
   const safeName = escapeHtml(toName);
   return sendSmtpEmail({
     to: toEmail,
-    subject: `Your SeeBu Verification Code`,
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
-        <h2>Verify Your Email</h2>
-        <p>Hi ${safeName},</p>
-        <p>Your verification code is: <strong>${code}</strong></p>
-        <p>Enter this code on the SeeBu platform to verify your account.</p>
-        <p><em>Note: This code expires in <strong>15 minutes</strong>. If you did not request this, please ignore this email.</em></p>
-        <br/>
-        <p>Best regards,<br/>The SeeBu Team</p>
-      </div>
-    `,
+    subject: `${code} is your SeeBu verification code`,
+    text: `Hi ${toName},\n\nYour SeeBu verification code is: ${code}\n\nIt expires in 15 minutes. If you didn't create a SeeBu account, ignore this email.\n\n— The SeeBu Team`,
+    html: layout({
+      preheader: `Your verification code is ${code}. It expires in 15 minutes.`,
+      heading: 'Verify your email',
+      body:
+        p(`Hi ${safeName}, enter this code in SeeBu to finish setting up your account:`) +
+        codeBox(code, 'Expires in 15 minutes') +
+        muted('If you didn’t create a SeeBu account, you can safely ignore this email.'),
+    }),
   });
 };
 
-export const sendClientUpdateEmail = async (toEmail: string, toName: string, title: string, message: string) => {
+export const sendPasswordResetEmail = async (toEmail: string, toName: string, code: string) => {
   const safeName = escapeHtml(toName);
-  const safeTitle = escapeHtml(title);
-  const safeMessage = escapeHtml(message);
   return sendSmtpEmail({
     to: toEmail,
-    subject: `SeeBu Update: ${title}`,
-    text: `Hello ${toName},\n\n${message}\n\nBest,\nSeeBu Team`,
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
-        <h2>${safeTitle}</h2>
-        <p>Hello ${safeName},</p>
-        <p>${safeMessage}</p>
-        <br/>
-        <p>Best regards,<br/>The SeeBu Team</p>
-      </div>
-    `,
+    subject: `${code} is your SeeBu password reset code`,
+    text: `Hi ${toName},\n\nYour SeeBu password reset code is: ${code}\n\nIt expires in 15 minutes. If you didn't request a reset, ignore this email — your password won't change.\n\n— The SeeBu Team`,
+    html: layout({
+      preheader: `Your password reset code is ${code}. It expires in 15 minutes.`,
+      heading: 'Reset your password',
+      body:
+        p(`Hi ${safeName}, we got a request to reset your SeeBu password. Enter this code to choose a new one:`) +
+        codeBox(code, 'Expires in 15 minutes') +
+        muted('Didn’t request this? Ignore this email — your password won’t change.'),
+    }),
   });
 };
 
@@ -114,27 +176,106 @@ export const sendReportTrackingEmail = async (
   trackingId: string,
   reportTitle: string
 ) => {
-  const frontendUrl = process.env.FRONTEND_URL || 'https://seebu.prannsss.dev';
-  const safeName = escapeHtml(toName || 'Anonymous User');
+  const safeName = escapeHtml(toName || 'there');
   const safeTitle = escapeHtml(reportTitle);
+  const trackUrl = `${FRONTEND_URL}/track?id=${encodeURIComponent(trackingId)}`;
 
   return sendSmtpEmail({
     to: toEmail,
-    subject: `Your SeeBu Report Tracking ID: ${trackingId}`,
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
-        <h2>Report Submitted Successfully!</h2>
-        <p>Hi ${safeName},</p>
-        <p>We have received your report <strong>"${safeTitle}"</strong>.</p>
-        <p>Your tracking number is:</p>
-        <div style="background:#f4f4f4;padding:16px;border-radius:8px;font-size:24px;font-weight:bold;text-align:center;margin:20px 0;">
-          ${trackingId}
-        </div>
-        <p>You can track the status of your report anytime using this ID at:</p>
-        <p><a href="${frontendUrl}/track" style="color:#00B2E2;">${frontendUrl}/track</a></p>
-        <br/>
-        <p>Best regards,<br/>The SeeBu Team</p>
-      </div>
-    `,
+    subject: `Report received — tracking ID ${trackingId}`,
+    text: `Hi ${toName || 'there'},\n\nWe received your report "${reportTitle}".\n\nTracking ID: ${trackingId}\n\nTrack its progress: ${trackUrl}\n\n— The SeeBu Team`,
+    html: layout({
+      preheader: `We received "${safeTitle}". Tracking ID: ${trackingId}`,
+      heading: 'We received your report',
+      body:
+        p(`Hi ${safeName}, thanks for speaking up. Your report <strong>“${safeTitle}”</strong> is now with the local administration for verification.`) +
+        codeBox(trackingId, 'Your tracking ID — keep it to check progress') +
+        button(trackUrl, 'Track your report') +
+        muted(`Or go to <a href="${FRONTEND_URL}/track" style="color:#0369a1;">${FRONTEND_URL.replace(/^https?:\/\//, '')}/track</a> and enter your tracking ID.`),
+    }),
+  });
+};
+
+type StageCopy = { subject: string; heading: string; lead: string; next: string; thanks: string };
+
+/** Per-stage wording. Values passed in are already HTML-escaped. */
+function stageCopy(status: string, title: string, d: { department?: string; reason?: string }): StageCopy {
+  const s = status.toLowerCase();
+  const dept = d.department ? `<strong>${d.department}</strong>` : 'the appropriate department';
+  if (s === 'in review' || s === 'pending') return {
+    subject: 'Your report is now in review',
+    heading: 'Your report is now in review',
+    lead: `Your report <strong>“${title}”</strong> is now being reviewed by your local administration. They will check the details, location, and photos you provided to confirm the issue and decide on the best next step.`,
+    next: 'Once the review is complete, we will let you know whether your report has been forwarded to a department for action. There is nothing you need to do in the meantime.',
+    thanks: 'Thank you for taking the time to report this. Every report helps make Cebu a safer and better place for everyone.',
+  };
+  if (s === 'action taken' || s === 'delegated' || s === 'approved') return {
+    subject: `Your report has been escalated${d.department ? ` to ${d.department.replace(/<[^>]+>/g, '')}` : ''}`,
+    heading: 'Your report has been escalated',
+    lead: `Good news — your report <strong>“${title}”</strong> has been verified and escalated. It is now being handled by ${dept}.`,
+    next: 'The department will schedule the work and assign a field team. We will notify you again as soon as the team begins working on it.',
+    thanks: 'Thank you for helping your community. Reports like yours make sure issues reach the people who can fix them.',
+  };
+  if (s === 'in progress' || s === 'assigned' || s === 'accepted') return {
+    subject: 'Work has started on your report',
+    heading: 'A team is now working on your report',
+    lead: `A field team${d.department ? ` from ${dept}` : ''} has been assigned and is now actively working on your report <strong>“${title}”</strong>.`,
+    next: 'Depending on the nature of the issue, this may take some time to complete. Once the work is done, the team will upload photos as proof and we will let you know right away.',
+    thanks: 'Thank you for your patience and for caring about your neighborhood.',
+  };
+  if (s === 'resolved' || s === 'completed') return {
+    subject: 'Your report has been resolved',
+    heading: 'Your report has been resolved 🎉',
+    lead: `We are happy to let you know that your report <strong>“${title}”</strong> has been resolved${d.department ? ` by ${dept}` : ''}.`,
+    next: 'The field team has submitted photos as proof of completion. You can view them, along with the full timeline of your report, using the button below. If the issue comes back, please don’t hesitate to submit a new report.',
+    thanks: 'Thank you so much for speaking up. Because of you, this issue has been fixed and your community is better for it.',
+  };
+  if (s === 'rejected') return {
+    subject: 'An update on your report',
+    heading: 'Your report could not be processed',
+    lead: `After careful review, your local administration was unable to process your report <strong>“${title}”</strong>.`,
+    next: `${d.reason ? `<strong>Reason given:</strong> ${d.reason}<br><br>` : ''}If you believe this was a mistake, or if you have more details or clearer photos, you are very welcome to submit a new report.`,
+    thanks: 'Thank you for taking the time to report this. We truly appreciate your effort to help improve your community.',
+  };
+  return {
+    subject: `Your report is now ${status}`,
+    heading: `Your report is now ${status}`,
+    lead: `The status of your report <strong>“${title}”</strong> has been updated to <strong>${status}</strong>.`,
+    next: 'You can view the full details and timeline of your report using the button below.',
+    thanks: 'Thank you for using SeeBu and for helping improve your community.',
+  };
+}
+
+export const sendClientUpdateEmail = async (
+  toEmail: string,
+  toName: string,
+  trackingId: string,
+  reportTitle: string,
+  status: string,
+  details: { departmentName?: string | null; rejectionReason?: string | null } = {}
+) => {
+  const name = toName || 'there';
+  const copy = stageCopy(escapeHtml(status), escapeHtml(reportTitle), {
+    department: details.departmentName ? escapeHtml(details.departmentName) : undefined,
+    reason: details.rejectionReason ? escapeHtml(details.rejectionReason) : undefined,
+  });
+  const trackUrl = `${FRONTEND_URL}/track?id=${encodeURIComponent(trackingId)}`;
+  const plain = (html: string) => html.replace(/<br\s*\/?>/g, '\n').replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+
+  return sendSmtpEmail({
+    to: toEmail,
+    subject: `${plain(copy.subject)} — ${trackingId}`,
+    text: `Hi ${name},\n\n${plain(copy.lead)}\n\n${plain(copy.next)}\n\nTracking ID: ${trackingId}\nView your report: ${trackUrl}\n\n${plain(copy.thanks)}\n\n— The SeeBu Team`,
+    html: layout({
+      preheader: plain(copy.lead).slice(0, 120),
+      heading: copy.heading,
+      body:
+        p(`Hi ${escapeHtml(name)},`) +
+        p(copy.lead) +
+        p(copy.next) +
+        codeBox(trackingId, 'Your tracking ID') +
+        button(trackUrl, 'View your report') +
+        `<p style="margin:20px 0 0;padding:14px 16px;background:#f0fdf4;border-left:4px solid #2ecc71;border-radius:8px;color:#14532d;">${copy.thanks}</p>`,
+    }),
   });
 };

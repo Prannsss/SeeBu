@@ -184,7 +184,7 @@ export default function AdminProfilePage() {
                   <span className="material-symbols-outlined input-icon">call</span>
                 </div>
                 <div className="flex gap-3 pt-2">
-                  <Button type="button" className="flex-1 h-11 bg-red-600 hover:bg-red-700 text-white font-bold shadow-sm" onClick={() => setIsEditing(false)}>Cancel</Button>
+                  <Button type="button" className="flex-1 h-11 bg-sky-700 hover:bg-sky-800 text-white font-bold shadow-sm" onClick={() => setIsEditing(false)}>Cancel</Button>
                   <Button className="flex-1 h-11 bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-sm" type="submit">Save Changes</Button>
                 </div>
               </form>
