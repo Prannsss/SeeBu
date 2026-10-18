@@ -4,13 +4,16 @@ import { AlertTriangle, ClipboardList, ArrowRight, Users, UserPlus } from "lucid
 import { ChartAreaInteractive } from "@/components/ui/chart-area-interactive"
 import Link from "next/link"
 import { cookies } from "next/headers"
+import { phToday, shiftDay } from "@/lib/ph-date"
+import { greeting } from "@/lib/greeting"
+
+const EMPTY_ADMIN_DATA = { name: null as string | null, openReports: 0, withDepartments: 0, departmentHeads: 0, deptWorkforce: 0, chartData: [] as any[] };
 
 async function getAdminData() {
   const reqCookies = await cookies();
   const token = reqCookies.get("auth-token")?.value;
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'development' ? "http://localhost:5000" : "https://seebu.onrender.com");
   // Each call resolves to null on failure so one slow/forbidden endpoint never blocks the rest.
-  // Note: /api/v1/users is superadmin-only, so it 403s for admins and the staff counts stay 0.
   const getJson = (path: string) =>
     fetch(`${apiUrl}${path}`, { headers: { "Authorization": `Bearer ${token}` }, cache: 'no-store' })
       .then((res) => (res.ok ? res.json() : null))
@@ -19,53 +22,45 @@ async function getAdminData() {
   try {
     const profileData = await getJson('/api/v1/users/me');
     const municipalityId = profileData?.data?.municipality_id;
+    const name: string | null = profileData?.data?.full_name ?? null;
+    if (!municipalityId) return { ...EMPTY_ADMIN_DATA, name };
 
-    if (!municipalityId) {
-      return { reportedIssues: 0, delayedTasks: 0, subordinateAdmins: 0, deptWorkforce: 0, chartData: [] };
-    }
-
-    const [reportsData, usersData, analyticsData, tasksData] = await Promise.all([
-      getJson('/api/v1/reports'),
-      getJson('/api/v1/users'),
-      getJson(`/api/v1/analytics/admin/${municipalityId}`),
-      getJson('/api/v1/tasks'),
+    const today = phToday();
+    // One analytics call carries both the 30-day chart and the "open right now" counts;
+    // departments (admin-scoped) carry the staff counts.
+    const [analytics, departments] = await Promise.all([
+      getJson(`/api/v1/analytics/admin/${municipalityId}?from=${shiftDay(today, -29)}&to=${today}`),
+      getJson('/api/v1/departments?include_personnel=true'),
     ]);
 
-    const allReports = reportsData?.data || [];
-    const openReports = allReports.filter((r: any) =>
-      r.municipality_id === municipalityId &&
-      !['Resolved', 'Completed', 'Rejected'].includes(r.status)
-    ).length;
-
-    const subAdmins = (usersData?.data || []).filter((u: any) => u.area === municipalityId && u.role === 'ADMIN').length;
-    const workforce = (usersData?.data || []).filter((u: any) => u.area === municipalityId && u.role === 'WORKFORCE_OFFICER').length;
-
-    const analytics = analyticsData || { chartData: [], delayedTasks: 0 };
-    const delegatedTasksCount = (tasksData?.data || []).filter((t: any) => t.status === 'Delegated').length;
+    const activeStaff = (departments?.data || [])
+      .flatMap((d: any) => d.personnel || [])
+      .filter((p: any) => String(p.status || '').toLowerCase() === 'active');
 
     return {
-      reportedIssues: openReports,
-      delayedTasks: delegatedTasksCount || analytics.delayedTasks || 0,
-      subordinateAdmins: subAdmins,
-      deptWorkforce: workforce,
-      chartData: analytics.chartData || []
+      name,
+      openReports: analytics?.openNow?.total ?? 0,
+      withDepartments: analytics?.openNow?.inProgress ?? 0,
+      departmentHeads: activeStaff.filter((p: any) => p.role === 'workforce-admin').length,
+      deptWorkforce: activeStaff.filter((p: any) => p.role === 'workforce').length,
+      chartData: analytics?.chartData || [],
     };
   } catch (error) {
     console.error("Error fetching admin data:", error);
-    return { reportedIssues: 0, delayedTasks: 0, subordinateAdmins: 0, deptWorkforce: 0, chartData: [] };
+    return EMPTY_ADMIN_DATA;
   }
 }
 
 export default async function AdminHomePage() {
   const data = await getAdminData();
-  const { chartData, reportedIssues, delayedTasks, subordinateAdmins, deptWorkforce } = data;
+  const { name, chartData, openReports, withDepartments, departmentHeads, deptWorkforce } = data;
 
   return (
     <div className="min-h-screen bg-white pb-32 dark:from-slate-950 dark:to-slate-900">
       <div className="container mx-auto max-w-6xl px-4 py-10">
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900">Admin Home</h1>
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900">{greeting(name)}</h1>
             <p className="mt-1 text-slate-600">Operations overview, urgent cases, and workload signals.</p>
           </div>
           <Badge className="bg-blue-600 text-white">Live Monitoring</Badge>
@@ -73,9 +68,9 @@ export default async function AdminHomePage() {
 
         <div className="mb-8 grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-4">
           {[
-            { label: 'Open Reports', value: reportedIssues, hint: 'Unresolved cases', icon: ClipboardList, chip: 'bg-sky-100 text-sky-800' },
-            { label: 'Delegated', value: delayedTasks, hint: 'Needs action', icon: AlertTriangle, chip: 'bg-red-100 text-red-800' },
-            { label: 'Subordinate Admins', value: subordinateAdmins, hint: 'In assigned area', icon: UserPlus, chip: 'bg-emerald-100 text-emerald-600' },
+            { label: 'Open Reports', value: openReports, hint: 'Unresolved cases', icon: ClipboardList, chip: 'bg-sky-100 text-sky-800' },
+            { label: 'Delegated', value: withDepartments, hint: 'With departments now', icon: AlertTriangle, chip: 'bg-red-100 text-red-800' },
+            { label: 'Department Heads', value: departmentHeads, hint: 'Workforce admins in your area', icon: UserPlus, chip: 'bg-emerald-100 text-emerald-600' },
             { label: 'Dept. Workforce', value: deptWorkforce, hint: 'Across departments', icon: Users, chip: 'bg-indigo-100 text-indigo-800' },
           ].map(({ label, value, hint, icon: Icon, chip }) => (
             <Card key={label}>
@@ -94,10 +89,8 @@ export default async function AdminHomePage() {
         <div className="relative">
           <ChartAreaInteractive
             title="Reports Overview"
-            description="Last 7 days"
-            chartData={chartData.length > 0 ? chartData : [{ name: 'Loading', reports: 0 }]}
-            defaultTimeRange="7d"
-            hideFilter={true}
+            description="Last 30 days"
+            chartData={chartData}
             headerAction={
               <Link 
                 href="/admin/analytics" 

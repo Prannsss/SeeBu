@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { useQuery } from "@tanstack/react-query"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function SuperadminUsersPage() {
   const [searchTerm, setSearchTerm] = useState("")
@@ -81,8 +82,8 @@ export default function SuperadminUsersPage() {
         <div className="bg-white dark:bg-slate-900 rounded-md border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
           <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-col md:flex-row gap-4 items-center bg-slate-50/50 dark:bg-slate-900/50">
             <div className="relative w-full flex-grow">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input 
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" aria-hidden="true" />
+              <Input type="search" aria-label="Search users by name or email"
                 placeholder="Search name or email..." 
                 className="pl-9 w-full bg-white dark:bg-slate-950" 
                 value={searchTerm}
@@ -91,8 +92,8 @@ export default function SuperadminUsersPage() {
             </div>
             <div className="flex w-full md:w-auto gap-4">
               <Select value={roleFilter} onValueChange={setRoleFilter}>
-                <SelectTrigger className="w-full md:w-[200px] bg-white dark:bg-slate-950">
-                  <Filter className="w-4 h-4 mr-2 text-muted-foreground" />
+                <SelectTrigger aria-label="Filter by role" className="w-full md:w-[200px] bg-white dark:bg-slate-950">
+                  <Filter className="w-4 h-4 mr-2 text-muted-foreground" aria-hidden="true" />
                   <SelectValue placeholder="Filter by Role" />
                 </SelectTrigger>
                 <SelectContent className="bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800">
@@ -106,8 +107,8 @@ export default function SuperadminUsersPage() {
               </Select>
 
               <Select value={areaFilter} onValueChange={setAreaFilter}>
-                <SelectTrigger className="w-full md:w-[200px] bg-white dark:bg-slate-950">
-                  <Filter className="w-4 h-4 mr-2 text-muted-foreground" />
+                <SelectTrigger aria-label="Filter by area" className="w-full md:w-[200px] bg-white dark:bg-slate-950">
+                  <Filter className="w-4 h-4 mr-2 text-muted-foreground" aria-hidden="true" />
                   <SelectValue placeholder="Filter by Area" />
                 </SelectTrigger>
                 <SelectContent className="bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 z-[100]">
@@ -124,7 +125,7 @@ export default function SuperadminUsersPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <Table>
+            <Table aria-busy={isLoading}>
               <TableHeader>
                 <TableRow>
                   <TableHead>User</TableHead>
@@ -135,7 +136,19 @@ export default function SuperadminUsersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredUsers.length === 0 ? (
+                {isLoading ? (
+                  // Same placeholder look as the tab lists; avoids flashing "No users found" while loading.
+                  [0, 1, 2, 3].map((row) => (
+                    <TableRow key={row}>
+                      {[0, 1, 2, 3, 4].map((cell) => (
+                        <TableCell key={cell}>
+                          {row === 0 && cell === 0 && <span role="status" className="sr-only">Loading users…</span>}
+                          <Skeleton className="h-4 w-full max-w-[160px] bg-slate-200" aria-hidden="true" />
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : filteredUsers.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
                       No users found matching the filters.
@@ -170,8 +183,8 @@ export default function SuperadminUsersPage() {
                       <TableCell className="md:hidden text-right">
                         <Dialog>
                           <DialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-500">
-                              <MoreVertical className="h-4 w-4" />
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-500" aria-label={`View details for ${user.name}`}>
+                              <MoreVertical className="h-4 w-4" aria-hidden="true" />
                             </Button>
                           </DialogTrigger>
                           <DialogContent className="w-[calc(100%-2rem)] max-w-sm rounded-md p-6 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">

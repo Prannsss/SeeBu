@@ -3,8 +3,8 @@ import { supabase } from '../config/db';
 import { serverErrorMessage } from '../utils/errorResponse';
 
 // PostgREST caps responses at 1000 rows, so page through them. `build` must return a FRESH query
-// with a stable order. No RPC needed: responses are cached 60s by the cacheResponse('analytics')
-// route middleware and invalidated on every report/task mutation.
+// with a stable order. Responses are cached 60s by the cacheResponse('analytics') route middleware
+// and invalidated on every report/task mutation.
 async function fetchAllRows<T = any>(build: () => any, pageSize = 1000): Promise<T[]> {
   const out: T[] = [];
   for (let from = 0; ; from += pageSize) {
@@ -16,130 +16,154 @@ async function fetchAllRows<T = any>(build: () => any, pageSize = 1000): Promise
   return out;
 }
 
+// Cebu runs on Philippine time (UTC+8, no DST): ranges and day buckets use it, never UTC —
+// otherwise reports filed between midnight and 8 AM land on the previous day.
+const PH_OFFSET = '+08:00';
+const phDayFormat = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }); // en-CA → YYYY-MM-DD
+const phDay = (date: string | Date) => phDayFormat.format(new Date(date));
+const DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+// Longer ranges are bucketed by month so the chart stays readable.
+const MAX_DAILY_BUCKETS = 92;
+
+const addDays = (day: string, n: number) => {
+  const d = new Date(`${day}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+};
+const nextMonth = (month: string) => {
+  const [y, m] = month.split('-').map(Number);
+  return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`;
+};
+
+const RESOLVED = new Set(['Resolved', 'Completed']);
+const IN_REVIEW = new Set(['In Review', 'Pending']);
+const CLOSED_STATUSES = '(Resolved,Completed,Rejected)';
+
+/** `from`/`to` are inclusive PH calendar days (YYYY-MM-DD); missing or malformed means unbounded. */
+function parseRange(req: Request) {
+  let from = DAY_PATTERN.test(String(req.query.from ?? '')) ? String(req.query.from) : null;
+  let to = DAY_PATTERN.test(String(req.query.to ?? '')) ? String(req.query.to) : null;
+  if (from && to && from > to) [from, to] = [to, from];
+  return { from, to };
+}
+
+function applyRange(query: any, from: string | null, to: string | null) {
+  if (from) query = query.gte('created_at', `${from}T00:00:00${PH_OFFSET}`);
+  if (to) query = query.lt('created_at', `${addDays(to, 1)}T00:00:00${PH_OFFSET}`);
+  return query;
+}
+
+const issueLabel = (row: any): string =>
+  row.issue_type === 'other' && row.other_type_specification ? row.other_type_specification : (row.issue_type || 'Unknown');
+
+/** Turns report rows (ordered by created_at ascending) into the totals and chart series. */
+export function summarize(rows: any[], from: string | null, to: string | null, areaOf: (row: any) => string) {
+  const totals = { total: rows.length, resolved: 0, inReview: 0, inProgress: 0, rejected: 0 };
+  const byIssue = new Map<string, { resolved: number; unresolved: number }>();
+  const byArea = new Map<string, number>();
+
+  const today = phDay(new Date());
+  const start = from ?? (rows.length ? phDay(rows[0].created_at) : today);
+  const end = to ?? today;
+  const days = Math.round((Date.parse(end) - Date.parse(start)) / 86_400_000) + 1;
+  const granularity: 'day' | 'month' = days > MAX_DAILY_BUCKETS ? 'month' : 'day';
+  const bucketOf = (day: string) => (granularity === 'month' ? day.slice(0, 7) : day);
+
+  // Pre-fill every bucket so days/months without reports show as zero instead of vanishing.
+  const series = new Map<string, { reports: number; resolved: number }>();
+  if (granularity === 'month') {
+    for (let m = start.slice(0, 7); m <= end.slice(0, 7); m = nextMonth(m)) series.set(m, { reports: 0, resolved: 0 });
+  } else {
+    for (let d = start; d <= end; d = addDays(d, 1)) series.set(d, { reports: 0, resolved: 0 });
+  }
+
+  for (const row of rows) {
+    const resolved = RESOLVED.has(row.status);
+    const rejected = row.status === 'Rejected';
+    if (resolved) totals.resolved++;
+    else if (rejected) totals.rejected++;
+    else if (IN_REVIEW.has(row.status)) totals.inReview++;
+    else totals.inProgress++;
+
+    const bucket = series.get(bucketOf(phDay(row.created_at)));
+    if (bucket) {
+      bucket.reports++;
+      if (resolved) bucket.resolved++;
+    }
+
+    byArea.set(areaOf(row), (byArea.get(areaOf(row)) || 0) + 1);
+
+    // Rejected reports are invalid submissions, not open issues of that type.
+    if (!rejected) {
+      const issue = byIssue.get(issueLabel(row)) ?? { resolved: 0, unresolved: 0 };
+      if (resolved) issue.resolved++;
+      else issue.unresolved++;
+      byIssue.set(issueLabel(row), issue);
+    }
+  }
+
+  return {
+    range: { from: start, to: end, granularity },
+    totals,
+    chartData: [...series].map(([date, v]) => ({ date, ...v })),
+    issueTypeData: [...byIssue]
+      .map(([issueType, v]) => ({ issueType, ...v }))
+      .sort((a, b) => b.resolved + b.unresolved - (a.resolved + a.unresolved)),
+    areaData: [...byArea].map(([area, count]) => ({ area, count })).sort((a, b) => b.count - a.count),
+  };
+}
+
+/** Reports in scope that are open right now, regardless of the selected date range. Open
+ * reports are a small working set, so fetching just their status is cheap. */
+async function openNow(scope: (query: any) => any) {
+  const rows = await fetchAllRows<{ status: string }>(() =>
+    scope(supabase.from('reports').select('id, status').not('status', 'in', CLOSED_STATUSES)).order('id', { ascending: true })
+  );
+  const inReview = rows.filter((row) => IN_REVIEW.has(row.status)).length;
+  return { total: rows.length, inReview, inProgress: rows.length - inReview };
+}
+
 export const analyticsController = {
-  // SUPERADMIN: General overview across ALL municipalities
+  // SUPERADMIN: across all municipalities, optionally narrowed by municipality/barangay
   async getSuperadminAnalytics(req: Request, res: Response) {
     try {
       const { municipality_id, barangay_id } = req.query;
+      const { from, to } = parseRange(req);
 
-      const applyFilters = (query: any) => {
-        if (municipality_id && municipality_id !== 'all') query = query.eq('municipality_id', municipality_id);
-        if (barangay_id && barangay_id !== 'all') query = query.eq('barangay_id', barangay_id);
+      const scope = (query: any) => {
+        if (municipality_id && municipality_id !== 'all') query = query.eq('municipality_id', String(municipality_id));
+        if (barangay_id && barangay_id !== 'all') query = query.eq('barangay_id', String(barangay_id));
         return query;
       };
 
-      const [reports, { data: allMunicipalities, error: munErr }, allBarangays] = await Promise.all([
+      const [rows, open] = await Promise.all([
         fetchAllRows(() =>
-          applyFilters(
-            supabase
-              .from('reports')
-              .select('status, issue_type, other_type_specification, municipality_id, created_at, municipalities(name)')
+          applyRange(
+            scope(supabase.from('reports').select('status, issue_type, other_type_specification, created_at, municipalities(name)')),
+            from,
+            to
           )
             .order('created_at', { ascending: true })
             .order('id', { ascending: true })
         ),
-        supabase.from('municipalities').select('id, name').order('name', { ascending: true }),
-        fetchAllRows(() =>
-          supabase
-            .from('barangays')
-            .select('id, name, municipality_id')
-            .order('name', { ascending: true })
-            .order('id', { ascending: true })
-        ),
+        openNow(scope),
       ]);
-      if (munErr) throw munErr;
 
-      const totalReports = reports.length;
-      const reportedIssues = reports.filter(r => r.status === 'In Review').length;
-      const completedTasks = reports.filter(r => r.status === 'Completed' || r.status === 'Resolved').length;
-
-      // Format Chart Data & Recurring Data dynamically from SQL grouping instead of JSON!
-      const groupedByMun: Record<string, number> = {};
-      const groupedByIssueType: Record<string, { resolved: number; unresolved: number; municipalityId: string }> = {};
-      const reportsByDate: Record<string, { reports: number; resolved: number }> = {};
-
-      reports.forEach((row: any) => {
-        const area = row.municipalities?.name || 'Unknown';
-        groupedByMun[area] = (groupedByMun[area] || 0) + 1;
-      });
-
-      // Group by issue_type for bar chart with resolved/unresolved split
-      reports.forEach((row: any) => {
-        const issueLabel = row.issue_type === 'other' && row.other_type_specification
-          ? row.other_type_specification
-          : (row.issue_type || 'Unknown');
-        const key = `${issueLabel}__${row.municipality_id}`;
-        if (!groupedByIssueType[key]) {
-          groupedByIssueType[key] = { resolved: 0, unresolved: 0, municipalityId: row.municipality_id };
-        }
-        const isResolved = row.status === 'Completed' || row.status === 'Resolved';
-        if (isResolved) {
-          groupedByIssueType[key].resolved++;
-        } else {
-          groupedByIssueType[key].unresolved++;
-        }
-      });
-
-      // Build chartData with resolved/unresolved split per date
-      reports.forEach((row: any) => {
-        const dateKey = new Date(row.created_at).toISOString().split('T')[0];
-        if (!reportsByDate[dateKey]) reportsByDate[dateKey] = { reports: 0, resolved: 0 };
-        reportsByDate[dateKey].reports++;
-        const isResolved = row.status === 'Completed' || row.status === 'Resolved';
-        if (isResolved) reportsByDate[dateKey].resolved++;
-      });
-
-      // Issue type data for bar chart - sorted by total count descending
-      const issueTypeData = Object.keys(groupedByIssueType)
-        .map((key) => {
-          const [issueType] = key.split('__');
-          return {
-            issueType,
-            resolved: groupedByIssueType[key].resolved,
-            unresolved: groupedByIssueType[key].unresolved,
-            municipalityId: groupedByIssueType[key].municipalityId
-          };
-        })
-        .sort((a, b) => (b.resolved + b.unresolved) - (a.resolved + a.unresolved));
-
-      const formattedRecurring = Object.keys(groupedByMun).map((key) => ({
-         area: key,
-         issue: 'Various',
-         count: groupedByMun[key]
-      })).sort((a,b) => b.count - a.count);
-
-      const formattedChartData = Object.keys(reportsByDate)
-        .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
-        .map((date) => ({
-          date,
-          reports: reportsByDate[date].reports,
-          resolved: reportsByDate[date].resolved,
-        }));
-
-      // Return the dynamically aggregated response
       return res.status(200).json({
-        totalReports,
-        reportedIssues,
-        completedTasks,
-        pendingReports: totalReports - completedTasks - reportedIssues,
-        chartData: formattedChartData.length > 0
-          ? formattedChartData
-          : [{ date: new Date().toISOString().split('T')[0], reports: 0, resolved: 0 }],
-        recurringData: formattedRecurring,
-        issueTypeData,
-        municipalities: allMunicipalities,
-        barangays: allBarangays
+        ...summarize(rows, from, to, (row) => row.municipalities?.name || 'Unknown'),
+        openNow: open,
       });
     } catch (err: any) {
       return res.status(500).json({ error: serverErrorMessage(err) });
     }
   },
 
-  // ADMIN: Filtered exclusively to a single municipality
+  // ADMIN: a single municipality, optionally narrowed by barangay
   async getAdminAnalytics(req: Request, res: Response) {
     try {
       const { municipality_id } = req.params;
       const { barangay_id } = req.query;
+      const { from, to } = parseRange(req);
 
       if (!municipality_id) {
         return res.status(400).json({ error: 'municipality_id is required' });
@@ -151,105 +175,31 @@ export const analyticsController = {
         }
       }
 
-      const buildReportsQuery = () => {
-        let query: any = supabase
-          .from('reports')
-          .select(`
-            status,
-            issue_type,
-            other_type_specification,
-            created_at,
-            barangays(name)
-          `)
-          .eq('municipality_id', municipality_id);
-        if (barangay_id && barangay_id !== 'all') query = query.eq('barangay_id', barangay_id);
-        return query.order('created_at', { ascending: true }).order('id', { ascending: true });
+      const scope = (query: any) => {
+        query = query.eq('municipality_id', String(municipality_id));
+        if (barangay_id && barangay_id !== 'all') query = query.eq('barangay_id', String(barangay_id));
+        return query;
       };
 
-      // Fetch barangays for this municipality for the frontend filter
-      const [allBarangays, reports] = await Promise.all([
+      const [rows, open] = await Promise.all([
         fetchAllRows(() =>
-          supabase
-            .from('barangays')
-            .select('id, name, municipality_id')
-            .eq('municipality_id', municipality_id)
-            .order('name', { ascending: true })
+          applyRange(
+            scope(supabase.from('reports').select('status, issue_type, other_type_specification, created_at, barangays(name)')),
+            from,
+            to
+          )
+            .order('created_at', { ascending: true })
             .order('id', { ascending: true })
         ),
-        fetchAllRows(buildReportsQuery),
+        openNow(scope),
       ]);
 
-      const totalReports = reports.length;
-      const reportedIssues = reports.filter(r => r.status === 'In Review').length;
-      const completedTasks = reports.filter(r => r.status === 'Completed' || r.status === 'Resolved').length;
-      const delayedTasks = reports.filter(r => r.status === 'Delegated' || r.status === 'Delayed').length;
-
-      const groupedByBrgy: Record<string, number> = {};
-      const groupedByIssueType: Record<string, { resolved: number; unresolved: number }> = {};
-      const reportsByDate: Record<string, { reports: number; resolved: number }> = {};
-
-      reports.forEach((r: any) => {
-        const brgy = r.barangays?.name || 'Unknown';
-        groupedByBrgy[brgy] = (groupedByBrgy[brgy] || 0) + 1;
-
-        const dateKey = new Date(r.created_at).toISOString().split('T')[0];
-        if (!reportsByDate[dateKey]) reportsByDate[dateKey] = { reports: 0, resolved: 0 };
-        reportsByDate[dateKey].reports++;
-
-        // Group by issue_type with resolved/unresolved split
-        const issueLabel = r.issue_type === 'other' && r.other_type_specification
-          ? r.other_type_specification
-          : (r.issue_type || 'Unknown');
-
-        if (!groupedByIssueType[issueLabel]) groupedByIssueType[issueLabel] = { resolved: 0, unresolved: 0 };
-
-        const isResolved = r.status === 'Completed' || r.status === 'Resolved';
-        if (isResolved) {
-          groupedByIssueType[issueLabel].resolved++;
-          reportsByDate[dateKey].resolved++;
-        } else {
-          groupedByIssueType[issueLabel].unresolved++;
-        }
-      });
-
-      // Issue type data for bar chart - sorted by total count descending
-      const issueTypeData = Object.keys(groupedByIssueType)
-        .map((issueType) => ({
-          issueType,
-          resolved: groupedByIssueType[issueType].resolved,
-          unresolved: groupedByIssueType[issueType].unresolved,
-        }))
-        .sort((a, b) => (b.resolved + b.unresolved) - (a.resolved + a.unresolved));
-
-      const formattedRecurring = Object.keys(groupedByBrgy).map((key) => ({
-         area: key,
-         issue: 'General',
-         count: groupedByBrgy[key]
-      })).sort((a, b) => b.count - a.count);
-
-      const chartData = Object.keys(reportsByDate)
-        .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
-        .map((date) => ({
-          date,
-          reports: reportsByDate[date].reports,
-          resolved: reportsByDate[date].resolved,
-        }));
-
       return res.status(200).json({
-        totalReports,
-        reportedIssues,
-        completedTasks,
-        delayedTasks,
-        pendingReports: totalReports - completedTasks - reportedIssues,
-        chartData: chartData.length > 0
-          ? chartData
-          : [{ date: new Date().toISOString().split('T')[0], reports: 0, resolved: 0 }],
-        recurringData: formattedRecurring,
-        issueTypeData,
-        barangays: allBarangays
+        ...summarize(rows, from, to, (row) => row.barangays?.name || 'Unknown'),
+        openNow: open,
       });
     } catch (err: any) {
       return res.status(500).json({ error: serverErrorMessage(err) });
     }
-  }
+  },
 };

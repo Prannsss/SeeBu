@@ -6,8 +6,9 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { FileWarning, Search, User, Clock3, CircleUserRound, CheckCircle2, AlertCircle } from "lucide-react";
 import { useReports } from "@/hooks/queries/useReports";
+import { greeting } from "@/lib/greeting";
 
-export function ClientFeedWidget({ userId }: { userId: string }) {
+export function ClientFeedWidget({ userId, name }: { userId: string; name?: string | null }) {
   const { data: reports = [], isLoading, isError, refetch } = useReports({ reporter_id: userId });
 
   // Calculate stats dynamically on the client
@@ -60,7 +61,7 @@ export function ClientFeedWidget({ userId }: { userId: string }) {
             <User className="h-8 w-8 text-sky-800" aria-hidden="true" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">Client Home</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">{greeting(name)}</h1>
             <p className="text-slate-600">Everything you need to report and monitor civic concerns.</p>
           </div>
         </div>

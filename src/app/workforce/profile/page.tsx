@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { LogOut, Pencil, Trash2 } from "lucide-react"
+import { LogOut, Pencil, Trash2, UserRound } from "lucide-react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useCurrentUser } from "@/hooks/queries/useCurrentUser"
 import { useLogout } from "@/hooks/use-logout"
@@ -99,9 +99,14 @@ export default function WorkforceProfilePage() {
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-32 dark:bg-slate-950 dark:text-slate-100">
       <div className="container mx-auto max-w-4xl px-4 py-8 sm:py-10">
         <div className="mb-6 flex items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white">Workforce Profile</h1>
-            <p className="text-slate-600 mt-1 tracking-tight">Manage your account settings and preferences.</p>
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/50">
+              <UserRound className="h-6 w-6 text-emerald-700 dark:text-emerald-400" aria-hidden="true" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white">Workforce Profile</h1>
+              <p className="text-slate-600 mt-1 tracking-tight">Manage your account settings and preferences.</p>
+            </div>
           </div>
         </div>
         

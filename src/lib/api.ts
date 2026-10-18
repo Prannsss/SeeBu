@@ -155,6 +155,16 @@ function buildQuery(params: Record<string, string | undefined>): string {
   return qs.toString();
 }
 
+export type AnalyticsRange = { from: string | null; to: string | null };
+
+function analyticsParams(barangayId?: string, range?: AnalyticsRange): URLSearchParams {
+  return new URLSearchParams(buildQuery({
+    barangay_id: barangayId && barangayId !== 'all' ? barangayId : undefined,
+    from: range?.from ?? undefined,
+    to: range?.to ?? undefined,
+  }));
+}
+
 function buildApiObject(fetcher: ApiFetcher) {
   return {
     // Auth
@@ -241,17 +251,15 @@ function buildApiObject(fetcher: ApiFetcher) {
       getAll: () => fetcher("/api/v1/locations"),
     },
 
-    // Analytics — uses 'all' sentinel check, so buildQuery is not used here
+    // Analytics — 'all' means no filter. `range` days are inclusive PH dates (YYYY-MM-DD).
     analytics: {
-      superadmin: (municipalityId?: string, barangayId?: string) => {
-        const params = new URLSearchParams();
+      superadmin: (municipalityId?: string, barangayId?: string, range?: AnalyticsRange) => {
+        const params = analyticsParams(barangayId, range);
         if (municipalityId && municipalityId !== 'all') params.append('municipality_id', municipalityId);
-        if (barangayId && barangayId !== 'all') params.append('barangay_id', barangayId);
         return fetcher(`/api/v1/analytics/superadmin?${params.toString()}`);
       },
-      admin: (municipalityId: string, barangayId?: string) => {
-        const params = new URLSearchParams();
-        if (barangayId && barangayId !== 'all') params.append('barangay_id', barangayId);
+      admin: (municipalityId: string, barangayId?: string, range?: AnalyticsRange) => {
+        const params = analyticsParams(barangayId, range);
         return fetcher(`/api/v1/analytics/admin/${municipalityId}?${params.toString()}`);
       },
     },

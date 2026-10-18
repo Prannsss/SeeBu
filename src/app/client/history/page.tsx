@@ -30,6 +30,7 @@ import { gooeyToast } from "goey-toast"
 import { useCurrentUser } from "@/hooks/queries/useCurrentUser"
 import { useRealtimeReports } from "@/hooks/useRealtimeReports"
 import { ReportMediaGallery } from "@/components/reports/report-media-gallery"
+import { ListSkeleton } from "@/components/ui/list-skeleton"
 import { statusBadgeClass, urgencyBadgeClass } from "@/lib/status-styles"
 import Link from "next/link"
 
@@ -164,11 +165,12 @@ export default function ClientHistoryPage() {
         </div>
 
         {/* Filter & Search Bar */}
-        <div className="mb-6 flex flex-col sm:flex-row gap-3 items-center justify-between bg-slate-50 dark:bg-slate-900/60 p-3 rounded-md border border-slate-200/80 dark:border-slate-800">
-          <div className="relative w-full sm:max-w-md">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-600" />
+        <div className="mb-6 flex gap-2 sm:gap-3 items-center bg-slate-50 dark:bg-slate-900/60 p-3 rounded-md border border-slate-200/80 dark:border-slate-800">
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-600" aria-hidden="true" />
             <Input
-              type="text"
+              type="search"
+              aria-label="Search your reports"
               placeholder="Search reports by title, ID, or location..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -176,10 +178,10 @@ export default function ClientHistoryPage() {
             />
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-            <Filter className="h-4 w-4 text-slate-600 shrink-0" />
+          <div className="flex items-center gap-2 shrink-0">
+            <Filter className="hidden sm:block h-4 w-4 text-slate-600 shrink-0" aria-hidden="true" />
             <Select value={urgencyFilter} onValueChange={setUrgencyFilter}>
-              <SelectTrigger className="w-[140px] h-9 bg-white dark:bg-slate-900 border-slate-200 rounded-md text-xs sm:text-sm">
+              <SelectTrigger aria-label="Filter by urgency" className="w-[120px] sm:w-[140px] h-9 bg-white dark:bg-slate-900 border-slate-200 rounded-md text-xs sm:text-sm">
                 <SelectValue placeholder="Urgency" />
               </SelectTrigger>
               <SelectContent className="bg-white dark:bg-slate-900 z-50 rounded-md">
@@ -245,10 +247,7 @@ export default function ClientHistoryPage() {
           <TabsContent value={activeTab} className="m-0 focus-visible:outline-none">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
               {!isMounted || isLoading ? (
-                <div className="text-center py-12 col-span-full text-slate-600 bg-slate-50 dark:bg-slate-900 rounded-md border border-dashed border-slate-300 dark:border-slate-800" role="status">
-                  <Clock className="h-6 w-6 mx-auto mb-2 text-slate-600 animate-spin" aria-hidden="true" />
-                  Loading your report records...
-                </div>
+                <ListSkeleton count={4} />
               ) : filteredItems.length === 0 ? (
                 <div className="flex flex-col items-center text-center py-12 px-4 col-span-full bg-slate-50 dark:bg-slate-900 rounded-md border border-dashed border-slate-300 dark:border-slate-800">
                   <FileText className="h-10 w-10 text-slate-600 mb-3" aria-hidden="true" />

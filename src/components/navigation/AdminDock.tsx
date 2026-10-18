@@ -16,11 +16,11 @@ export default function AdminDock() {
   }, [router]);
 
   const items = [
-    { icon: <Home className={`w-5 h-5 ${pathname === '/admin' ? 'text-white' : ''}`} />, label: "Home", onClick: () => router.push('/admin'), className: pathname === '/admin' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
-    { icon: <FileText className={`w-5 h-5 ${pathname === '/admin/reports' ? 'text-white' : ''}`} />, label: "Reports", onClick: () => router.push('/admin/reports'), className: pathname === '/admin/reports' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
-    { icon: <BarChart className={`w-5 h-5 ${pathname === '/admin/analytics' ? 'text-white' : ''}`} />, label: "Analytics", onClick: () => router.push('/admin/analytics'), className: pathname === '/admin/analytics' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
-    { icon: <UserPlus className={`w-5 h-5 ${pathname === '/admin/add-admin' ? 'text-white' : ''}`} />, label: "Add Admin", onClick: () => router.push('/admin/add-admin'), className: pathname === '/admin/add-admin' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
-    { icon: <User className={`w-5 h-5 ${pathname === '/admin/profile' ? 'text-white' : ''}`} />, label: "Profile", onClick: () => router.push('/admin/profile'), className: pathname === '/admin/profile' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
+    { icon: <Home className={`w-5 h-5 ${pathname === '/admin' ? 'text-white' : ''}`} />, label: "Home", onClick: () => router.push('/admin'), current: pathname === '/admin', className: pathname === '/admin' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
+    { icon: <FileText className={`w-5 h-5 ${pathname === '/admin/reports' ? 'text-white' : ''}`} />, label: "Reports", onClick: () => router.push('/admin/reports'), current: pathname === '/admin/reports', className: pathname === '/admin/reports' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
+    { icon: <BarChart className={`w-5 h-5 ${pathname === '/admin/analytics' ? 'text-white' : ''}`} />, label: "Analytics", onClick: () => router.push('/admin/analytics'), current: pathname === '/admin/analytics', className: pathname === '/admin/analytics' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
+    { icon: <UserPlus className={`w-5 h-5 ${pathname === '/admin/add-admin' ? 'text-white' : ''}`} />, label: "Add Admin", onClick: () => router.push('/admin/add-admin'), current: pathname === '/admin/add-admin', className: pathname === '/admin/add-admin' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
+    { icon: <User className={`w-5 h-5 ${pathname === '/admin/profile' ? 'text-white' : ''}`} />, label: "Profile", onClick: () => router.push('/admin/profile'), current: pathname === '/admin/profile', className: pathname === '/admin/profile' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
   ];
 
   return (

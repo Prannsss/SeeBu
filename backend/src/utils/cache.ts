@@ -1,10 +1,16 @@
 import Redis from 'ioredis';
 
-// Redis when REDIS_URL is set and reachable, otherwise an in-process memory cache.
-// None of these functions throw or hang.
+// Two tiers: an in-process memory map (L1) in front of Redis (L2) when REDIS_URL is set.
+// L1 answers repeat reads without an Upstash round trip (and without a billed command);
+// without Redis, memory is the only tier. None of these functions throw or hang.
 
 const NS = 'seebu:';
 const MAX_MEMORY_ENTRIES = 2000;
+// While Redis is up, L1 entries live at most this long. Invalidations clear L1 synchronously in
+// this process, so the cap only bounds staleness if the backend ever runs as several instances.
+const L1_MAX_TTL_SECONDS = 30;
+// A value read from Redis has an unknown remaining TTL, so it is only promoted to L1 briefly.
+const L1_PROMOTE_TTL_SECONDS = 5;
 const memory = new Map<string, { v: string; exp: number }>();
 
 let client: Redis | null | undefined;
@@ -65,30 +71,44 @@ function memSet(key: string, v: string, ttlSeconds: number) {
   if (memory.size > MAX_MEMORY_ENTRIES) memory.delete(memory.keys().next().value as string);
 }
 
-export async function cacheGet<T = unknown>(key: string): Promise<T | undefined> {
+/** The cached JSON text, unparsed — lets HTTP responses be sent without a parse/stringify round. */
+export async function cacheGetRaw(key: string): Promise<string | undefined> {
   const k = NS + key;
   try {
+    const local = memGet(k);
+    if (local !== undefined) return local;
     const r = redis();
-    const raw = r ? await r.get(k).catch(() => memGet(k)) : memGet(k);
-    return raw == null ? undefined : (JSON.parse(raw) as T);
+    if (!r) return undefined;
+    const gen = generation;
+    const raw = await r.get(k).catch(() => null);
+    if (raw == null) return undefined;
+    // Don't promote a value an invalidation raced past while the GET was in flight.
+    if (gen === generation) memSet(k, raw, L1_PROMOTE_TTL_SECONDS);
+    return raw;
   } catch {
     return undefined;
   }
 }
 
+export async function cacheGet<T = unknown>(key: string): Promise<T | undefined> {
+  const raw = await cacheGetRaw(key);
+  if (raw === undefined) return undefined;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return undefined;
+  }
+}
+
+/** L1 is written synchronously, so callers may fire-and-forget the Redis write with `void`. */
 export async function cacheSet(key: string, value: unknown, ttlSeconds: number): Promise<void> {
   const k = NS + key;
   try {
     const raw = JSON.stringify(value);
     if (raw === undefined) return;
     const r = redis();
-    if (r) {
-      try {
-        await r.set(k, raw, 'EX', ttlSeconds);
-        return;
-      } catch {}
-    }
-    memSet(k, raw, ttlSeconds);
+    memSet(k, raw, r ? Math.min(ttlSeconds, L1_MAX_TTL_SECONDS) : ttlSeconds);
+    if (r) await r.set(k, raw, 'EX', ttlSeconds).catch(() => {});
   } catch {}
 }
 
@@ -103,35 +123,37 @@ export async function cacheDel(...keys: string[]): Promise<void> {
   if (ks.length) await r.unlink(...ks).catch(() => { dirty = true; });
 }
 
+async function redisDelPrefix(r: Redis, p: string): Promise<void> {
+  await new Promise<void>((resolve) => {
+    const stream = r.scanStream({ match: p + '*', count: 200 });
+    const pending: Promise<unknown>[] = [];
+    stream.on('data', (batch: string[]) => {
+      if (batch.length) pending.push(r.unlink(...batch).catch(() => { dirty = true; }));
+    });
+    stream.on('end', () => Promise.all(pending).then(() => resolve()));
+    stream.on('error', () => { dirty = true; resolve(); });
+  });
+}
+
 export async function cacheDelPrefix(...prefixes: string[]): Promise<void> {
   generation++;
-  for (const prefix of prefixes) {
-    const p = NS + prefix;
-    for (const k of [...memory.keys()]) if (k.startsWith(p)) memory.delete(k);
-    const r = redis();
-    if (!r) {
-      if (getClient()) dirty = true;
-      continue;
-    }
-    try {
-      await new Promise<void>((resolve) => {
-        const stream = r.scanStream({ match: p + '*', count: 200 });
-        const pending: Promise<unknown>[] = [];
-        stream.on('data', (batch: string[]) => {
-          if (batch.length) pending.push(r.unlink(...batch).catch(() => { dirty = true; }));
-        });
-        stream.on('end', () => Promise.all(pending).then(() => resolve()));
-        stream.on('error', () => { dirty = true; resolve(); });
-      });
-    } catch {}
+  const ps = prefixes.map((prefix) => NS + prefix);
+  for (const k of [...memory.keys()]) if (ps.some((p) => k.startsWith(p))) memory.delete(k);
+  const r = redis();
+  if (!r) {
+    if (getClient()) dirty = true;
+    return;
   }
+  // Scan the prefixes in parallel: mutations await this before responding.
+  await Promise.all(ps.map((p) => redisDelPrefix(r, p).catch(() => { dirty = true; })));
 }
 
 export async function cached<T>(key: string, ttlSeconds: number, loader: () => Promise<T>): Promise<T> {
   const hit = await cacheGet<T>(key);
   if (hit !== undefined) return hit;
+  const gen = generation;
   const value = await loader();
-  if (value !== undefined) await cacheSet(key, value, ttlSeconds);
+  if (value !== undefined && gen === generation) await cacheSet(key, value, ttlSeconds);
   return value;
 }
 
@@ -139,7 +161,7 @@ export async function invalidateWorkflowCaches(): Promise<void> {
   await cacheDelPrefix('reports:', 'tasks:', 'analytics:');
 }
 
-export const authStatusKey = (role: string, id: string) => `auth:status:${role}:${id}`;
+export const authStatusKey = (role: string, id: string) => `auth:status:v2:${role}:${id}`;
 
 export function cacheBackendName(): 'redis' | 'memory' {
   return redis() ? 'redis' : 'memory';

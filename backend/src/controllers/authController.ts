@@ -197,10 +197,8 @@ export const authController = {
       if (error) throw error;
       await cacheDelPrefix('users:');
 
-      // Do NOT trigger the email service for OAuth registrations
-      // const verificationCode = await issueVerificationToken(email, 'email_verify');
-      // await sendWelcomeEmail(email, full_name || 'Google User');
-      // await sendVerificationEmail(email, full_name || 'Google User', verificationCode);
+      // OAuth emails are already verified by the provider — welcome only, no OTP.
+      sendWelcomeEmail(email, full_name || 'Google User').catch((e) => console.error('[googleOAuth] welcome email failed:', e));
 
       const token = jwt.sign({ id: newClient.id, role: 'client' }, JWT_SECRET, { expiresIn: '7d' });
       const { password_hash, ...safeNewUser } = newClient;
@@ -268,10 +266,8 @@ export const authController = {
       if (error) throw error;
       await cacheDelPrefix('users:');
 
-      // Do NOT trigger the email service for OAuth registrations
-      // const verificationCode = await issueVerificationToken(email, 'email_verify');
-      // await sendWelcomeEmail(email, full_name || 'Facebook User');
-      // await sendVerificationEmail(email, full_name || 'Facebook User', verificationCode);
+      // OAuth emails are already verified by the provider — welcome only, no OTP.
+      sendWelcomeEmail(email, full_name || 'Facebook User').catch((e) => console.error('[facebookOAuth] welcome email failed:', e));
 
       const token = jwt.sign({ id: newClient.id, role: 'client' }, JWT_SECRET, { expiresIn: '7d' });
       const { password_hash, ...safeNewUser } = newClient;

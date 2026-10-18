@@ -110,3 +110,16 @@ app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
+
+// Render's free tier sleeps after 15 min without inbound traffic. Hitting our own public URL
+// (RENDER_EXTERNAL_URL is set by Render; unset locally, so this is a no-op in dev) counts as
+// inbound traffic and keeps the instance awake.
+// ponytail: self-ping can't wake an instance that's already asleep (e.g. after a crash);
+// add an external pinger (cron-job.org / UptimeRobot) if that ever matters.
+const SELF_URL = process.env.RENDER_EXTERNAL_URL;
+if (SELF_URL) {
+  setInterval(() => {
+    fetch(`${SELF_URL}/health`, { signal: AbortSignal.timeout(10_000) })
+      .catch((err) => console.warn('[keep-alive] ping failed:', err?.message));
+  }, 14 * 60 * 1000);
+}

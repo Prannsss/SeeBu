@@ -4,6 +4,8 @@ import { ShieldCheck, Users, UserCog, HardHat, ArrowRight } from "lucide-react"
 import { ChartAreaInteractive } from "@/components/ui/chart-area-interactive"
 import Link from "next/link"
 import { cookies } from "next/headers"
+import { phToday, shiftDay } from "@/lib/ph-date"
+import { greeting } from "@/lib/greeting"
 
 async function getSuperadminData() {
   const reqCookies = await cookies();
@@ -16,11 +18,16 @@ async function getSuperadminData() {
       .catch(() => null);
 
   try {
-    const [analyticsData, usersData] = await Promise.all([
-      getJson('/api/v1/analytics/superadmin'),
+    const today = phToday();
+    const [analyticsData, usersData, profileData] = await Promise.all([
+      getJson(`/api/v1/analytics/superadmin?from=${shiftDay(today, -29)}&to=${today}`),
       getJson('/api/v1/users'),
+      getJson('/api/v1/users/me'),
     ]);
     const analytics = analyticsData || { chartData: [] };
+    // Resolution rate over the last 30 days, ignoring rejected (invalid) reports.
+    const valid = (analytics.totals?.total ?? 0) - (analytics.totals?.rejected ?? 0);
+    const resolutionRate = valid > 0 ? `${Math.round(((analytics.totals?.resolved ?? 0) / valid) * 100)}%` : '—';
     const allUsers = usersData?.data || [];
 
     const totalClients = allUsers.filter((u: any) => u.role === 'CLIENT').length;
@@ -29,28 +36,29 @@ async function getSuperadminData() {
     const totalWorkforce = allUsers.filter((u: any) => ['WORKFORCE_OFFICER', 'WORKFORCE_ADMIN'].includes(u.role)).length;
 
     return {
+      name: (profileData?.data?.full_name ?? null) as string | null,
       chartData: analytics.chartData || [],
       totalClients,
       totalAdmins,
       totalWorkforce,
-      platformHealth: '99.94%'
+      resolutionRate,
     };
   } catch (error) {
     console.error("Error fetching superadmin data:", error);
-    return { chartData: [], totalClients: 0, totalAdmins: 0, totalWorkforce: 0, platformHealth: '99.94%' };
+    return { name: null as string | null, chartData: [], totalClients: 0, totalAdmins: 0, totalWorkforce: 0, resolutionRate: '—' };
   }
 }
 
 export default async function SuperadminHomePage() {
   const data = await getSuperadminData();
-  const { chartData, totalClients, totalAdmins, totalWorkforce, platformHealth } = data;
+  const { name, chartData, totalClients, totalAdmins, totalWorkforce, resolutionRate } = data;
 
   return (
     <div className="min-h-screen bg-white pb-32 dark:from-slate-950 dark:to-slate-900">
       <div className="container mx-auto max-w-6xl px-4 py-10">
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900">Superadmin Home</h1>
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900">{greeting(name)}</h1>
             <p className="mt-1 text-slate-600">System-wide visibility, governance, and platform health analytics.</p>
           </div>
           <Badge className="bg-blue-600 text-white">Global Scope</Badge>
@@ -61,7 +69,7 @@ export default async function SuperadminHomePage() {
             { label: 'Total Clients', value: totalClients.toLocaleString(), hint: 'Active citizens', icon: Users, chip: 'bg-sky-100 text-sky-800' },
             { label: 'Total Admins', value: totalAdmins.toLocaleString(), hint: 'Across municipalities', icon: UserCog, chip: 'bg-emerald-100 text-emerald-600' },
             { label: 'Total Workforce', value: totalWorkforce.toLocaleString(), hint: 'Officers & Depts', icon: HardHat, chip: 'bg-indigo-100 text-indigo-800' },
-            { label: 'Platform Health', value: platformHealth, hint: 'Stable over 30 days', icon: ShieldCheck, chip: 'bg-emerald-100 text-emerald-600' },
+            { label: 'Resolution Rate', value: resolutionRate, hint: 'Last 30 days', icon: ShieldCheck, chip: 'bg-emerald-100 text-emerald-600' },
           ].map(({ label, value, hint, icon: Icon, chip }) => (
             <Card key={label}>
               <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
@@ -79,10 +87,8 @@ export default async function SuperadminHomePage() {
         <div className="relative">
           <ChartAreaInteractive
             title="Reports Overview"
-            description="Last 7 days"
-            chartData={chartData?.length > 0 ? chartData : [{ date: new Date().toISOString().split('T')[0], reports: 0, resolved: 0 }]}
-            defaultTimeRange="7d"
-            hideFilter={true}
+            description="Last 30 days"
+            chartData={chartData}
             headerAction={
               <Link 
                 href="/superadmin/analytics" 

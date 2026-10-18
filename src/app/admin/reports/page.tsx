@@ -26,6 +26,7 @@ import { gooeyToast } from "goey-toast"
 import { Textarea } from "@/components/ui/textarea"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { ReportMediaGallery } from "@/components/reports/report-media-gallery"
+import { ListSkeleton } from "@/components/ui/list-skeleton"
 import { useCurrentUser } from "@/hooks/queries/useCurrentUser"
 import { useRealtimeReports } from "@/hooks/useRealtimeReports"
 import { statusBadgeClass, urgencyBadgeClass } from "@/lib/status-styles"
@@ -256,9 +257,9 @@ export default function AdminReportsPage() {
             </div>
           </div>
           <div className="flex items-center gap-2 z-10 relative self-end sm:self-auto">
-            <Filter className="h-5 w-5 text-slate-600" />
+            <Filter className="h-5 w-5 text-slate-600" aria-hidden="true" />
             <Select value={urgencyFilter} onValueChange={setUrgencyFilter}>
-              <SelectTrigger className="w-[140px] bg-white dark:bg-slate-900 border-slate-200 shadow-sm">
+              <SelectTrigger aria-label="Filter by urgency" className="w-[140px] bg-white dark:bg-slate-900 border-slate-200 shadow-sm">
                 <SelectValue placeholder="Filter Urgency" />
               </SelectTrigger>
               <SelectContent className="bg-white dark:bg-slate-900 z-50">
@@ -302,9 +303,7 @@ export default function AdminReportsPage() {
           <TabsContent value={activeTab} className="m-0 focus-visible:outline-none">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
               {profilePending || (currentUser && isLoading) ? (
-                <div className="text-center py-10 col-span-full text-slate-600 bg-slate-50 rounded-md border border-dashed border-slate-300" role="status">
-                  Loading reports…
-                </div>
+                <ListSkeleton count={4} />
               ) : !currentUser ? (
                 <div className="text-center py-10 col-span-full text-slate-600 bg-slate-50 rounded-md border border-dashed border-slate-300" role="alert">
                   We couldn&apos;t load your profile. Your session may have expired.{" "}
@@ -352,19 +351,19 @@ export default function AdminReportsPage() {
                         </div>
 
                         {/* Card Title */}
-                        <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100 line-clamp-1 group-hover:text-primary dark:group-hover:text-blue-400 transition-colors">
+                        <h3 className="text-lg leading-snug font-semibold text-slate-900 dark:text-slate-100 line-clamp-2 group-hover:text-primary dark:group-hover:text-blue-400 transition-colors">
                           {item.title}
                         </h3>
 
                         {/* Location & Date */}
                         <div className="mt-1 flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-400 flex-wrap">
-                          <MapPin className="h-3.5 w-3.5 text-primary shrink-0" />
+                          <MapPin className="h-3.5 w-3.5 text-primary shrink-0" aria-hidden="true" />
                           <span className="font-medium text-slate-700 dark:text-slate-300">{item.barangay}</span>
                           {item.municipality && item.municipality !== "Unknown" && (
                             <span>, {item.municipality}</span>
                           )}
                           <span className="text-slate-600 dark:text-slate-700" aria-hidden="true">•</span>
-                          <Calendar className="h-3 w-3 text-slate-600 shrink-0" />
+                          <Calendar className="h-3 w-3 text-slate-600 shrink-0" aria-hidden="true" />
                           <span>{item.date}</span>
                         </div>
                       </div>
@@ -373,11 +372,11 @@ export default function AdminReportsPage() {
                         {/* Description Preview */}
                         <div>
                           {item.description ? (
-                            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed bg-slate-50/70 dark:bg-slate-900/40 rounded-md p-2.5 border border-slate-100 dark:border-slate-800/80">
+                            <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed">
                               {item.description}
                             </p>
                           ) : (
-                            <p className="text-xs text-slate-600 italic bg-slate-50/70 dark:bg-slate-900/40 rounded-md p-2 border border-slate-100 dark:border-slate-800/80">
+                            <p className="text-sm text-slate-600 italic">
                               No description provided.
                             </p>
                           )}
@@ -563,11 +562,11 @@ export default function AdminReportsPage() {
                             </div>
 
                             <div className="space-y-3 rounded-md border border-red-200 bg-red-50/50 dark:bg-red-950/20 p-4">
-                              <label className="text-sm font-medium text-red-700 flex items-center gap-1.5">
-                                <AlertCircle className="w-4 h-4"/> Reason for Rejection *
+                              <label htmlFor="reject-reason" className="text-sm font-medium text-red-700 flex items-center gap-1.5">
+                                <AlertCircle className="w-4 h-4" aria-hidden="true" /> Reason for Rejection *
                               </label>
                               <Select value={rejectReasonType} onValueChange={(v) => { setRejectReasonType(v); setRejectReasonOther(""); }}>
-                                <SelectTrigger className="bg-white dark:bg-slate-900 border-red-200 focus:ring-red-500">
+                                <SelectTrigger id="reject-reason" className="bg-white dark:bg-slate-900 border-red-200 focus:ring-red-500">
                                   <SelectValue placeholder="Select a reason..." />
                                 </SelectTrigger>
                                 <SelectContent className="bg-white dark:bg-slate-900 z-[100]">
@@ -580,6 +579,7 @@ export default function AdminReportsPage() {
                               </Select>
                               {rejectReasonType === "Other" && (
                                 <Textarea
+                                  aria-label="Describe the reason for rejection"
                                   placeholder="Describe the reason for rejection..."
                                   value={rejectReasonOther}
                                   onChange={(e) => setRejectReasonOther(e.target.value)}

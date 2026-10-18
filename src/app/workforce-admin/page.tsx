@@ -1,6 +1,9 @@
 ﻿import { Users, ClipboardList, CheckCircle, Shield } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { ChartAreaInteractive } from "@/components/ui/chart-area-interactive"
 import { cookies } from "next/headers";
+import { phDay, phToday, shiftDay } from "@/lib/ph-date"
+import { greeting } from "@/lib/greeting"
 
 async function getWorkforceAdminStats() {
   const reqCookies = await cookies();
@@ -15,7 +18,7 @@ async function getWorkforceAdminStats() {
     const profileData = await profileRes.json();
     const deptId = profileData?.data?.department_id;
 
-    if (!deptId) return { activeTasks: 0, headcount: 0, completedToday: 0, departmentName: 'Global' };
+    if (!deptId) return { activeTasks: 0, headcount: 0, completedToday: 0, chartData: [], user: profileData?.data ?? null, departmentName: 'Global' };
 
     const getJson = (path: string) =>
       fetch(`${apiUrl}${path}`, { headers: { "Authorization": `Bearer ${token}` }, cache: 'no-store' })
@@ -36,22 +39,28 @@ async function getWorkforceAdminStats() {
 
     const activeTasks = tasks.filter((t: any) => ["Pending", "Assigned", "Accepted", "In Progress"].includes(t.status)).length;
     
-    const today = new Date().toDateString();
-    const completedToday = tasks.filter((t: any) => {
-      if (t.status !== "Completed") return false;
-      const completedDate = new Date(t.completed_at || t.updated_at || t.created_at).toDateString();
-      return completedDate === today;
-    }).length;
+    // PH calendar days, so "today" and the chart buckets match the rest of the app's analytics.
+    const today = phToday();
+    const completedOn = (t: any) => t.status === "Completed" ? phDay(t.completed_at || t.updated_at || t.created_at) : null;
+    const completedToday = tasks.filter((t: any) => completedOn(t) === today).length;
 
-    return { activeTasks, headcount, completedToday, user: profileData.data, departmentName };
+    // Last 30 days, zero-filled: tasks received vs completed per day.
+    // ponytail: O(days × tasks) scan; bucket in one pass if a department reaches thousands of tasks.
+    const chartData = Array.from({ length: 30 }, (_, i) => shiftDay(today, i - 29)).map((date) => ({
+      date,
+      tasks: tasks.filter((t: any) => phDay(t.created_at) === date).length,
+      resolved: tasks.filter((t: any) => completedOn(t) === date).length,
+    }));
+
+    return { activeTasks, headcount, completedToday, chartData, user: profileData.data, departmentName };
   } catch (error) {
     console.error("Error fetching stats:", error);
-    return { activeTasks: 0, headcount: 0, completedToday: 0, user: null, departmentName: 'Global' };
+    return { activeTasks: 0, headcount: 0, completedToday: 0, chartData: [], user: null, departmentName: 'Global' };
   }
 }
 
 export default async function WorkforceAdminPage() {
-  const { activeTasks, headcount, completedToday, user, departmentName } = await getWorkforceAdminStats();
+  const { activeTasks, headcount, completedToday, chartData, user, departmentName } = await getWorkforceAdminStats();
 
   return (
     <div className="min-h-screen bg-slate-50 pb-32 dark:bg-slate-950 dark:text-slate-100">
@@ -61,7 +70,7 @@ export default async function WorkforceAdminPage() {
             <Shield className="h-6 w-6 text-orange-700 dark:text-orange-400" />
           </div>
           <div>
-            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900">Workforce Admin</h1>
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900">{greeting(user?.full_name)}</h1>
             <p className="text-slate-600">Department: {departmentName || user?.department_id || 'Global'}</p>
           </div>
         </div>
@@ -86,15 +95,15 @@ export default async function WorkforceAdminPage() {
             ))}
           </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Task Analytics</CardTitle>
-              <CardDescription>Recent completed tasks metrics</CardDescription>
-            </CardHeader>
-            <CardContent className="h-64 flex items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-lg bg-slate-50/50 dark:bg-slate-900/50">
-              <p className="text-slate-600">Detailed chart integration goes here...</p>
-            </CardContent>
-          </Card>
+          <ChartAreaInteractive
+            title="Task Analytics"
+            description="Tasks received vs completed, last 30 days"
+            chartData={chartData}
+            chartConfig={{
+              tasks: { label: "Tasks received", color: "#2563eb" },
+              resolved: { label: "Completed", color: "#10b981" },
+            }}
+          />
         </div>
       </div>
     </div>

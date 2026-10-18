@@ -1,6 +1,6 @@
 // Self-check for the cache module (no DB). Run: npx tsx src/utils/cache.check.ts
 import assert from 'node:assert/strict';
-import { cacheGet, cacheSet, cacheDel, cacheDelPrefix, cached, cacheBackendName, closeCache } from './cache';
+import { cacheGet, cacheGetRaw, cacheSet, cacheDel, cacheDelPrefix, cached, cacheBackendName, closeCache } from './cache';
 
 setTimeout(() => { console.error('FAIL: hang'); process.exit(1); }, 10000).unref();
 
@@ -9,6 +9,11 @@ async function main() {
 
   await cacheSet(t + 'obj', { a: 1, b: ['x'] }, 30);
   assert.deepEqual(await cacheGet(t + 'obj'), { a: 1, b: ['x'] });
+  assert.equal(await cacheGetRaw(t + 'obj'), '{"a":1,"b":["x"]}');
+
+  // Fire-and-forget writes are readable immediately (L1 is written synchronously).
+  void cacheSet(t + 'sync', 7, 30);
+  assert.equal(await cacheGet(t + 'sync'), 7);
 
   await cacheSet(t + 'short', 'v', 1);
   await new Promise((r) => setTimeout(r, 1200));

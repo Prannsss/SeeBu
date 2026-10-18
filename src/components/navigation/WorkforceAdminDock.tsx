@@ -16,10 +16,10 @@ export default function WorkforceAdminDock() {
   }, [router]);
 
   const items = [
-    { icon: <LayoutDashboard className={`w-5 h-5 ${pathname === '/workforce-admin' ? 'text-white' : ''}`} />, label: "Dashboard", onClick: () => router.push('/workforce-admin'), className: pathname === '/workforce-admin' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
-    { icon: <UserPlus className={`w-5 h-5 ${pathname === '/workforce-admin/add-officer' ? 'text-white' : ''}`} />, label: "Add Officer", onClick: () => router.push('/workforce-admin/add-officer'), className: pathname === '/workforce-admin/add-officer' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
-    { icon: <ClipboardList className={`w-5 h-5 ${pathname === '/workforce-admin/tasks' ? 'text-white' : ''}`} />, label: "Tasks", onClick: () => router.push('/workforce-admin/tasks'), className: pathname === '/workforce-admin/tasks' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
-    { icon: <User className={`w-5 h-5 ${pathname === '/workforce-admin/profile' ? 'text-white' : ''}`} />, label: "Profile", onClick: () => router.push('/workforce-admin/profile'), className: pathname === '/workforce-admin/profile' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
+    { icon: <LayoutDashboard className={`w-5 h-5 ${pathname === '/workforce-admin' ? 'text-white' : ''}`} />, label: "Dashboard", onClick: () => router.push('/workforce-admin'), current: pathname === '/workforce-admin', className: pathname === '/workforce-admin' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
+    { icon: <UserPlus className={`w-5 h-5 ${pathname === '/workforce-admin/add-officer' ? 'text-white' : ''}`} />, label: "Add Officer", onClick: () => router.push('/workforce-admin/add-officer'), current: pathname === '/workforce-admin/add-officer', className: pathname === '/workforce-admin/add-officer' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
+    { icon: <ClipboardList className={`w-5 h-5 ${pathname === '/workforce-admin/tasks' ? 'text-white' : ''}`} />, label: "Tasks", onClick: () => router.push('/workforce-admin/tasks'), current: pathname === '/workforce-admin/tasks', className: pathname === '/workforce-admin/tasks' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
+    { icon: <User className={`w-5 h-5 ${pathname === '/workforce-admin/profile' ? 'text-white' : ''}`} />, label: "Profile", onClick: () => router.push('/workforce-admin/profile'), current: pathname === '/workforce-admin/profile', className: pathname === '/workforce-admin/profile' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
   ];
 
   return (

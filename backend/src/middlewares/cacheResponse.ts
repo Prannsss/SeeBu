@@ -1,6 +1,6 @@
 import { Request, RequestHandler } from 'express';
 import jwt from 'jsonwebtoken';
-import { cacheGet, cacheSet, cacheGeneration } from '../utils/cache';
+import { cacheGetRaw, cacheSet, cacheGeneration } from '../utils/cache';
 
 // Per-caller scope so responses that depend on the caller never leak between users.
 function cacheScope(req: Request): string {
@@ -22,10 +22,11 @@ export function cacheResponse(prefix: string, ttlSeconds: number): RequestHandle
     if (req.method !== 'GET') return next();
     const key = `${prefix}:${cacheScope(req)}:${req.originalUrl}`;
     const gen = cacheGeneration();
-    const hit = await cacheGet(key);
+    const hit = await cacheGetRaw(key);
     if (hit !== undefined) {
       res.setHeader('X-Cache', 'HIT');
-      return res.status(200).json(hit);
+      // Already JSON text: send as-is instead of parsing and re-serializing it.
+      return res.status(200).type('application/json').send(hit);
     }
     res.setHeader('X-Cache', 'MISS');
     const orig = res.json.bind(res);

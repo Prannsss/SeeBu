@@ -5,6 +5,12 @@ import { cacheGet, cacheSet, authStatusKey } from '../utils/cache';
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
 
+// Scope columns cached alongside the account status (admins: municipality, workforce admins: department).
+const SCOPE_COLUMNS: Record<string, string> = {
+  admin: 'status, municipality_id',
+  'workforce-admin': 'status, department_id',
+};
+
 const ROLE_TABLES: Record<string, string> = {
   client: 'clients',
   admin: 'admins',
@@ -39,13 +45,15 @@ export const withAuth = async (req: Request, res: Response, next: NextFunction) 
     }
 
     const key = authStatusKey(decoded.role, decoded.id);
-    let account = await cacheGet<{ status: string; municipality_id?: string | null }>(key);
+    let account = await cacheGet<{ status: string; municipality_id?: string | null; department_id?: number | null }>(key);
     if (account === undefined) {
-      const { data } = decoded.role === 'admin'
-        ? await supabase.from(tableName).select('status, municipality_id').eq('id', decoded.id).maybeSingle()
-        : await supabase.from(tableName).select('status').eq('id', decoded.id).maybeSingle();
-      account = data ?? undefined;
-      if (account) await cacheSet(key, account, 60);
+      const { data } = await supabase
+        .from(tableName)
+        .select(SCOPE_COLUMNS[decoded.role] || 'status')
+        .eq('id', decoded.id)
+        .maybeSingle();
+      account = (data as any) ?? undefined;
+      if (account) void cacheSet(key, account, 60); // L1 is set synchronously; don't wait on Redis
     }
 
     if (!account || account.status !== 'Active') {
@@ -54,7 +62,10 @@ export const withAuth = async (req: Request, res: Response, next: NextFunction) 
 
     req.user = decoded;
     if (decoded.role === 'admin') {
-      req.user.municipality_id = (account as any).municipality_id;
+      req.user.municipality_id = account.municipality_id;
+    }
+    if (decoded.role === 'workforce-admin') {
+      req.user.department_id = account.department_id;
     }
 
     next();

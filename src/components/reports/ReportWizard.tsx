@@ -94,10 +94,12 @@ export function ReportWizard() {
     isLoading: isLoadingLocations
   } = useQuery({
     queryKey: ['locations'],
+    // Cache the raw array (other pages share this key); reshape per-component via `select`.
     queryFn: async () => {
       const json = await apiClient.locations.getAll();
-      return { municipalities: json.data } as LocationData;
+      return (json.data || []) as LocationData['municipalities'];
     },
+    select: (municipalities): LocationData => ({ municipalities }),
     staleTime: 24 * 60 * 60 * 1000,
   });
 
@@ -786,6 +788,11 @@ export function ReportWizard() {
     return municipality?.barangays || [];
   }, [formData.municipality, locationData]);
 
+  // One preview URL per photo, revoked when the photo list changes or the wizard unmounts.
+  // (Creating them during render made a new blob URL on every keystroke and never freed them.)
+  const photoPreviewUrls = useMemo(() => formData.photos.map((file) => URL.createObjectURL(file)), [formData.photos]);
+  useEffect(() => () => photoPreviewUrls.forEach((url) => URL.revokeObjectURL(url)), [photoPreviewUrls]);
+
   const getBreadcrumbText = () => {
     const parts = [];
     if (formData.issueType) {
@@ -958,10 +965,11 @@ export function ReportWizard() {
 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                    <label htmlFor="report-municipality" className="block text-sm font-medium text-slate-700 mb-2">
                       Municipality/City *
                     </label>
                     <select
+                      id="report-municipality"
                       value={formData.municipality}
                       onChange={(e) => updateFormData('municipality', e.target.value)}
                       title="Select municipality"
@@ -979,10 +987,11 @@ export function ReportWizard() {
 
                   {formData.municipality && (
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                      <label htmlFor="report-barangay" className="block text-sm font-medium text-slate-700 mb-2">
                         Barangay *
                       </label>
                       <select
+                        id="report-barangay"
                         value={formData.barangay}
                         onChange={(e) => updateFormData('barangay', e.target.value)}
                         title="Select barangay"
@@ -1161,7 +1170,7 @@ export function ReportWizard() {
                               return (
                                 <div key={index} className={`relative group rounded-lg overflow-hidden ${isFlagged ? 'ring-2 ring-red-700 ring-offset-2' : ''}`}>
                                   <img
-                                    src={URL.createObjectURL(file)}
+                                    src={photoPreviewUrls[index]}
                                     alt={`Preview ${index + 1}`}
                                     className="w-full h-24 object-cover rounded-lg"
                                   />

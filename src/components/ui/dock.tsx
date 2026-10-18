@@ -16,6 +16,8 @@ export type DockItemData = {
   label: React.ReactNode;
   onClick: () => void;
   className?: string;
+  /** The page this item opens is the one being shown. */
+  current?: boolean;
 };
 
 export type DockProps = {
@@ -33,6 +35,8 @@ type DockItemProps = {
   className?: string;
   children: React.ReactNode;
   onClick?: () => void;
+  label?: string;
+  current?: boolean;
   mouseX: MotionValue<number>;
   spring: SpringOptions;
   distance: number;
@@ -44,6 +48,8 @@ function DockItem({
   children,
   className = '',
   onClick,
+  label,
+  current,
   mouseX,
   spring,
   distance,
@@ -76,10 +82,18 @@ function DockItem({
       onFocus={() => isHovered.set(1)}
       onBlur={() => isHovered.set(0)}
       onClick={onClick}
-      className={`relative inline-flex items-center justify-center rounded-full bg-white dark:bg-[#060010] border-neutral-200 dark:border-neutral-700 border shadow-md text-neutral-900 dark:text-white cursor-pointer ${className}`}
+      onKeyDown={(e) => {
+        // A div with a link role needs its own keyboard activation.
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick?.();
+        }
+      }}
+      className={`relative inline-flex items-center justify-center rounded-full bg-white dark:bg-[#060010] border-neutral-200 dark:border-neutral-700 border shadow-md text-neutral-900 dark:text-white cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${className}`}
       tabIndex={0}
-      role="button"
-      aria-haspopup="true"
+      role="link"
+      aria-label={label}
+      aria-current={current ? 'page' : undefined}
     >
       {Children.map(children, child =>
         React.isValidElement(child)
@@ -116,7 +130,7 @@ function DockLabel({ children, className = '', isHovered }: DockLabelProps) {
           exit={{ opacity: 0, y: 0 }}
           transition={{ duration: 0.2 }}
           className={`${className} absolute -top-6 left-1/2 w-fit whitespace-pre rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#060010] px-2 py-0.5 text-xs text-neutral-900 dark:text-white shadow-sm`}
-          role="tooltip"
+          aria-hidden="true"
           style={{ x: '-50%' }}
         >
           {children}
@@ -166,13 +180,15 @@ export default function Dock({
         }}
         className={`${className} absolute bottom-2 left-1/2 transform -translate-x-1/2 flex items-end w-fit gap-4 rounded-2xl border-neutral-200 dark:border-neutral-700 border bg-white/80 dark:bg-[#060010]/80 backdrop-blur-md pb-2 px-4 shadow-lg`}
         style={{ height: panelHeight }}
-        role="toolbar"
-        aria-label="Application dock"
+        role="navigation"
+        aria-label="Main navigation"
       >
         {items.map((item, index) => (
           <DockItem
             key={index}
             onClick={item.onClick}
+            label={typeof item.label === 'string' ? item.label : undefined}
+            current={item.current}
             className={item.className}
             mouseX={mouseX}
             spring={spring}

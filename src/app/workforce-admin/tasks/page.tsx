@@ -1,16 +1,17 @@
-﻿"use client"
+"use client"
 
 import { useState } from "react"
-import { ClipboardList, Users, CheckCircle2, Clock, Link2, MapPin, AlertCircle } from "lucide-react" 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs" 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { ClipboardList, Users, CheckCircle2, Clock, Link2, MapPin, AlertTriangle } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { gooeyToast } from "goey-toast"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { ReportMediaGallery } from "@/components/reports/report-media-gallery"
+import { ListSkeleton } from "@/components/ui/list-skeleton"
 import { useCurrentUser } from "@/hooks/queries/useCurrentUser"
 import { useRealtimeReports } from "@/hooks/useRealtimeReports"
 import { statusBadgeClass, urgencyBadgeClass } from "@/lib/status-styles"
@@ -31,25 +32,41 @@ type LinkedReport = {
 type TaskItem = {
   id: string;
   title: string;
-  description: string;
+  location: string;
+  priority: string;
   status: string;
   date: string;
+  completedAt: string | null;
   assignedToId: string | null;
   officer?: string;
   related_report_id?: string;
   related_report: LinkedReport | null;
-  created_by: string;
 };
+
+type TabKey = "Pending" | "Assigned" | "Completed";
+const TABS: TabKey[] = ["Pending", "Assigned", "Completed"];
+
+const EMPTY_TEXT: Record<TabKey, { title: string; hint: string }> = {
+  Pending: { title: "No tasks waiting for delegation", hint: "New tasks routed to your department will appear here." },
+  Assigned: { title: "No tasks with officers right now", hint: "Tasks you delegate stay here until the officer completes them." },
+  Completed: { title: "No completed tasks yet", hint: "Finished tasks and their proof photos will be listed here." },
+};
+
+// A task belongs to "Assigned" as soon as an officer holds it (Pending, Assigned, Accepted, In Progress).
+const tabOf = (task: TaskItem): TabKey =>
+  task.status === "Completed" ? "Completed" : task.assignedToId ? "Assigned" : "Pending";
+
+// Officers "accept" a task when they start the field work.
+const statusLabel = (status: string) => (status === "Accepted" ? "In Progress" : status);
 
 export default function WorkforceAdminTasksPage() {
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useState("Pending")
+  const [activeTab, setActiveTab] = useState<TabKey>("Pending")
   const [delegateTo, setDelegateTo] = useState("")
-  const [dialogOpen, setDialogOpen] = useState<string | null>(null)
   const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null)
   const [modalDelegateMode, setModalDelegateMode] = useState(false)
 
-  const { data: profileData } = useCurrentUser()
+  const { data: profileData, isLoading: isProfileLoading } = useCurrentUser()
   useRealtimeReports({ enableToasts: true, userRole: "workforce-admin", userId: profileData?.id });
 
   const departmentId = profileData?.department_id ? String(profileData.department_id) : "";
@@ -64,36 +81,32 @@ export default function WorkforceAdminTasksPage() {
     enabled: !!departmentId,
   })
 
-  const officers = (Array.isArray(officersData) ? officersData : [])
-    .filter((person: any) => person.role === 'workforce' && String(person.status || '').toLowerCase() === 'active')
-    .map((person: any) => ({
-      id: person.id,
-      name: person.officer_role ? `${person.full_name} (${person.officer_role})` : person.full_name,
-    }));
+  const personnel = (Array.isArray(officersData) ? officersData : []).filter((person: any) => person.role === 'workforce')
+  const officerLabel = (person: any) => person.officer_role ? `${person.full_name} (${person.officer_role})` : person.full_name
+  // Only active officers can take new work, but names resolve for everyone (e.g. who completed a task).
+  const officers = personnel
+    .filter((person: any) => String(person.status || '').toLowerCase() === 'active')
+    .map((person: any) => ({ id: person.id, name: officerLabel(person) }));
+  const officerNameById = new Map<string, string>(personnel.map((person: any) => [person.id, officerLabel(person)]));
 
-  const officerNameById = new Map(officers.map((o: any) => [o.id, o.name]));
-
-  const { data: tasksData, isLoading } = useQuery({
+  const { data: tasksData, isPending: isTasksPending } = useQuery({
     queryKey: ['workforce-admin-tasks', departmentId],
     queryFn: async () => {
       const { apiClient } = await import('@/lib/api');
-      const deptId = departmentId;
-      if (!deptId) throw new Error('No department assigned');
-      
-      const json = await apiClient.tasks.getAll({ delegated_to: deptId });
+      const json = await apiClient.tasks.getAll({ delegated_to: departmentId });
       return json.data;
     },
     enabled: !!departmentId,
   })
+  const isLoading = isProfileLoading || (!!departmentId && isTasksPending)
 
   const updateTaskMutation = useMutation({
     mutationFn: async (payload: { id: string, status?: string, assigned_to?: string }) => {
       const { apiClient } = await import('@/lib/api');
-      const res = await apiClient.tasks.update(payload.id, { 
-        status: payload.status, 
-        assigned_to: payload.assigned_to 
+      return apiClient.tasks.update(payload.id, {
+        status: payload.status,
+        assigned_to: payload.assigned_to
       });
-      return res;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workforce-admin-tasks'] });
@@ -103,12 +116,14 @@ export default function WorkforceAdminTasksPage() {
     }
   })
 
-  const tasksList: TaskItem[] = Array.isArray(tasksData) ? tasksData.map(t => ({
+  const tasksList: TaskItem[] = Array.isArray(tasksData) ? tasksData.map((t: any) => ({
     id: t.id,
     title: t.title,
-    description: t.location, // Mapping location to description field used in UI
+    location: t.location || "N/A",
+    priority: t.priority || "Medium",
     status: t.status,
     date: new Date(t.created_at).toLocaleDateString(),
+    completedAt: t.completed_at ? new Date(t.completed_at).toLocaleString() : null,
     assignedToId: t.assigned_to || null,
     officer: t.assigned_to ? officerNameById.get(t.assigned_to) || "Assigned officer" : undefined,
     related_report_id: t.related_report_id,
@@ -124,12 +139,16 @@ export default function WorkforceAdminTasksPage() {
       reporterPhotos: (t.related_report.report_photos || []).filter((p: any) => !p.is_completion_photo).map((p: any) => p.photo_url),
       completionPhotos: (t.related_report.report_photos || []).filter((p: any) => p.is_completion_photo).map((p: any) => p.photo_url),
     } : null,
-    created_by: t.created_by || "System"
   })) : []
 
-  const pendingTasks = tasksList.filter(t => t.status === "Pending" || t.status === "Accepted" || t.status === "In Progress")
-  const assignedTasks = tasksList.filter(t => t.status === "Assigned")
-  const completedTasks = tasksList.filter(t => t.status === "Completed")
+  const tasksByTab: Record<TabKey, TaskItem[]> = { Pending: [], Assigned: [], Completed: [] }
+  tasksList.forEach((task) => tasksByTab[tabOf(task)].push(task))
+
+  const closeTaskModal = () => {
+    setSelectedTask(null)
+    setModalDelegateMode(false)
+    setDelegateTo("")
+  }
 
   const handleDelegate = (taskId: string) => {
     if (!delegateTo) {
@@ -139,10 +158,7 @@ export default function WorkforceAdminTasksPage() {
     updateTaskMutation.mutate({ id: taskId, assigned_to: delegateTo, status: 'Assigned' }, {
       onSuccess: () => {
         gooeyToast.success("Success", { description: "Task accepted and assigned to officer successfully." })
-        setDialogOpen(null)
-        setSelectedTask(null)
-        setModalDelegateMode(false)
-        setDelegateTo("")
+        closeTaskModal()
       },
       onError: (err: any) => {
         gooeyToast.error(err?.message?.trim() || "Failed to delegate task.")
@@ -150,259 +166,125 @@ export default function WorkforceAdminTasksPage() {
     })
   }
 
-  const handleViewLinkedReport = (task: TaskItem) => {
-    if (!task.related_report) {
+  // delegate=true opens straight into officer selection; otherwise shows the linked report.
+  const openTask = (task: TaskItem, delegate: boolean) => {
+    if (!delegate && !task.related_report) {
       gooeyToast.error("Error", { description: "No linked report details available for this task yet." })
       return
     }
-    setModalDelegateMode(false)
     setDelegateTo("")
+    setModalDelegateMode(delegate)
     setSelectedTask(task)
+  }
+
+  const renderTaskCard = (task: TaskItem) => {
+    const isCompleted = task.status === "Completed"
+    const urgency = task.related_report?.urgency || task.priority
+    return (
+      <Card key={task.id} className="overflow-hidden hover:shadow-md transition-shadow dark:bg-slate-900">
+        <div className="flex flex-col md:flex-row">
+          <div className="flex-1 p-6 min-w-0">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <Badge variant="outline" className="font-mono text-xs">{task.id}</Badge>
+              <Badge variant="outline" className={statusBadgeClass(task.status)}>{statusLabel(task.status)}</Badge>
+            </div>
+            <h3 className="text-base font-semibold text-slate-900">{task.title}</h3>
+            <p className="text-slate-600 mt-2 text-sm flex items-start gap-1.5">
+              <MapPin className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
+              {task.location}
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6 border-t pt-4 text-sm">
+              <div className="flex items-center text-slate-600">
+                <Clock className="w-4 h-4 mr-2 shrink-0" aria-hidden="true" /> Logged: {task.date}
+              </div>
+              {task.related_report_id && (
+                <div className="flex items-center text-slate-600 min-w-0">
+                  <Link2 className="w-4 h-4 mr-2 shrink-0" aria-hidden="true" /> Report: <span className="font-medium text-blue-600 ml-1 truncate">{task.related_report_id}</span>
+                </div>
+              )}
+              {urgency && (
+                <div className="flex items-center text-slate-600">
+                  <AlertTriangle className="w-4 h-4 mr-2 shrink-0" aria-hidden="true" /> Priority: <Badge variant="outline" className={`ml-1 capitalize ${urgencyBadgeClass(urgency)}`}>{urgency}</Badge>
+                </div>
+              )}
+              <div className="flex items-center text-slate-600 min-w-0">
+                <Users className="w-4 h-4 mr-2 shrink-0" aria-hidden="true" /> {isCompleted ? "Completed by" : "Assignee"}: <span className="font-medium text-slate-900 dark:text-slate-200 ml-1 truncate">{task.officer || "Unassigned"}</span>
+              </div>
+              {isCompleted && task.completedAt && (
+                <div className="flex items-center text-slate-600">
+                  <CheckCircle2 className="w-4 h-4 mr-2 shrink-0 text-emerald-600" aria-hidden="true" /> Completed: <span className="font-medium text-emerald-600 ml-1">{task.completedAt}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-slate-50 dark:bg-slate-950 p-6 border-t md:border-t-0 md:border-l flex flex-col justify-center gap-3 md:min-w-[240px]">
+            {tabOf(task) === "Pending" && (
+              <Button
+                className="w-full bg-primary hover:bg-primary-dark text-white shadow-sm font-semibold rounded-md h-9"
+                onClick={() => openTask(task, true)}
+              >
+                Accept and Delegate
+              </Button>
+            )}
+            {task.related_report_id && (
+              <Button
+                variant="outline"
+                className="w-full border-slate-300 text-slate-900 font-semibold rounded-md h-9"
+                onClick={() => openTask(task, false)}
+              >
+                View Linked Report
+              </Button>
+            )}
+          </div>
+        </div>
+      </Card>
+    )
   }
 
   return (
     <div className="min-h-screen bg-slate-50 pb-32 dark:bg-slate-950 dark:text-slate-100">
       <div className="container mx-auto max-w-5xl px-4 py-8">
-        <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="mb-6 flex items-center gap-3">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/50">
+            <ClipboardList className="h-6 w-6 text-orange-700 dark:text-orange-400" aria-hidden="true" />
+          </div>
           <div>
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">Department Tasks</h1>
             <p className="text-slate-600 mt-1">Review department assignments and delegate to your workforce members.</p>
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TabKey)} className="w-full">
           <TabsList className="mb-6 grid w-full grid-cols-3 h-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md p-1">
-            <TabsTrigger value="Pending" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-blue-600 data-[state=active]:text-white transition-all">Pending ({pendingTasks.length})</TabsTrigger>
-            <TabsTrigger value="Assigned" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-amber-600 data-[state=active]:text-white transition-all">Assigned ({assignedTasks.length})</TabsTrigger>
-            <TabsTrigger value="Completed" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-emerald-600 data-[state=active]:text-white transition-all">Completed ({completedTasks.length})</TabsTrigger>
+            <TabsTrigger value="Pending" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-blue-600 data-[state=active]:text-white transition-all">Pending ({tasksByTab.Pending.length})</TabsTrigger>
+            <TabsTrigger value="Assigned" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-amber-600 data-[state=active]:text-white transition-all">Assigned ({tasksByTab.Assigned.length})</TabsTrigger>
+            <TabsTrigger value="Completed" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-emerald-600 data-[state=active]:text-white transition-all">Completed ({tasksByTab.Completed.length})</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="Pending">
-            {pendingTasks.length === 0 ? (
-              isLoading ? (
-                <div className="text-center py-12 text-slate-600 bg-white rounded-md border border-dashed border-slate-300" role="status">Loading tasks…</div>
-              ) : (
-                <div className="flex flex-col items-center text-center py-12 px-4 bg-white rounded-md border border-dashed border-slate-300">
-                  <ClipboardList className="w-10 h-10 text-slate-500 mb-3" aria-hidden="true" />
-                  <p className="text-base font-semibold text-slate-900">No pending tasks for your department.</p>
-                </div>
-              )
-            ) : (
+          {TABS.map((tab) => (
+            <TabsContent key={tab} value={tab} className="m-0 focus-visible:outline-none">
               <div className="grid gap-4">
-                {pendingTasks.map((task) => (
-                  <Card key={task.id} className="overflow-hidden hover:shadow-md transition-shadow dark:bg-slate-900 rounded-lg">
-                    <div className="flex flex-col md:flex-row">
-                      <div className="flex-1 p-6">
-                        <div className="flex items-center justify-between mb-3">
-                          <Badge variant="outline" className="font-mono text-xs">{task.id}</Badge>
-                          <Badge variant="outline" className={statusBadgeClass(task.status)}>{task.status}</Badge>
-                        </div>
-                        <h3 className="text-base font-semibold text-slate-900">{task.title}</h3>
-                        <p className="text-slate-600 mt-2 text-sm">{task.description}</p>
-                        
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6 border-t pt-4 text-sm">
-                          <div className="flex items-center text-slate-600"><Clock className="w-4 h-4 mr-2" /> Logged: {task.date}</div>
-                          {task.related_report_id && (
-                            <div className="flex items-center text-slate-600"><Link2 className="w-4 h-4 mr-2" /> Report: <span className="font-medium text-blue-600 ml-1">{task.related_report_id}</span></div>
-                          )}
-                          <div className="flex items-center text-slate-600"><Users className="w-4 h-4 mr-2" /> Assignee: <span className="font-medium text-slate-900 dark:text-slate-200 ml-1">{task.officer || "Unassigned"}</span></div>
-                        </div>
-                      </div>
-
-                      <div className="bg-slate-50 dark:bg-slate-950 p-6 border-t md:border-t-0 md:border-l flex flex-col justify-center gap-3 min-w-[240px]">
-                        {!task.assignedToId && (
-                          <Dialog open={dialogOpen === task.id} onOpenChange={(open) => {
-                            setDialogOpen(open ? task.id : null);
-                            if (!open) setDelegateTo("");
-                          }}>
-                            <DialogTrigger asChild>
-                              <Button
-                                className="w-full bg-primary hover:bg-primary-dark text-white shadow-sm font-semibold rounded-md h-9"
-                                onClick={() => setDelegateTo("")}
-                              >
-                                Accept and Delegate
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent className="w-[calc(100%-2rem)] sm:max-w-xl rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-5 sm:p-7">
-                              <DialogHeader>
-                                <DialogTitle>Accept &amp; Delegate Task</DialogTitle>
-                                <DialogDescription>Assign the field operation for {task.id} to an available workforce member.</DialogDescription>
-                              </DialogHeader>
-
-                              <div className="py-2 space-y-4">
-                                {/* Compact Report Summary Banner */}
-                                <div className="rounded-lg bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 p-3.5">
-                                  <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                                    <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
-                                      {task.id}
-                                    </span>
-                                    {task.related_report?.urgency && (
-                                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border capitalize ${urgencyBadgeClass(task.related_report.urgency)}`}>
-                                        {task.related_report.urgency} Urgency
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
-                                    {task.title}
-                                  </div>
-                                  {(task.related_report?.barangay || task.description) && (
-                                    <div className="text-xs text-slate-600 flex items-center gap-1.5 mt-1 truncate">
-                                      <MapPin className="h-3 w-3 shrink-0" />
-                                      <span>{task.related_report ? `${task.related_report.barangay}, ${task.related_report.municipality}` : task.description}</span>
-                                    </div>
-                                  )}
-                                </div>
-
-                                <div className="space-y-3 rounded-lg border border-blue-200 bg-blue-50/60 dark:bg-blue-950/30 p-4">
-                                  <label htmlFor="delegate-officer" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                                    Workforce Officer *
-                                  </label>
-                                  <Select value={delegateTo} onValueChange={setDelegateTo}>
-                                    <SelectTrigger id="delegate-officer" className="bg-white dark:bg-slate-900 border-slate-200">
-                                      <SelectValue placeholder="Select workforce officer..." />
-                                    </SelectTrigger>
-                                    <SelectContent className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 z-[300]">
-                                      {officers.map(o => (
-                                        <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                  {officers.length === 0 && (
-                                    <p className="text-xs text-red-700">No active officers available in your department.</p>
-                                  )}
-                                </div>
-                              </div>
-
-                              <div className="grid grid-cols-2 gap-2 sm:gap-3 mt-2">
-                                <Button
-                                  type="button"
-                                  className="w-full bg-sky-700 hover:bg-sky-800 text-white hover:text-white border-sky-700 font-bold"
-                                  onClick={() => {
-                                    setDialogOpen(null);
-                                    setDelegateTo("");
-                                  }}
-                                >
-                                  Cancel
-                                </Button>
-                                <Button
-                                  type="button"
-                                  onClick={() => handleDelegate(task.id)}
-                                  disabled={!delegateTo || officers.length === 0 || updateTaskMutation.isPending}
-                                  className="w-full bg-primary hover:bg-primary-dark text-white"
-                                >
-                                  {updateTaskMutation.isPending ? "Delegating..." : "Confirm Assignment"}
-                                </Button>
-                              </div>
-                            </DialogContent>
-                          </Dialog>
-                        )}
-                        <Button
-                          variant="outline"
-                          className="w-full border-slate-300 text-slate-900 font-semibold rounded-md h-9"
-                          onClick={() => handleViewLinkedReport(task)}
-                        >
-                          View Linked Report
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
+                {isLoading ? (
+                  <ListSkeleton />
+                ) : tasksByTab[tab].length === 0 ? (
+                  <div className="flex flex-col items-center text-center py-12 px-4 bg-white rounded-md border border-dashed border-slate-300">
+                    <ClipboardList className="w-10 h-10 text-slate-500 mb-3" aria-hidden="true" />
+                    <p className="text-base font-semibold text-slate-900">{EMPTY_TEXT[tab].title}</p>
+                    <p className="text-sm text-slate-600 mt-1">{EMPTY_TEXT[tab].hint}</p>
+                  </div>
+                ) : (
+                  tasksByTab[tab].map(renderTaskCard)
+                )}
               </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="Assigned">
-            {assignedTasks.length === 0 ? (
-              isLoading ? (
-                <div className="text-center py-12 text-slate-600 bg-white rounded-md border border-dashed border-slate-300" role="status">Loading tasks…</div>
-              ) : (
-                <div className="flex flex-col items-center text-center py-12 px-4 bg-white rounded-md border border-dashed border-slate-300">
-                  <ClipboardList className="w-10 h-10 text-slate-500 mb-3" aria-hidden="true" />
-                  <p className="text-base font-semibold text-slate-900">No assigned tasks yet.</p>
-                </div>
-              )
-            ) : (
-              <div className="grid gap-4">
-                {assignedTasks.map((task) => (
-                  <Card key={task.id} className="overflow-hidden hover:shadow-md transition-shadow dark:bg-slate-900 rounded-lg">
-                    <div className="flex flex-col md:flex-row">
-                      <div className="flex-1 p-6">
-                        <div className="flex items-center justify-between mb-3">
-                          <Badge variant="outline" className="font-mono text-xs">{task.id}</Badge>
-                          <Badge variant="outline" className={statusBadgeClass(task.status)}>{task.status}</Badge>
-                        </div>
-                        <h3 className="text-base font-semibold text-slate-900">{task.title}</h3>
-                        <p className="text-slate-600 mt-2 text-sm">{task.description}</p>
-                        
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6 border-t pt-4 text-sm">
-                          <div className="flex items-center text-slate-600"><Clock className="w-4 h-4 mr-2" /> Logged: {task.date}</div>
-                          {task.related_report_id && (
-                            <div className="flex items-center text-slate-600"><Link2 className="w-4 h-4 mr-2" /> Report: <span className="font-medium text-blue-600 ml-1">{task.related_report_id}</span></div>
-                          )}
-                          <div className="flex items-center text-slate-600"><Users className="w-4 h-4 mr-2" /> Assignee: <span className="font-medium text-slate-900 dark:text-slate-200 ml-1">{task.officer || "Unassigned"}</span></div>
-                        </div>
-                      </div>
-
-                      <div className="bg-slate-50 dark:bg-slate-950 p-6 border-t md:border-t-0 md:border-l flex flex-col justify-center gap-3 min-w-[240px]">
-                        <Button
-                          variant="outline"
-                          className="w-full border-slate-300 text-slate-900 font-semibold rounded-md h-9"
-                          onClick={() => handleViewLinkedReport(task)}
-                        >
-                          View Linked Report
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="Completed">
-            {completedTasks.length === 0 ? (
-               isLoading ? (
-                 <div className="text-center py-12 text-slate-600 bg-white rounded-md border border-dashed border-slate-300" role="status">Loading tasks…</div>
-               ) : (
-                 <div className="flex flex-col items-center text-center py-12 px-4 bg-white rounded-md border border-dashed border-slate-300">
-                   <ClipboardList className="w-10 h-10 text-slate-500 mb-3" aria-hidden="true" />
-                   <p className="text-base font-semibold text-slate-900">No completed tasks yet.</p>
-                 </div>
-               )
-            ) : (
-               <div className="grid gap-4">
-                 {completedTasks.map((task) => (
-                   <Card key={task.id} className="dark:bg-slate-900 border-emerald-100 dark:border-emerald-900 rounded-lg">
-                     <CardHeader className="pb-3 border-b border-emerald-50 dark:border-emerald-950 flex flex-col sm:flex-row justify-between items-start sm:items-center">
-                       <div>
-                         <CardTitle className="text-base font-semibold text-slate-900 flex items-center gap-2">
-                           <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                           {task.title}
-                         </CardTitle>
-                         <div className="flex gap-2 text-xs text-slate-600 mt-2 font-mono">{task.id}</div>
-                       </div>
-                       <Badge variant="outline" className={`mt-2 sm:mt-0 ${statusBadgeClass("Completed")}`}>Completed</Badge>
-                     </CardHeader>
-                     <CardContent className="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                       <div className="flex items-center gap-2"><Clock className="w-4 h-4 text-slate-500" /> <span className="text-slate-600">Date:</span> {task.date}</div>
-                       <div className="flex items-center gap-2"><Users className="w-4 h-4 text-slate-500" /> <span className="text-slate-600">Completed By:</span> {task.officer}</div>
-                     </CardContent>
-                   </Card>
-                 ))}
-               </div>
-            )}
-          </TabsContent>
+            </TabsContent>
+          ))}
         </Tabs>
       </div>
 
       {/* Linked Report & Delegation Dialog */}
-      <Dialog open={Boolean(selectedTask)} onOpenChange={(open) => {
-        if (!open) {
-          setSelectedTask(null);
-          setModalDelegateMode(false);
-          setDelegateTo("");
-        }
-      }}>
+      <Dialog open={Boolean(selectedTask)} onOpenChange={(open) => { if (!open) closeTaskModal(); }}>
         <DialogContent className={`w-[calc(100%-2rem)] ${modalDelegateMode ? 'sm:max-w-xl' : 'sm:max-w-5xl'} rounded-lg max-h-[88vh] overflow-y-auto p-5 sm:p-7 transition-all duration-200`}>
           <DialogHeader>
             <DialogTitle>
@@ -432,10 +314,10 @@ export default function WorkforceAdminTasksPage() {
                 <div className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
                   {selectedTask.title}
                 </div>
-                {(selectedTask.related_report?.barangay || selectedTask.description) && (
+                {(selectedTask.related_report?.barangay || selectedTask.location) && (
                   <div className="text-xs text-slate-600 flex items-center gap-1.5 mt-1 truncate">
-                    <MapPin className="h-3 w-3 shrink-0" />
-                    <span>{selectedTask.related_report ? `${selectedTask.related_report.barangay}, ${selectedTask.related_report.municipality}` : selectedTask.description}</span>
+                    <MapPin className="h-3 w-3 shrink-0" aria-hidden="true" />
+                    <span>{selectedTask.related_report ? `${selectedTask.related_report.barangay}, ${selectedTask.related_report.municipality}` : selectedTask.location}</span>
                   </div>
                 )}
               </div>
@@ -475,7 +357,7 @@ export default function WorkforceAdminTasksPage() {
                     </div>
                     <div className="grid border-b pb-2 gap-1">
                       <span className="text-slate-600">Description:</span>
-                      <span className="font-medium text-slate-700 dark:text-slate-300 leading-relaxed">{selectedTask?.related_report?.description || selectedTask?.description || "No report description available."}</span>
+                      <span className="font-medium text-slate-700 dark:text-slate-300 leading-relaxed">{selectedTask?.related_report?.description || "No report description available."}</span>
                     </div>
                     <div className="flex justify-between border-b pb-2 gap-4">
                       <span className="text-slate-600">Municipality/City:</span>
@@ -536,14 +418,18 @@ export default function WorkforceAdminTasksPage() {
               <>
                 <Button
                   type="button"
-                  variant="outline"
-                  className="w-full"
+                  className="w-full bg-sky-700 hover:bg-sky-800 text-white hover:text-white border-sky-700 font-bold"
                   onClick={() => {
-                    setModalDelegateMode(false);
-                    setDelegateTo("");
+                    // Back to the report view when there is one; otherwise this cancels.
+                    if (selectedTask?.related_report) {
+                      setModalDelegateMode(false);
+                      setDelegateTo("");
+                    } else {
+                      closeTaskModal();
+                    }
                   }}
                 >
-                  Back
+                  {selectedTask?.related_report ? "Back" : "Cancel"}
                 </Button>
                 <Button
                   type="button"
@@ -555,7 +441,7 @@ export default function WorkforceAdminTasksPage() {
                 </Button>
               </>
             ) : (
-              selectedTask && !selectedTask.assignedToId ? (
+              selectedTask && tabOf(selectedTask) === "Pending" ? (
                 <Button
                   type="button"
                   className="col-span-full w-full bg-primary hover:bg-primary-dark text-white"
@@ -570,7 +456,7 @@ export default function WorkforceAdminTasksPage() {
                 <Button
                   type="button"
                   className="col-span-full w-full bg-sky-700 hover:bg-sky-800 text-white hover:text-white border-sky-700 font-bold"
-                  onClick={() => setSelectedTask(null)}
+                  onClick={closeTaskModal}
                 >
                   Close
                 </Button>

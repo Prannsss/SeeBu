@@ -3,11 +3,11 @@
 import { useRef, useState, type ChangeEvent } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Clock, MapPin, AlertTriangle, Link2, Camera, CheckCircle2, Inbox } from "lucide-react";
+import { Clock, MapPin, AlertTriangle, Link2, Camera, CheckCircle2, Inbox, ClipboardList } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { ListSkeleton } from "@/components/ui/list-skeleton";
 import { gooeyToast } from "goey-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTasks, useUpdateTaskStatus, useCompleteTask } from "@/hooks/queries/useTasks";
@@ -204,9 +204,14 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
     <div className="min-h-screen bg-slate-50 pb-32 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
       <div className="container mx-auto max-w-5xl px-4 py-8">
         <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">My Tasks</h1>
-            <p className="text-slate-600 mt-1">Manage and update your assigned operational tasks.</p>
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/50">
+              <ClipboardList className="h-6 w-6 text-emerald-700 dark:text-emerald-400" aria-hidden="true" />
+            </div>
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">My Tasks</h1>
+              <p className="text-slate-600 mt-1">Manage and update your assigned operational tasks.</p>
+            </div>
           </div>
         </div>
 
@@ -220,13 +225,7 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
           <TabsContent value={activeTab} className="m-0 focus-visible:outline-none">
             <div className="grid gap-4">
               {isLoading && !tasksData ? (
-                [0, 1, 2].map((i) => (
-                  <Card key={i} className="p-6 space-y-3" aria-hidden="true">
-                    <Skeleton className="h-4 w-32 bg-slate-200" />
-                    <Skeleton className="h-6 w-2/3 bg-slate-200" />
-                    <Skeleton className="h-4 w-1/2 bg-slate-200" />
-                  </Card>
-                ))
+                <ListSkeleton />
               ) : filteredTasks.length === 0 ? (
                 <div className="flex flex-col items-center text-center py-12 px-4 bg-white rounded-md border border-dashed border-slate-300">
                   <Inbox className="w-10 h-10 text-slate-500 mb-3" aria-hidden="true" />

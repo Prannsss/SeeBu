@@ -9,7 +9,7 @@ export default function ClientDashboard() {
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-white text-slate-900 pb-32 dark:bg-slate-950 dark:text-slate-100">
-      {user?.id ? <ClientFeedWidget userId={user.id} /> : isLoading ? <GlobalPageSkeleton /> : null}
+      {user?.id ? <ClientFeedWidget userId={user.id} name={user.full_name} /> : isLoading ? <GlobalPageSkeleton /> : null}
     </div>
   );
 }

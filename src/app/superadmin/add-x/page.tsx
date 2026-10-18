@@ -272,6 +272,7 @@ export default function SuperadminAddPage() {
                   <div className="relative" ref={dropdownRef}>
                     <div className="floating-input !mt-0">
                       <input 
+                        id="municipality-search"
                         ref={municipalityInputRef}
                         type="text" 
                         placeholder=" "

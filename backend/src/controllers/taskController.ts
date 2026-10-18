@@ -6,24 +6,42 @@ import { notifyReportStatusChange } from '../utils/reportNotifications';
 import { invalidateWorkflowCaches } from '../utils/cache';
 
 const MAX_PROOF_PHOTO_BYTES = 8 * 1024 * 1024;
+// Statuses settable via PUT. 'Completed' is deliberately absent: it requires proof (completeTask).
+const STAFF_TASK_STATUSES = ['Pending', 'Assigned', 'Accepted', 'In Progress'];
+const OFFICER_TASK_STATUSES = ['Accepted', 'In Progress'];
 
 export const taskController = {
   // READ TASKS
   async getTasks(req: Request, res: Response) {
     try {
-      const { assigned_to, delegated_to, status, updated_after } = req.query;
+      const { status, updated_after } = req.query;
+      const role = req.user?.role;
 
+      // Scope by role: officers see only their own tasks, workforce admins only their department's,
+      // admins only their municipality's. Query params can narrow the scope but never widen it.
+      const assignedTo = role === 'workforce' ? req.user.id : req.query.assigned_to;
+      const departmentId = role === 'workforce-admin' ? req.user.department_id : req.query.delegated_to;
+      const municipalityId = role === 'admin' ? req.user.municipality_id : null;
+      if ((role === 'workforce-admin' && !departmentId) || (role === 'admin' && !municipalityId)) {
+        return res.status(200).json({ data: [] });
+      }
+
+      // Filtering on the linked report needs an inner join — done in this one query instead of
+      // first fetching report ids and sending them back as a (growing) IN list.
+      const filterByReport = Boolean(departmentId || municipalityId);
       let query = supabase
         .from('tasks')
         .select(`
           *,
-          related_report:reports(
+          related_report:reports${filterByReport ? '!inner' : ''}(
             id,
             title,
             description,
             urgency,
             location,
             landmark,
+            delegated_to,
+            municipality_id,
             municipalities(name),
             barangays(name),
             report_photos(photo_url, is_completion_photo)
@@ -35,23 +53,10 @@ export const taskController = {
         query = query.gte('updated_at', new Date(String(updated_after)).toISOString());
       }
 
-      if (assigned_to) query = query.eq('assigned_to', assigned_to);
-      if (delegated_to) {
-        const { data: delegatedReports, error: delegatedReportsError } = await supabase
-          .from('reports')
-          .select('id')
-          .eq('delegated_to', delegated_to as string);
-
-        if (delegatedReportsError) throw delegatedReportsError;
-
-        const reportIds = (delegatedReports || []).map((report: any) => report.id);
-        if (reportIds.length === 0) {
-          return res.status(200).json({ data: [] });
-        }
-
-        query = query.in('related_report_id', reportIds);
-      }
-      if (status) query = query.eq('status', status);
+      if (assignedTo) query = query.eq('assigned_to', String(assignedTo));
+      if (departmentId) query = query.eq('related_report.delegated_to', String(departmentId));
+      if (municipalityId) query = query.eq('related_report.municipality_id', String(municipalityId));
+      if (status) query = query.eq('status', String(status));
 
       const { data, error } = await query;
       if (error) throw error;
@@ -68,6 +73,30 @@ export const taskController = {
       const { id } = req.params;
       const { status, assigned_to } = req.body;
       let assignedOfficerName: string | null = null;
+
+      // Completion only happens through POST /:id/complete, which requires proof photos.
+      const allowedStatuses = req.user?.role === 'workforce' ? OFFICER_TASK_STATUSES : STAFF_TASK_STATUSES;
+      if (status !== undefined && !allowedStatuses.includes(status)) {
+        return res.status(400).json({ error: `Status must be one of: ${allowedStatuses.join(', ')}` });
+      }
+
+      // Workforce admins may only manage tasks delegated to their own department.
+      if (req.user?.role === 'workforce-admin') {
+        const { data: scopedTask, error: scopedTaskError } = await supabase
+          .from('tasks')
+          .select('related_report:reports(delegated_to)')
+          .eq('id', id)
+          .maybeSingle();
+
+        if (scopedTaskError) throw scopedTaskError;
+        if (!scopedTask) {
+          return res.status(404).json({ error: 'Task not found' });
+        }
+        const taskDepartment = (scopedTask as any).related_report?.delegated_to;
+        if (!req.user.department_id || Number(taskDepartment) !== Number(req.user.department_id)) {
+          return res.status(403).json({ error: 'You can only manage tasks delegated to your department' });
+        }
+      }
 
       // Officers may only update their own tasks and cannot reassign them.
       if (req.user?.role === 'workforce') {
@@ -107,17 +136,8 @@ export const taskController = {
 
         assignedOfficerName = officer.full_name || null;
 
-        if (req.user?.role === 'workforce-admin') {
-          const { data: workforceAdmin, error: workforceAdminError } = await supabase
-            .from('workforce_admins')
-            .select('department_id')
-            .eq('id', req.user.id)
-            .maybeSingle();
-
-          if (workforceAdminError) throw workforceAdminError;
-          if (!workforceAdmin?.department_id || Number(workforceAdmin.department_id) !== Number(officer.department_id)) {
-            return res.status(403).json({ error: 'You can only assign officers from your own department' });
-          }
+        if (req.user?.role === 'workforce-admin' && Number(req.user.department_id) !== Number(officer.department_id)) {
+          return res.status(403).json({ error: 'You can only assign officers from your own department' });
         }
       }
 

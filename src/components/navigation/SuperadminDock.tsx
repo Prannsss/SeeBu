@@ -16,11 +16,11 @@ export default function SuperadminDock() {
   }, [router]);
 
   const items = [
-    { icon: <Home className={`w-5 h-5 ${pathname === '/superadmin' ? 'text-white' : ''}`} />, label: "Home", onClick: () => router.push('/superadmin'), className: pathname === '/superadmin' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
-    { icon: <BarChart className={`w-5 h-5 ${pathname === '/superadmin/analytics' ? 'text-white' : ''}`} />, label: "Analytics", onClick: () => router.push('/superadmin/analytics'), className: pathname === '/superadmin/analytics' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
-    { icon: <Users className={`w-5 h-5 ${pathname === '/superadmin/users' ? 'text-white' : ''}`} />, label: "Users", onClick: () => router.push('/superadmin/users'), className: pathname === '/superadmin/users' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
-    { icon: <PlusCircle className={`w-5 h-5 ${pathname === '/superadmin/add-x' ? 'text-white' : ''}`} />, label: "Add", onClick: () => router.push('/superadmin/add-x'), className: pathname === '/superadmin/add-x' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
-    { icon: <User className={`w-5 h-5 ${pathname === '/superadmin/profile' ? 'text-white' : ''}`} />, label: "Profile", onClick: () => router.push('/superadmin/profile'), className: pathname === '/superadmin/profile' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
+    { icon: <Home className={`w-5 h-5 ${pathname === '/superadmin' ? 'text-white' : ''}`} />, label: "Home", onClick: () => router.push('/superadmin'), current: pathname === '/superadmin', className: pathname === '/superadmin' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
+    { icon: <BarChart className={`w-5 h-5 ${pathname === '/superadmin/analytics' ? 'text-white' : ''}`} />, label: "Analytics", onClick: () => router.push('/superadmin/analytics'), current: pathname === '/superadmin/analytics', className: pathname === '/superadmin/analytics' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
+    { icon: <Users className={`w-5 h-5 ${pathname === '/superadmin/users' ? 'text-white' : ''}`} />, label: "Users", onClick: () => router.push('/superadmin/users'), current: pathname === '/superadmin/users', className: pathname === '/superadmin/users' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
+    { icon: <PlusCircle className={`w-5 h-5 ${pathname === '/superadmin/add-x' ? 'text-white' : ''}`} />, label: "Add", onClick: () => router.push('/superadmin/add-x'), current: pathname === '/superadmin/add-x', className: pathname === '/superadmin/add-x' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
+    { icon: <User className={`w-5 h-5 ${pathname === '/superadmin/profile' ? 'text-white' : ''}`} />, label: "Profile", onClick: () => router.push('/superadmin/profile'), current: pathname === '/superadmin/profile', className: pathname === '/superadmin/profile' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
   ];
 
   return (

@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Briefcase, CheckCircle2, TrendingUp, AlertCircle } from "lucide-react";
+import { Briefcase, CheckCircle2, TrendingUp, AlertCircle, HardHat } from "lucide-react";
+import { greeting } from "@/lib/greeting";
 import { getUserProfile } from "../actions/user.actions";
 import { cookies } from "next/headers";
 
@@ -78,9 +79,14 @@ export default async function WorkforceDashboard() {
     <div className="min-h-screen bg-white pb-32 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
     <div className="container mx-auto max-w-6xl px-4 py-10">
       <div className="mb-8 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
-        <div>
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900">Workforce Dashboard</h1>
-          <p className="text-slate-600 mt-1">Overview of your daily assignments and performance.</p>
+        <div className="flex items-center gap-3">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/50">
+            <HardHat className="h-6 w-6 text-emerald-700 dark:text-emerald-400" aria-hidden="true" />
+          </div>
+          <div>
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900">{greeting(user?.full_name)}</h1>
+            <p className="text-slate-600 mt-1">Overview of your daily assignments and performance.</p>
+          </div>
         </div>
         <Badge className="bg-emerald-600 text-white hover:bg-emerald-800">
           On Duty
@@ -107,27 +113,6 @@ export default async function WorkforceDashboard() {
             </CardContent>
           </Card>
         ))}
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-1">
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Announcements</CardTitle>
-            <CardDescription className="text-sm truncate" title="Updates from administration">Updates from administration</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="rounded-lg border p-3">
-                <div className="font-semibold text-slate-900">Safety Gear Protocol</div>
-                <div className="text-sm text-slate-600 mt-1">Please ensure all high-visibility vests are worn during road repairs.</div>
-              </div>
-              <div className="rounded-lg border p-3">
-                <div className="font-semibold text-slate-900">Schedule Update</div>
-                <div className="text-sm text-slate-600 mt-1">Shift changes for the upcoming holiday weekend have been posted.</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </div>
     </div>

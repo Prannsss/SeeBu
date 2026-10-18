@@ -106,23 +106,15 @@ function allowNotification(recipient: string): boolean {
 }
 
 async function municipalityAndBarangayExist(municipalityId: string | number, barangayId: string | number) {
-  const { data: municipality, error: municipalityError } = await supabase
-    .from('municipalities')
-    .select('id')
-    .eq('id', municipalityId)
-    .maybeSingle();
-  if (municipalityError) throw municipalityError;
-  if (!municipality) return false;
-
-  const { data: barangay, error: barangayError } = await supabase
+  // One lookup: the barangay's foreign key guarantees its municipality exists.
+  const { data, error } = await supabase
     .from('barangays')
-    .select('id, municipality_id')
-    .eq('id', barangayId)
+    .select('id')
+    .eq('id', String(barangayId))
+    .eq('municipality_id', String(municipalityId))
     .maybeSingle();
-  if (barangayError) throw barangayError;
-  if (!barangay || String(barangay.municipality_id) !== String(municipalityId)) return false;
-
-  return true;
+  if (error) throw error;
+  return Boolean(data);
 }
 
 export const reportController = {
@@ -276,12 +268,17 @@ export const reportController = {
       const { municipality_id, status, reporter_id, reporter_email, updated_after } = req.query;
       const reporterIdParam = reporter_id ? String(reporter_id).trim() : '';
 
+      // completed_by references workforce_officers, so the completer and their department are
+      // embedded here instead of being looked up with extra queries after the list loads.
       const baseSelect = `
         *,
         municipalities(name),
         barangays(name),
-        report_photos(photo_url, is_completion_photo)
+        report_photos(photo_url, is_completion_photo),
+        completer:workforce_officers(full_name, departments(name))
       `;
+      // Reporters see their own timeline in their history (small lists, so the extra join is cheap).
+      const reporterSelect = `${baseSelect}, report_timeline(status, notes, created_at)`;
 
       const applyBaseFilters = (query: any, options?: { ignoreStatus?: boolean }) => {
         let q = query;
@@ -309,7 +306,7 @@ export const reportController = {
       const runQuery = async (extraFilter?: (query: any) => any, options?: { ignoreStatus?: boolean }) => {
         let q = supabase
           .from('reports')
-          .select(baseSelect)
+          .select(options?.ignoreStatus ? reporterSelect : baseSelect)
           .order('created_at', { ascending: false });
         q = applyBaseFilters(q, options);
         if (extraFilter) {
@@ -375,85 +372,21 @@ export const reportController = {
         data = await runQuery();
       }
 
-      const completerIds = Array.from(
-        new Set(
-          (data || [])
-            .map((report: any) => report?.completed_by)
-            .filter((value: any) => typeof value === 'string' && value.trim().length > 0)
-        )
-      );
-
-      if (completerIds.length > 0) {
-        const [officersRes, workforceAdminsRes, adminsRes] = await Promise.all([
-          supabase
-            .from('workforce_officers')
-            .select('id, full_name, department_id')
-            .in('id', completerIds),
-          supabase
-            .from('workforce_admins')
-            .select('id, full_name, department_id')
-            .in('id', completerIds),
-          supabase
-            .from('admins')
-            .select('id, full_name, department_id')
-            .in('id', completerIds),
-        ]);
-
-        const officers = officersRes.data || [];
-        const workforceAdmins = workforceAdminsRes.data || [];
-        const admins = adminsRes.data || [];
-
-        const allCompleters = [...officers, ...workforceAdmins, ...admins];
-        const departmentIds = Array.from(
-          new Set(
-            allCompleters
-              .map((person: any) => person?.department_id)
-              .filter((value: any) => Number.isInteger(Number(value)) && Number(value) > 0)
-              .map((value: any) => Number(value))
-          )
-        );
-
-        const departmentNameById = new Map<number, string>();
-        if (departmentIds.length > 0) {
-          const { data: departments } = await supabase
-            .from('departments')
-            .select('id, name')
-            .in('id', departmentIds);
-
-          (departments || []).forEach((department: any) => {
-            if (department?.id && department?.name) {
-              departmentNameById.set(Number(department.id), department.name);
-            }
-          });
+      data = data.map(({ completer, ...report }: any) => {
+        const completedByName = completer?.full_name || null;
+        const completedByDepartment = completer?.departments?.name || null;
+        if (Array.isArray(report.report_timeline)) {
+          report.report_timeline.sort((a: any, b: any) => String(a.created_at).localeCompare(String(b.created_at)));
         }
-
-        const completerById = new Map<string, { name: string; departmentName: string | null }>();
-        allCompleters.forEach((person: any) => {
-          if (!person?.id) return;
-          completerById.set(String(person.id), {
-            name: person.full_name || 'Unknown',
-            departmentName: person.department_id
-              ? (departmentNameById.get(Number(person.department_id)) || null)
-              : null,
-          });
-        });
-
-        data = data.map((report: any) => {
-          const completedById = report?.completed_by ? String(report.completed_by) : '';
-          const resolvedCompleter = completedById ? completerById.get(completedById) : null;
-          const completedByName = resolvedCompleter?.name || null;
-          const completedByDepartment = resolvedCompleter?.departmentName || null;
-
-          return {
-            ...report,
-            completed_by_name: completedByName,
-            completed_by_department_name: completedByDepartment,
-            completed_by_display: completedByName
-              ? `${completedByName}${completedByDepartment ? ` (${completedByDepartment})` : ''}`
-              : (report.completed_by || null),
-          };
-        });
-      }
+        return {
+          ...report,
+          completed_by_name: completedByName,
+          completed_by_department_name: completedByDepartment,
+          completed_by_display: completedByName
+            ? `${completedByName}${completedByDepartment ? ` (${completedByDepartment})` : ''}`
+            : (report.completed_by || null),
+        };
+      });
 
       const sanitized = data.map((report: any) => stripReporterPii(report, caller));
       return res.status(200).json({ data: sanitized });

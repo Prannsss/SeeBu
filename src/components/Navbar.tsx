@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Menu, X } from 'lucide-react';
@@ -16,6 +16,14 @@ interface NavbarProps {
 
 export function Navbar({ items = [] }: NavbarProps) {
   const [isOpen, setIsOpen] = useState(false);
+
+  // Escape closes the mobile menu, like any other overlay.
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setIsOpen(false); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [isOpen]);
   
   const defaultItems: NavItem[] = [
     { label: 'Home', href: '/#top' },
@@ -108,9 +116,11 @@ export function Navbar({ items = [] }: NavbarProps) {
               <button
                 onClick={() => setIsOpen(!isOpen)}
                 className="p-2 text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors"
-                aria-label="Toggle menu"
+                aria-label={isOpen ? "Close menu" : "Open menu"}
+                aria-expanded={isOpen}
+                aria-controls="mobile-menu"
               >
-                {isOpen ? <X size={24} /> : <Menu size={24} />}
+                {isOpen ? <X size={24} aria-hidden="true" /> : <Menu size={24} aria-hidden="true" />}
               </button>
             </div>
           </div>
@@ -120,8 +130,8 @@ export function Navbar({ items = [] }: NavbarProps) {
       {/* Mobile Menu Overlay */}
       {isOpen && (
         <div className="fixed inset-0 z-30 md:hidden">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsOpen(false)} />
-          <div className="absolute top-24 left-4 right-4 bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-800 p-6">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsOpen(false)} aria-hidden="true" />
+          <div id="mobile-menu" className="absolute top-24 left-4 right-4 bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-800 p-6">
             {/* Navigation Items */}
             <ul className="space-y-2 mb-6">
               {navItems.map((item, index) => (

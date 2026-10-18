@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { PasswordChecklist } from "@/components/ui/password-checklist"
 import { VerificationCodeUI } from "@/components/ui/verification-code"
 import { gooeyToast } from "goey-toast"
-import { Eye, EyeOff } from "lucide-react"
+import { Eye, EyeOff, UserPlus } from "lucide-react"
 import { useCurrentUser } from "@/hooks/queries/useCurrentUser"
 
 export default function AddOfficerPage() {
@@ -99,11 +99,16 @@ export default function AddOfficerPage() {
     <div className="min-h-screen bg-slate-50 pb-32 dark:bg-slate-950 dark:text-slate-100">
       <div className="container mx-auto max-w-lg px-4 pt-10 pb-6">
 
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-black text-text-main dark:text-white mb-2">Register Officer</h1>
-          <p className="text-base text-text-muted dark:text-gray-400">
-            Create an account for a new officer in your department.
-          </p>
+        <div className="mb-8 flex items-center gap-3">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/50">
+            <UserPlus className="h-6 w-6 text-orange-700 dark:text-orange-400" aria-hidden="true" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-black text-text-main dark:text-white mb-1">Register Officer</h1>
+            <p className="text-base text-text-muted dark:text-gray-400">
+              Create an account for a new officer in your department.
+            </p>
+          </div>
         </div>
 
         {isVerifying ? (
