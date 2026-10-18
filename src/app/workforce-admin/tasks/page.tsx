@@ -39,6 +39,8 @@ type TaskItem = {
   completedAt: string | null;
   assignedToId: string | null;
   officer?: string;
+  /** False when the officer holding it has left (e.g. their access was revoked): it needs reassigning. */
+  officerActive: boolean;
   related_report_id?: string;
   related_report: LinkedReport | null;
 };
@@ -88,6 +90,7 @@ export default function WorkforceAdminTasksPage() {
     .filter((person: any) => String(person.status || '').toLowerCase() === 'active')
     .map((person: any) => ({ id: person.id, name: officerLabel(person) }));
   const officerNameById = new Map<string, string>(personnel.map((person: any) => [person.id, officerLabel(person)]));
+  const activeOfficerIds = new Set(officers.map((o: { id: string }) => o.id));
 
   const { data: tasksData, isPending: isTasksPending } = useQuery({
     queryKey: ['workforce-admin-tasks', departmentId],
@@ -126,6 +129,7 @@ export default function WorkforceAdminTasksPage() {
     completedAt: t.completed_at ? new Date(t.completed_at).toLocaleString() : null,
     assignedToId: t.assigned_to || null,
     officer: t.assigned_to ? officerNameById.get(t.assigned_to) || "Assigned officer" : undefined,
+    officerActive: !t.assigned_to || !Array.isArray(officersData) || activeOfficerIds.has(t.assigned_to),
     related_report_id: t.related_report_id,
     related_report: t.related_report ? {
       id: t.related_report.id,
@@ -144,6 +148,10 @@ export default function WorkforceAdminTasksPage() {
   const tasksByTab: Record<TabKey, TaskItem[]> = { Pending: [], Assigned: [], Completed: [] }
   tasksList.forEach((task) => tasksByTab[tabOf(task)].push(task))
 
+  // Delegating a task an officer already holds hands it to someone else.
+  const isReassign = Boolean(selectedTask && tabOf(selectedTask) === "Assigned")
+  const officerChoices = isReassign ? officers.filter((o: { id: string }) => o.id !== selectedTask?.assignedToId) : officers
+
   const closeTaskModal = () => {
     setSelectedTask(null)
     setModalDelegateMode(false)
@@ -155,9 +163,13 @@ export default function WorkforceAdminTasksPage() {
       gooeyToast.error("Error", { description: "Please select an officer first." })
       return
     }
+    const officerName = officers.find((o: { id: string; name: string }) => o.id === delegateTo)?.name || "the officer"
+    // A reassigned task starts over as 'Assigned' for the new officer.
     updateTaskMutation.mutate({ id: taskId, assigned_to: delegateTo, status: 'Assigned' }, {
       onSuccess: () => {
-        gooeyToast.success("Success", { description: "Task accepted and assigned to officer successfully." })
+        gooeyToast.success("Success", {
+          description: isReassign ? `Task reassigned to ${officerName}.` : "Task accepted and assigned to officer successfully.",
+        })
         closeTaskModal()
       },
       onError: (err: any) => {
@@ -210,6 +222,9 @@ export default function WorkforceAdminTasksPage() {
               )}
               <div className="flex items-center text-slate-600 min-w-0">
                 <Users className="w-4 h-4 mr-2 shrink-0" aria-hidden="true" /> {isCompleted ? "Completed by" : "Assignee"}: <span className="font-medium text-slate-900 dark:text-slate-200 ml-1 truncate">{task.officer || "Unassigned"}</span>
+                {!isCompleted && !task.officerActive && (
+                  <span className="ml-2 shrink-0 text-xs font-semibold text-red-700">No longer active</span>
+                )}
               </div>
               {isCompleted && task.completedAt && (
                 <div className="flex items-center text-slate-600">
@@ -226,6 +241,17 @@ export default function WorkforceAdminTasksPage() {
                 onClick={() => openTask(task, true)}
               >
                 Accept and Delegate
+              </Button>
+            )}
+            {tabOf(task) === "Assigned" && (
+              <Button
+                variant="outline"
+                className={task.officerActive
+                  ? "w-full border-slate-300 text-slate-900 font-semibold rounded-md h-9"
+                  : "w-full bg-primary hover:bg-primary-dark text-white hover:text-white border-primary shadow-sm font-semibold rounded-md h-9"}
+                onClick={() => openTask(task, true)}
+              >
+                Reassign
               </Button>
             )}
             {task.related_report_id && (
@@ -288,11 +314,15 @@ export default function WorkforceAdminTasksPage() {
         <DialogContent className={`w-[calc(100%-2rem)] ${modalDelegateMode ? 'sm:max-w-xl' : 'sm:max-w-5xl'} rounded-lg max-h-[88vh] overflow-y-auto p-5 sm:p-7 transition-all duration-200`}>
           <DialogHeader>
             <DialogTitle>
-              {modalDelegateMode ? "Accept & Delegate Task" : (selectedTask?.related_report?.title || selectedTask?.title || "Linked Report")}
+              {modalDelegateMode
+                ? (isReassign ? "Reassign Task" : "Accept & Delegate Task")
+                : (selectedTask?.related_report?.title || selectedTask?.title || "Linked Report")}
             </DialogTitle>
             <DialogDescription>
               {modalDelegateMode
-                ? `Assign the field operation for ${selectedTask?.id} to an available workforce member.`
+                ? (isReassign
+                  ? `Move ${selectedTask?.id} from ${selectedTask?.officer || "its current officer"} to another officer. They'll start it fresh.`
+                  : `Assign the field operation for ${selectedTask?.id} to an available workforce member.`)
                 : `Task ID: ${selectedTask?.id || "N/A"}${selectedTask?.related_report_id ? ` • Report ID: ${selectedTask.related_report_id}` : ''}`}
             </DialogDescription>
           </DialogHeader>
@@ -331,13 +361,15 @@ export default function WorkforceAdminTasksPage() {
                     <SelectValue placeholder="Select workforce officer..." />
                   </SelectTrigger>
                   <SelectContent className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 z-[300]">
-                    {officers.map(o => (
+                    {officerChoices.map((o: { id: string; name: string }) => (
                       <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                {officers.length === 0 && (
-                  <p className="text-xs text-red-700">No active officers available in your department.</p>
+                {officerChoices.length === 0 && (
+                  <p className="text-xs text-red-700">
+                    {isReassign ? "No other active officers in your department." : "No active officers available in your department."}
+                  </p>
                 )}
               </div>
             </div>
@@ -434,10 +466,12 @@ export default function WorkforceAdminTasksPage() {
                 <Button
                   type="button"
                   onClick={() => selectedTask && handleDelegate(selectedTask.id)}
-                  disabled={!delegateTo || officers.length === 0 || updateTaskMutation.isPending}
+                  disabled={!delegateTo || officerChoices.length === 0 || updateTaskMutation.isPending}
                   className="w-full bg-primary hover:bg-primary-dark text-white"
                 >
-                  {updateTaskMutation.isPending ? "Delegating..." : "Confirm & Delegate"}
+                  {updateTaskMutation.isPending
+                    ? (isReassign ? "Reassigning..." : "Delegating...")
+                    : (isReassign ? "Confirm & Reassign" : "Confirm & Delegate")}
                 </Button>
               </>
             ) : (
@@ -452,6 +486,26 @@ export default function WorkforceAdminTasksPage() {
                 >
                   Accept and Delegate
                 </Button>
+              ) : isReassign ? (
+                <>
+                  <Button
+                    type="button"
+                    className="w-full bg-sky-700 hover:bg-sky-800 text-white hover:text-white border-sky-700 font-bold"
+                    onClick={closeTaskModal}
+                  >
+                    Close
+                  </Button>
+                  <Button
+                    type="button"
+                    className="w-full bg-primary hover:bg-primary-dark text-white"
+                    onClick={() => {
+                      setModalDelegateMode(true);
+                      setDelegateTo("");
+                    }}
+                  >
+                    Reassign
+                  </Button>
+                </>
               ) : (
                 <Button
                   type="button"

@@ -1,103 +1,73 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useMutation, useQuery } from "@tanstack/react-query"
+import { useState } from "react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
-import { PasswordChecklist } from "@/components/ui/password-checklist"
-import { VerificationCodeUI } from "@/components/ui/verification-code"
 import { gooeyToast } from "goey-toast"
-import { Eye, EyeOff, UserPlus } from "lucide-react"
+import { MailCheck, UserPlus } from "lucide-react"
 import { useCurrentUser } from "@/hooks/queries/useCurrentUser"
+import { apiClient } from "@/lib/api"
+import { INVITATIONS_KEY, InvitationHistory } from "@/components/team/invitation-history"
 
 export default function AddOfficerPage() {
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
   const [email, setEmail] = useState("")
   const [phone, setPhone] = useState("")
-  const [department, setDepartment] = useState("")
-    const { data: profileData } = useCurrentUser()
+  const [inviteSent, setInviteSent] = useState<{ name: string; email: string } | null>(null)
+  const { data: profileData } = useCurrentUser()
+  const queryClient = useQueryClient()
 
-    const { data: departmentsData } = useQuery({
-      queryKey: ['workforce-admin-departments'],
-      queryFn: async () => {
-        const { apiClient } = await import('@/lib/api');
-        const result = await apiClient.departments.getAll();
-        return result.data || [];
-      }
-    })
-
-    useEffect(() => {
-      const scopedDepartment = Array.isArray(departmentsData)
-        ? departmentsData.find((d: any) => String(d.id) === String(profileData?.department_id)) || departmentsData[0]
-        : null;
-
-      if (scopedDepartment?.id) {
-        setDepartment(String(scopedDepartment.id));
-      }
-    }, [departmentsData, profileData?.department_id]);
-
-    const selectedDepartmentName = Array.isArray(departmentsData)
-      ? (departmentsData.find((d: any) => String(d.id) === String(department))?.name || "")
-      : "";
-
-  const [officerPassword, setOfficerPassword] = useState("")
-  const [showOfficerPassword, setShowOfficerPassword] = useState(false)
-  const [isVerifying, setIsVerifying] = useState(false)
-
-  const mutation = useMutation({
-    mutationFn: async (payload: any) => {
-      const { apiClient } = await import('@/lib/api');
-      const result = await apiClient.auth.provision({
-        ...payload,
-        user_role: "workforce"
-      });
-      return result;
-    },
-    onSuccess: () => {
-      gooeyToast.success("Success", { description: "Officer generated successfully! Proceed to verify email." });
-      setIsVerifying(true);
-    },
-    onError: (error) => {
-      gooeyToast.error("Error", { description: error?.message?.trim() || "Failed to generate officer account." });
-    }
+  const { data: departmentsData } = useQuery({
+    queryKey: ['workforce-admin-departments'],
+    queryFn: async () => (await apiClient.departments.getAll()).data || [],
   })
 
-  const handleAddOfficer = (e: React.FormEvent) => {
-    e.preventDefault()
+  // Officers always join the inviting workforce admin's department (the backend enforces this too).
+  const department = Array.isArray(departmentsData)
+    ? departmentsData.find((d: any) => String(d.id) === String(profileData?.department_id)) || departmentsData[0]
+    : null
 
+  const fullName = `${firstName.trim()} ${lastName.trim()}`.trim()
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      apiClient.invitations.create({
+        role: "workforce",
+        full_name: fullName,
+        email: email.trim(),
+        contact_number: phone || undefined,
+      }),
+    onSuccess: () => {
+      setInviteSent({ name: fullName, email: email.trim() })
+      queryClient.invalidateQueries({ queryKey: INVITATIONS_KEY })
+      gooeyToast.success("Invitation sent!", { description: `We emailed ${email.trim()} their invitation.` })
+    },
+    onError: (error: any) => {
+      gooeyToast.error("Couldn't Send Invitation", { description: error?.message?.trim() || "Please try again." })
+    },
+  })
+
+  const handleInvite = (e: React.FormEvent) => {
+    e.preventDefault()
     if (!department) {
-      gooeyToast.error("Unable to resolve your department. Please reload and try again.");
-      return;
+      gooeyToast.error("Unable to resolve your department. Please reload and try again.")
+      return
     }
-    
-    mutation.mutate({
-      first_name: firstName,
-      last_name: lastName,
-      email,
-      phone,
-      department_id: department,
-      password: officerPassword,
-      user_role: "workforce"
-    })
+    mutation.mutate()
   }
 
-  const handleVerifySuccess = () => {
-    setIsVerifying(false)
+  const resetForm = () => {
+    setInviteSent(null)
     setFirstName("")
     setLastName("")
     setEmail("")
     setPhone("")
-    setDepartment("")
-    setOfficerPassword("")
-  }
-
-  const handleVerifyCancel = () => {
-    setIsVerifying(false)
   }
 
   return (
     <div className="min-h-screen bg-slate-50 pb-32 dark:bg-slate-950 dark:text-slate-100">
-      <div className="container mx-auto max-w-lg px-4 pt-10 pb-6">
+      <div className="container mx-auto max-w-5xl px-4 pt-10 pb-6">
 
         <div className="mb-8 flex items-center gap-3">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/50">
@@ -106,128 +76,126 @@ export default function AddOfficerPage() {
           <div>
             <h1 className="text-3xl font-black text-text-main dark:text-white mb-1">Register Officer</h1>
             <p className="text-base text-text-muted dark:text-gray-400">
-              Create an account for a new officer in your department.
+              Invite a new officer to join your department.
             </p>
           </div>
         </div>
 
-        {isVerifying ? (
-          <div className="max-w-md mx-auto mt-6">
-            <VerificationCodeUI
-              onVerify={handleVerifySuccess}
-              onCancel={handleVerifyCancel}
-              email={email || "the provided email"}
-            />
+        {/* Desktop: history on the left, form on the right. Mobile: the form comes first. */}
+        <div className="grid gap-8 lg:grid-cols-2 lg:items-start">
+          <div className="min-w-0 bg-white dark:bg-slate-900 rounded-md shadow-sm border border-slate-200 dark:border-slate-800 p-6 sm:p-8 animate-in fade-in duration-500">
+            {inviteSent ? (
+              <div className="flex flex-col items-center text-center py-4 gap-4" role="status">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/40">
+                  <MailCheck className="h-7 w-7 text-emerald-600" aria-hidden="true" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-text-main dark:text-white mb-1">Invitation sent</h2>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                    We emailed <strong className="text-slate-900 dark:text-white">{inviteSent.name}</strong> at{" "}
+                    <strong className="text-slate-900 dark:text-white break-all">{inviteSent.email}</strong> an invitation to join{" "}
+                    <strong className="text-slate-900 dark:text-white">{department?.name || "your department"}</strong>, with a temporary
+                    password. We&apos;ll email you as soon as they accept or decline.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  onClick={resetForm}
+                  className="h-11 px-6 bg-primary hover:bg-primary-dark text-white font-bold"
+                >
+                  Invite Another Officer
+                </Button>
+              </div>
+            ) : (
+              <form className="space-y-6" onSubmit={handleInvite}>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="floating-input">
+                    <input
+                      id="officer-first-name"
+                      type="text"
+                      placeholder=" "
+                      required
+                      maxLength={50}
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                    />
+                    <label htmlFor="officer-first-name">First Name</label>
+                    <span className="material-symbols-outlined input-icon">person</span>
+                  </div>
+                  <div className="floating-input">
+                    <input
+                      id="officer-last-name"
+                      type="text"
+                      placeholder=" "
+                      required
+                      maxLength={50}
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                    />
+                    <label htmlFor="officer-last-name">Last Name</label>
+                    <span className="material-symbols-outlined input-icon">person</span>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="floating-input">
+                    <input
+                      id="officer-email"
+                      type="email"
+                      placeholder=" "
+                      required
+                      maxLength={100}
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      aria-describedby="officer-email-hint"
+                    />
+                    <label htmlFor="officer-email">Email Address</label>
+                    <span className="material-symbols-outlined input-icon">mail</span>
+                  </div>
+                  <p id="officer-email-hint" className="text-xs text-slate-500 mt-1 ml-1">
+                    The invitation and temporary password will be sent here. It&apos;s also their sign-in email.
+                  </p>
+                </div>
+
+                <div className="floating-input">
+                  <input
+                    id="officer-contact"
+                    type="tel"
+                    placeholder=" "
+                    required
+                    maxLength={20}
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                  />
+                  <label htmlFor="officer-contact">Contact Number</label>
+                  <span className="material-symbols-outlined input-icon">call</span>
+                </div>
+
+                <div className="floating-input">
+                  <input
+                    id="officer-department"
+                    type="text"
+                    placeholder=" "
+                    value={department?.name || "Loading department..."}
+                    disabled
+                  />
+                  <label htmlFor="officer-department">Assigned Department</label>
+                  <span className="material-symbols-outlined input-icon">domain</span>
+                </div>
+
+                <Button
+                  className="w-full h-12 mt-4 text-lg bg-primary hover:bg-primary-dark text-white font-bold shadow-lg transition-all"
+                  type="submit"
+                  disabled={mutation.isPending}
+                >
+                  {mutation.isPending ? "Sending Invitation…" : "Send Invitation"}
+                </Button>
+              </form>
+            )}
           </div>
-        ) : (
-          <div className="bg-white dark:bg-slate-900 rounded-md shadow-sm border border-slate-200 dark:border-slate-800 p-6 sm:p-8 animate-in fade-in duration-500">
-            <form className="space-y-6" onSubmit={handleAddOfficer}>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="floating-input">
-                  <input 
-                    id="officer-first-name" 
-                    type="text" 
-                    placeholder=" " 
-                    required 
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                  />        
-                  <label htmlFor="officer-first-name">First Name</label>
-                  <span className="material-symbols-outlined input-icon">person</span>    
-                </div>
-                <div className="floating-input">
-                  <input 
-                    id="officer-last-name" 
-                    type="text" 
-                    placeholder=" " 
-                    required 
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                  />        
-                  <label htmlFor="officer-last-name">Last Name</label>
-                  <span className="material-symbols-outlined input-icon">person</span>    
-                </div>
-              </div>
-
-              <div className="floating-input">
-                <input
-                  id="officer-email"
-                  type="email"
-                  placeholder=" "
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-                <label htmlFor="officer-email">Email Address</label>
-                <span className="material-symbols-outlined input-icon">mail</span>      
-              </div>
-
-            <div className="floating-input">
-              <input 
-                id="officer-contact" 
-                type="tel" 
-                placeholder=" " 
-                required 
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-              />        
-              <label htmlFor="officer-contact">Contact Number</label>
-              <span className="material-symbols-outlined input-icon">call</span>        
-            </div>
-
-            <div className="floating-input">
-              <input 
-                id="officer-department" 
-                type="text" 
-                placeholder=" " 
-                required 
-                value={selectedDepartmentName || "Loading department..."}
-                disabled
-              />        
-              <label htmlFor="officer-department">Assigned Department</label>
-              <span className="material-symbols-outlined input-icon">domain</span>        
-            </div>
-
-            <div className="floating-input relative">
-              <input
-                id="officer-password"
-                type={showOfficerPassword ? "text" : "password"}
-                placeholder=" "
-                required
-                minLength={8}
-                value={officerPassword}
-                onChange={(e) => setOfficerPassword(e.target.value)}
-              />
-              <label htmlFor="officer-password">Temporary Password</label>
-              <span className="material-symbols-outlined input-icon">lock</span>
-              <button
-                type="button"
-                onClick={() => setShowOfficerPassword((prev) => !prev)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                title={showOfficerPassword ? "Hide password" : "Show password"}
-                aria-label={showOfficerPassword ? "Hide password" : "Show password"}
-              >
-                {showOfficerPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-              </button>
-            </div>
-
-            <div className="pt-1">
-              <PasswordChecklist password={officerPassword} />
-            </div>
-
-            <Button 
-              className="w-full h-12 mt-4 text-lg bg-primary hover:bg-primary-dark text-white font-bold shadow-lg transition-all" 
-              type="submit"
-              disabled={mutation.isPending}
-            >
-              {mutation.isPending ? "Creating..." : "Create Officer Account"}
-            </Button>
-
-          </form>
+          <InvitationHistory className="lg:order-first min-w-0 rounded-md" />
         </div>
-        )}
-
       </div>
     </div>
   )

@@ -80,6 +80,10 @@ const codeBox = (value: string, caption: string) => `
 
 const muted = (html: string) => `<p style="margin:0 0 14px;font-size:13px;color:#64748b;">${html}</p>`;
 
+/** Closing thank-you note, in the brand green. */
+const thanks = (html: string) =>
+  `<p style="margin:20px 0 0;padding:14px 16px;background:#f0fdf4;border-left:4px solid #2ecc71;border-radius:8px;color:#14532d;">${html}</p>`;
+
 const sendSmtpEmail = async (payload: {
   to: string;
   subject: string;
@@ -275,7 +279,209 @@ export const sendClientUpdateEmail = async (
         p(copy.next) +
         codeBox(trackingId, 'Your tracking ID') +
         button(trackUrl, 'View your report') +
-        `<p style="margin:20px 0 0;padding:14px 16px;background:#f0fdf4;border-left:4px solid #2ecc71;border-radius:8px;color:#14532d;">${copy.thanks}</p>`,
+        thanks(copy.thanks),
+    }),
+  });
+};
+
+// ── Staff invitations ───────────────────────────────────────────────────────
+
+const article = (word: string) => (/^[aeiou]/i.test(word) ? 'an' : 'a');
+const firstName = (name: string) => name.trim().split(/\s+/)[0] || 'there';
+const phDate = (date: Date) =>
+  date.toLocaleDateString('en-US', { timeZone: 'Asia/Manila', month: 'long', day: 'numeric', year: 'numeric' });
+const plainText = (html: string) => html.replace(/<[^>]+>/g, '');
+
+// Admins serve a municipality ("an Admin for Cebu City"); department staff work in one
+// ("a Workforce Officer in General Maintenance, Cebu City").
+const placePreposition = (roleLabel: string) => (roleLabel === 'Admin' ? 'for' : 'in');
+
+const ROLE_BLURB: Record<string, string> = {
+  Admin:
+    "As an Admin, you'll review incoming reports for your municipality, route them to the right departments, and manage your team.",
+  'Workforce Admin':
+    "As a Workforce Admin, you'll receive the reports routed to your department and assign them to your field officers.",
+  'Workforce Officer':
+    "As a Workforce Officer, you'll receive tasks from your department, carry out the work, and upload proof photos when it's done.",
+};
+
+export const sendStaffInvitationEmail = async (
+  toEmail: string,
+  d: {
+    inviteeName: string;
+    inviterName: string;
+    roleLabel: string;
+    /** "Cebu City" for admins; "General Maintenance, Cebu City" for department staff */
+    placeName: string;
+    tempPassword: string;
+    inviteUrl: string;
+    expiresAt: Date;
+  }
+) => {
+  const name = escapeHtml(firstName(d.inviteeName));
+  const where = escapeHtml(d.placeName);
+  const asRole = `${article(d.roleLabel)} ${d.roleLabel}`;
+  const role = escapeHtml(d.roleLabel);
+  const inviter = escapeHtml(d.inviterName);
+  const expires = phDate(d.expiresAt);
+  const invitedLine = `<strong>${inviter}</strong> has invited you to become ${article(d.roleLabel)} <strong>${role}</strong> ${placePreposition(d.roleLabel)} <strong>${where}</strong> on SeeBu.`;
+
+  return sendSmtpEmail({
+    to: toEmail,
+    subject: `${d.inviterName} invited you to join SeeBu as ${asRole}`,
+    text:
+      `Hi ${firstName(d.inviteeName)},\n\n${plainText(invitedLine)} ${ROLE_BLURB[d.roleLabel] ?? ''}\n\n` +
+      `Your temporary password: ${d.tempPassword}\n\n` +
+      `To get started:\n1. Accept the invitation: ${d.inviteUrl}\n2. Sign in with ${toEmail} and the temporary password above.\n3. Choose a new password that only you know.\n\n` +
+      `This invitation expires on ${expires}. If you weren't expecting it, you can decline it from the same link.\n\n` +
+      `Thank you, and welcome to the team!\n— The SeeBu Team`,
+    html: layout({
+      preheader: `${d.inviterName} invited you to become ${asRole} ${placePreposition(d.roleLabel)} ${d.placeName}.`,
+      heading: "You're invited to join SeeBu",
+      body:
+        p(`Hi ${name},`) +
+        p(`${invitedLine} ${ROLE_BLURB[d.roleLabel] ?? ''}`) +
+        codeBox(escapeHtml(d.tempPassword), 'Your temporary password') +
+        p('<strong>To get started:</strong>') +
+        `<ol style="margin:0 0 14px;padding-left:20px;">
+          <li style="margin-bottom:6px;">Accept the invitation using the button below.</li>
+          <li style="margin-bottom:6px;">Sign in with <strong>${escapeHtml(toEmail)}</strong> and the temporary password above.</li>
+          <li>Choose a new password that only you know.</li>
+        </ol>` +
+        button(d.inviteUrl, 'View invitation') +
+        muted(`This invitation expires on ${expires}. If you weren't expecting it, you can decline it from the same page — your account won't be activated.`) +
+        thanks("Thank you for joining us in making Cebu better. We're glad to have you on the team!"),
+    }),
+  });
+};
+
+export const sendInvitationResponseEmail = async (
+  toEmail: string,
+  d: {
+    inviterName: string;
+    inviteeName: string;
+    inviteeEmail: string;
+    roleLabel: string;
+    placeName: string;
+    accepted: boolean;
+    dashboardUrl: string;
+  }
+) => {
+  const invitee = `<strong>${escapeHtml(d.inviteeName)}</strong> (${escapeHtml(d.inviteeEmail)})`;
+  const joining = `join <strong>${escapeHtml(d.placeName)}</strong> as ${article(d.roleLabel)} ${escapeHtml(d.roleLabel)}`;
+  const lines = d.accepted
+    ? [
+        `Good news — ${invitee} accepted your invitation to ${joining}.`,
+        "They'll choose their own password the first time they sign in, and then they can start working in SeeBu right away.",
+      ]
+    : [
+        `${invitee} has declined your invitation to ${joining}, so their account wasn't activated.`,
+        "If this was a mistake, or you'd like to invite someone else, you can send a new invitation from SeeBu at any time.",
+      ];
+
+  return sendSmtpEmail({
+    to: toEmail,
+    subject: `${d.inviteeName} ${d.accepted ? 'accepted' : 'declined'} your invitation to join as ${article(d.roleLabel)} ${d.roleLabel}`,
+    text: `Hi ${firstName(d.inviterName)},\n\n${lines.map(plainText).join('\n\n')}\n\nOpen SeeBu: ${d.dashboardUrl}\n\n— The SeeBu Team`,
+    html: layout({
+      preheader: plainText(lines[0]),
+      heading: d.accepted ? 'Your invitation was accepted' : 'Your invitation was declined',
+      body:
+        p(`Hi ${escapeHtml(firstName(d.inviterName))},`) +
+        lines.map(p).join('') +
+        button(d.dashboardUrl, 'Open SeeBu') +
+        thanks(d.accepted ? 'Thank you for building your team on SeeBu!' : 'Thank you for keeping your team up to date.'),
+    }),
+  });
+};
+
+/** To the invitee: their invitation was withdrawn before they answered, or their access was removed later. */
+export const sendStaffAccessEndedEmail = async (
+  toEmail: string,
+  d: { name: string; roleLabel: string; placeName: string; revoked: boolean }
+) => {
+  const asRole = `${article(d.roleLabel)} <strong>${escapeHtml(d.roleLabel)}</strong> ${placePreposition(d.roleLabel)} <strong>${escapeHtml(d.placeName)}</strong>`;
+  const lines = d.revoked
+    ? [
+        `We wanted to let you know that your access to SeeBu as ${asRole} has been removed by your team, so you can no longer sign in with <strong>${escapeHtml(toEmail)}</strong>.`,
+        'The reports and tasks you worked on stay on record, so none of your work is lost.',
+        'If you think this was a mistake, please reach out to your administrator.',
+      ]
+    : [
+        `We wanted to let you know that your invitation to join SeeBu as ${asRole} has been withdrawn, so the link and temporary password in that email no longer work.`,
+        "You don't need to do anything. If you think this was a mistake, please reach out to the person who invited you.",
+      ];
+  const thanksLine = d.revoked
+    ? "Thank you for everything you've done to help make Cebu better. We're grateful for your service!"
+    : 'Thank you for your interest in SeeBu, and we apologize for any confusion.';
+
+  return sendSmtpEmail({
+    to: toEmail,
+    subject: d.revoked ? 'Your SeeBu access has been removed' : 'Your SeeBu invitation was withdrawn',
+    text: `Hi ${firstName(d.name)},\n\n${lines.map(plainText).join('\n\n')}\n\n${thanksLine}\n— The SeeBu Team`,
+    html: layout({
+      preheader: plainText(lines[0]),
+      heading: d.revoked ? 'Your SeeBu access was removed' : 'Your invitation was withdrawn',
+      body: p(`Hi ${escapeHtml(firstName(d.name))},`) + lines.map(p).join('') + thanks(thanksLine),
+    }),
+  });
+};
+
+/** To someone whose revoked access was given back: a fresh temporary password, as for a new invitee. */
+export const sendStaffAccessRestoredEmail = async (
+  toEmail: string,
+  d: { name: string; roleLabel: string; placeName: string; tempPassword: string; loginUrl: string }
+) => {
+  const asRoleHtml = `${article(d.roleLabel)} <strong>${escapeHtml(d.roleLabel)}</strong> ${placePreposition(d.roleLabel)} <strong>${escapeHtml(d.placeName)}</strong>`;
+  const restoredLine = `Good news — your access to SeeBu as ${asRoleHtml} has been restored by your team.`;
+
+  return sendSmtpEmail({
+    to: toEmail,
+    subject: 'Your SeeBu access has been restored',
+    text:
+      `Hi ${firstName(d.name)},\n\n${plainText(restoredLine)}\n\n` +
+      `Your temporary password: ${d.tempPassword}\n\n` +
+      `Sign in with ${toEmail} and the temporary password above, then choose a new password that only you know: ${d.loginUrl}\n\n` +
+      `For your security, your previous password no longer works.\n\n` +
+      `Welcome back, and thank you for continuing to help make Cebu better!\n— The SeeBu Team`,
+    html: layout({
+      preheader: plainText(restoredLine),
+      heading: 'Welcome back to SeeBu',
+      body:
+        p(`Hi ${escapeHtml(firstName(d.name))},`) +
+        p(restoredLine) +
+        codeBox(escapeHtml(d.tempPassword), 'Your temporary password') +
+        p(`Sign in with <strong>${escapeHtml(toEmail)}</strong> and the temporary password above. You'll be asked to choose a new password that only you know.`) +
+        button(d.loginUrl, 'Sign in to SeeBu') +
+        muted('For your security, your previous password no longer works.') +
+        thanks('Welcome back, and thank you for continuing to help make Cebu better!'),
+    }),
+  });
+};
+
+export const sendPasswordChangedEmail = async (
+  toEmail: string,
+  d: { name: string; roleLabel: string; dashboardUrl: string; changedAt: Date }
+) => {
+  const when = `${d.changedAt.toLocaleString('en-US', { timeZone: 'Asia/Manila', dateStyle: 'long', timeStyle: 'short' })} (Philippine time)`;
+  return sendSmtpEmail({
+    to: toEmail,
+    subject: 'Your SeeBu password was changed',
+    text:
+      `Hi ${firstName(d.name)},\n\nThe password for your SeeBu account (${toEmail}) was changed on ${when}. ` +
+      `Your account is all set — you can now use your ${d.roleLabel} dashboard: ${d.dashboardUrl}\n\n` +
+      `If you didn't make this change, please reset your password right away with "Forgot password?" on the login page, and let your administrator know.\n\n` +
+      `Thank you for helping keep SeeBu secure!\n— The SeeBu Team`,
+    html: layout({
+      preheader: 'Your account is all set — you can now use your dashboard.',
+      heading: 'Your password was changed',
+      body:
+        p(`Hi ${escapeHtml(firstName(d.name))},`) +
+        p(`This confirms that the password for your SeeBu account (<strong>${escapeHtml(toEmail)}</strong>) was changed on ${when}.`) +
+        p(`Your account is all set — you can now use your ${escapeHtml(d.roleLabel)} dashboard.`) +
+        button(d.dashboardUrl, 'Go to your dashboard') +
+        muted(`If you didn't make this change, please reset your password right away with “Forgot password?” on the login page, and let your administrator know.`) +
+        thanks('Thank you for helping keep SeeBu secure!'),
     }),
   });
 };

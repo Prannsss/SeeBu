@@ -212,6 +212,58 @@
   background: #1f2937;
 }
 
+/* <select> in a floating field: same box as the inputs; the label stays floated because a
+   select always shows a value. Pair with .report-select for the chevron. */
+.floating-input select {
+  width: 100%;
+  padding: 0.875rem 2.5rem 0.875rem 2.75rem;
+  border: 2px solid #8193a8;
+  border-radius: 1rem;
+  font-size: 0.9375rem;
+  transition: all 0.3s ease;
+  background-color: white;
+  appearance: none;
+}
+
+@media (min-width: 640px) {
+  .floating-input select {
+    padding: 1rem 2.5rem 1rem 3rem;
+    font-size: 1rem;
+  }
+}
+
+.dark .floating-input select {
+  background-color: #1f2937;
+  border-color: #374151;
+  color: white;
+}
+
+.floating-input select:focus {
+  outline: none;
+  border-color: #13b6ec;
+  box-shadow: 0 0 0 3px rgba(19, 182, 236, 0.2);
+}
+
+.floating-input select + label {
+  top: 0;
+  left: 2.25rem;
+  font-size: 0.6875rem;
+  color: #13b6ec;
+  font-weight: 600;
+  background: white;
+}
+
+@media (min-width: 640px) {
+  .floating-input select + label {
+    left: 2.5rem;
+    font-size: 0.75rem;
+  }
+}
+
+.dark .floating-input select + label {
+  background: #1f2937;
+}
+
 .floating-input .input-icon {
   position: absolute;
   left: 0.75rem;

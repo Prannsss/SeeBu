@@ -118,9 +118,9 @@ export default function AdminReportsPage() {
 
   const departments = Array.isArray(departmentsData) ? departmentsData : [];
   const selectedDepartment = departments.find((department: any) => String(department.id) === delegateDepartmentId);
-  const selectedDepartmentPersonnel = Array.isArray(selectedDepartment?.personnel)
-    ? selectedDepartment.personnel
-    : [];
+  // Only active staff can take work; invited, still-setting-up and revoked accounts can't (the backend agrees).
+  const selectedDepartmentPersonnel = (Array.isArray(selectedDepartment?.personnel) ? selectedDepartment.personnel : [])
+    .filter((person: any) => String(person.status || '').toLowerCase() === 'active');
 
   const parseAssigneeValue = (value: string) => {
     const [role, id] = value.split(':');

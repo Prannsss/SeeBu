@@ -80,43 +80,43 @@ export const taskController = {
         return res.status(400).json({ error: `Status must be one of: ${allowedStatuses.join(', ')}` });
       }
 
+      // One read of the task decides scope for every role.
+      const { data: current, error: currentError } = await supabase
+        .from('tasks')
+        .select('status, assigned_to, related_report:reports(delegated_to, municipality_id)')
+        .eq('id', id)
+        .maybeSingle();
+      if (currentError) throw currentError;
+      if (!current) {
+        return res.status(404).json({ error: 'Task not found' });
+      }
+      const report = (current as any).related_report;
+
       // Workforce admins may only manage tasks delegated to their own department.
       if (req.user?.role === 'workforce-admin') {
-        const { data: scopedTask, error: scopedTaskError } = await supabase
-          .from('tasks')
-          .select('related_report:reports(delegated_to)')
-          .eq('id', id)
-          .maybeSingle();
-
-        if (scopedTaskError) throw scopedTaskError;
-        if (!scopedTask) {
-          return res.status(404).json({ error: 'Task not found' });
-        }
-        const taskDepartment = (scopedTask as any).related_report?.delegated_to;
-        if (!req.user.department_id || Number(taskDepartment) !== Number(req.user.department_id)) {
+        if (!req.user.department_id || Number(report?.delegated_to) !== Number(req.user.department_id)) {
           return res.status(403).json({ error: 'You can only manage tasks delegated to your department' });
         }
       }
-
+      // Admins only their own municipality's, as on GET.
+      if (req.user?.role === 'admin' && (!req.user.municipality_id || report?.municipality_id !== req.user.municipality_id)) {
+        return res.status(403).json({ error: 'You can only manage tasks in your municipality' });
+      }
       // Officers may only update their own tasks and cannot reassign them.
       if (req.user?.role === 'workforce') {
-        const { data: ownTask, error: ownTaskError } = await supabase
-          .from('tasks')
-          .select('assigned_to')
-          .eq('id', id)
-          .maybeSingle();
-
-        if (ownTaskError) throw ownTaskError;
-        if (!ownTask) {
-          return res.status(404).json({ error: 'Task not found' });
-        }
-        if (ownTask.assigned_to !== req.user.id) {
+        if (current.assigned_to !== req.user.id) {
           return res.status(403).json({ error: 'You can only update tasks assigned to you' });
         }
         if (assigned_to !== undefined) {
           return res.status(403).json({ error: 'Workforce officers cannot reassign tasks' });
         }
       }
+      // A completed task is final: reopening or reassigning it would orphan the proof on record.
+      if (current.status === 'Completed') {
+        return res.status(409).json({ error: 'This task is already completed.' });
+      }
+      // Handing a task someone already holds to another officer (not the first delegation).
+      const reassigned = Boolean(assigned_to && current.assigned_to && current.assigned_to !== assigned_to);
 
       if (assigned_to) {
         const { data: officer, error: officerError } = await supabase
@@ -165,7 +165,9 @@ export const taskController = {
         await supabase.from('task_timeline').insert([{
           task_id: id,
           status: status || data?.status || 'Updated',
-          notes: status ? `Task status changed to ${status}.` : 'Task assignment updated.',
+          notes: reassigned
+            ? `Task reassigned to ${assignedOfficerName || 'another officer'}.`
+            : status ? `Task status changed to ${status}.` : 'Task assignment updated.',
           created_by: req.user?.id
         }]);
       }
@@ -223,7 +225,7 @@ export const taskController = {
           }
         }
         if (status === 'Assigned') {
-          reportTimelineNotes = `Task assigned to ${assignedOfficerName || 'a workforce officer'}${departmentName ? ` (${departmentName})` : ''}.`;
+          reportTimelineNotes = `Task ${reassigned ? 'reassigned' : 'assigned'} to ${assignedOfficerName || 'a workforce officer'}${departmentName ? ` (${departmentName})` : ''}.`;
         }
         if (status === 'Pending') {
           reportTimelineNotes = `Task pending acceptance${departmentName ? ` by ${departmentName}` : ''}.`;

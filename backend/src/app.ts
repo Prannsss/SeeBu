@@ -11,6 +11,7 @@ import analyticsRoutes from './routes/analyticsRoutes';
 import userRoutes from './routes/userRoutes';
 import taskRoutes from './routes/taskRoutes';
 import departmentRoutes from './routes/departmentRoutes';
+import invitationRoutes from './routes/invitationRoutes';
 
 // Load variables (resolve from this file, not cwd, so it works regardless of launch directory)
 dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
@@ -88,6 +89,7 @@ app.use('/api/v1/analytics', analyticsRoutes);
 app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/tasks', taskRoutes);
 app.use('/api/v1/departments', departmentRoutes);
+app.use('/api/v1/invitations', invitationRoutes);
 
 // API health check
 app.get('/api/v1/health', (req, res) => {

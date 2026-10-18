@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { authController } from '../controllers/authController';
-import { withAuth } from '../middlewares/withAuth';
+import { withAuth, withAuthDuringSetup } from '../middlewares/withAuth';
 import { requireRole } from '../middlewares/requireRole';
 import { authLimiter, otpLimiter } from '../middlewares/rateLimiter';
 
@@ -18,6 +18,9 @@ router.post('/resend-verification', authLimiter, authController.resendVerificati
 // OAuth callbacks with rate limiting
 router.post('/google', authLimiter, authController.googleOAuthCallback);
 router.post('/facebook', authLimiter, authController.facebookOAuthCallback);
+
+// Invited staff choose their own password once, right after accepting and signing in
+router.post('/change-password', authLimiter, withAuthDuringSetup, authController.changePassword);
 
 // Protected provisioning (requires auth + elevated role)
 router.post('/provision', withAuth, requireRole(['superadmin', 'admin', 'workforce-admin']), authController.provision);

@@ -157,6 +157,54 @@ function buildQuery(params: Record<string, string | undefined>): string {
 
 export type AnalyticsRange = { from: string | null; to: string | null };
 
+export type InviteRole = "admin" | "workforce-admin" | "workforce";
+
+export type InvitationRequest = {
+  role: InviteRole;
+  full_name: string;
+  email: string;
+  contact_number?: string;
+  /** Workforce admins only: an existing department, or `new_department_name` to create one.
+   *  Co-admins share the inviter's municipality; officers join the inviter's department. */
+  department_id?: string | number;
+  new_department_name?: string;
+};
+
+export type InvitationDetails = {
+  status: "pending" | "accepted" | "declined" | "cancelled" | "replaced" | "revoked" | "expired";
+  role: InviteRole;
+  roleLabel: string;
+  inviteeName: string;
+  email: string;
+  inviterName: string;
+  /** "Cebu City" for admins; "General Maintenance, Cebu City" for department staff */
+  placeName: string;
+  expiresAt: string;
+};
+
+/** One row of a team's invitation history (admins: their municipality; workforce admins: their department). */
+export type TeamInvitation = {
+  id: string;
+  role: InviteRole;
+  roleLabel: string;
+  name: string;
+  email: string;
+  department: string | null;
+  state: "pending" | "expired" | "accepted" | "declined" | "cancelled" | "replaced" | "revoked";
+  /** Accepted only: "Pending Setup" until they choose their own password, then "Active". */
+  accountStatus: string | null;
+  invitedBy: string | null;
+  invitedByYou: boolean;
+  /** Only the sender may cancel / revoke / restore — or anyone on the team once the sender has left. */
+  canManage: boolean;
+  /** The viewer's own invitation (they can't revoke themselves). */
+  isYou: boolean;
+  createdAt: string;
+  expiresAt: string;
+  /** When the state last changed (answered, cancelled, replaced or revoked). */
+  respondedAt: string | null;
+};
+
 function analyticsParams(barangayId?: string, range?: AnalyticsRange): URLSearchParams {
   return new URLSearchParams(buildQuery({
     barangay_id: barangayId && barangayId !== 'all' ? barangayId : undefined,
@@ -189,6 +237,26 @@ function buildApiObject(fetcher: ApiFetcher) {
         fetcher("/api/v1/auth/verify-reset-code", { method: "POST", body: JSON.stringify({ email, code }), requireAuth: false }),
       resetPassword: (email: string, code: string, new_password: string) =>
         fetcher("/api/v1/auth/reset-password", { method: "POST", body: JSON.stringify({ email, code, new_password }), requireAuth: false }),
+      // Invited staff, once, right after their first sign-in
+      changePassword: (new_password: string) =>
+        fetcher<{ data: { role: string; home: string } }>("/api/v1/auth/change-password", { method: "POST", body: JSON.stringify({ new_password }) }),
+    },
+
+    // Staff invitations (co-admins, workforce admins and officers)
+    invitations: {
+      list: () => fetcher<{ data: TeamInvitation[] }>("/api/v1/invitations"),
+      create: (data: InvitationRequest) =>
+        fetcher("/api/v1/invitations", { method: "POST", body: JSON.stringify(data) }),
+      cancel: (id: string) => fetcher(`/api/v1/invitations/${encodeURIComponent(id)}/cancel`, { method: "POST" }),
+      revoke: (id: string) => fetcher(`/api/v1/invitations/${encodeURIComponent(id)}/revoke`, { method: "POST" }),
+      restore: (id: string) => fetcher(`/api/v1/invitations/${encodeURIComponent(id)}/restore`, { method: "POST" }),
+      // The token in the emailed link is the credential, so these don't need a session.
+      get: (token: string) =>
+        fetcher<{ data: InvitationDetails }>(`/api/v1/invitations/${encodeURIComponent(token)}`, { requireAuth: false }),
+      accept: (token: string) =>
+        fetcher<{ data: { email: string } }>(`/api/v1/invitations/${encodeURIComponent(token)}/accept`, { method: "POST", requireAuth: false }),
+      decline: (token: string) =>
+        fetcher(`/api/v1/invitations/${encodeURIComponent(token)}/decline`, { method: "POST", requireAuth: false }),
     },
 
     // Users

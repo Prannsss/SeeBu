@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import BackButton from "@/components/navigation/back-button";
 import Link from "next/link";
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { gooeyToast } from "goey-toast";
 import { GoogleLogin, CredentialResponse } from "@react-oauth/google";
@@ -26,11 +26,18 @@ export default function LoginPage() {
     await fetch('/api/session', { method: 'DELETE' }).catch(() => {});
   };
 
-  const establishSession = async (token: string, role: string) => {
+  // The invitation page links here with ?email= so invited staff don't retype it.
+  useEffect(() => {
+    const email = new URLSearchParams(window.location.search).get('email');
+    const input = document.getElementById('email') as HTMLInputElement | null;
+    if (email && input && !input.value) input.value = email;
+  }, []);
+
+  const establishSession = async (token: string, role: string, needsSetup = false) => {
     const res = await fetch('/api/session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, role }),
+      body: JSON.stringify({ token, role, needsSetup }),
     });
     if (!res.ok) throw new Error('Failed to establish session');
   };
@@ -125,8 +132,17 @@ export default function LoginPage() {
       // Drop any previous user's persisted cache so it can never hydrate.
       await clearClientCaches(queryClient);
       await clearSession();
-      await establishSession(data.token, data.user.role);
+      await establishSession(data.token, data.user.role, data.user.must_change_password === true);
       localStorage.setItem('user-profile', JSON.stringify(data.user));
+
+      // Invited staff choose their own password before anything else.
+      if (data.user.must_change_password) {
+        gooeyToast.success("Welcome to SeeBu!", {
+          description: "Please choose your own password to finish setting up your account.",
+        });
+        window.location.href = '/auth/change-password';
+        return;
+      }
 
       // Determine redirect path based on role
       let redirectPath = '/client';

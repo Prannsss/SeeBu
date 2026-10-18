@@ -1,13 +1,14 @@
 import { Request, Response } from 'express';
 import { supabase } from '../config/db';
 import { serverErrorMessage } from '../utils/errorResponse';
-import { sendWelcomeEmail, sendVerificationEmail, sendPasswordResetEmail } from '../utils/emailService';
+import { sendWelcomeEmail, sendVerificationEmail, sendPasswordResetEmail, sendPasswordChangedEmail } from '../utils/emailService';
+import { HOME_PATH, ROLE_LABEL, passwordProblems } from '../utils/staffInvites';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { OAuth2Client } from 'google-auth-library';
 import { findAccountsByEmail, emailExists } from '../utils/accounts';
-import { cacheDelPrefix } from '../utils/cache';
+import { authStatusKey, cacheDel, cacheDelPrefix } from '../utils/cache';
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID as string;
@@ -311,17 +312,75 @@ export const authController = {
         return res.status(401).json({ error: 'Invalid email or password' });
       }
 
-      if (user.status && user.status !== 'Active') {
+      if (user.status === 'Invited') {
+        return res.status(403).json({
+          error: 'Please accept your invitation first: open the invitation email we sent you and choose "View invitation".',
+        });
+      }
+      // 'Pending Setup' = accepted an invitation; may sign in, but only to choose a new password.
+      if (user.status && user.status !== 'Active' && user.status !== 'Pending Setup') {
         return res.status(403).json({ error: 'Your account is not active. Please contact your administrator.' });
       }
 
       const { password_hash, ...safeUser } = user;
       safeUser.role = userRole;
+      safeUser.must_change_password = user.status === 'Pending Setup';
 
       const token = jwt.sign({ id: user.id, role: userRole }, JWT_SECRET, { expiresIn: '7d' });
       return res.status(200).json({ message: 'Login successful', token, user: safeUser });
     } catch (err: any) {
       console.error('[login]', err);
+      return res.status(500).json({ error: serverErrorMessage(err) });
+    }
+  },
+
+  // ── Change Password (invited staff, once, right after their first sign-in) ──
+  async changePassword(req: Request, res: Response) {
+    try {
+      const { new_password } = req.body;
+      const problems = passwordProblems(new_password);
+      if (problems.length) {
+        return res.status(400).json({ error: `Your password needs ${problems.join(', ')}.` });
+      }
+
+      const role: string = req.user.role;
+      const table = ({ admin: 'admins', superadmin: 'superadmins', 'workforce-admin': 'workforce_admins', workforce: 'workforce_officers', client: 'clients' } as Record<string, string>)[role];
+      const { data: account, error: lookupError } = await supabase
+        .from(table)
+        .select('id, email, full_name, status, password_hash')
+        .eq('id', req.user.id)
+        .maybeSingle();
+      if (lookupError) throw lookupError;
+      if (!account) return res.status(404).json({ error: 'Account not found.' });
+      if (account.status !== 'Pending Setup') {
+        return res.status(409).json({ error: 'Your password is already set. Use "Forgot password?" on the login page to change it.' });
+      }
+      if (await bcrypt.compare(new_password, account.password_hash)) {
+        return res.status(400).json({ error: 'Please choose a password different from your temporary password.' });
+      }
+
+      const { data: updated, error: updateError } = await supabase
+        .from(table)
+        .update({ password_hash: await bcrypt.hash(new_password, 10), status: 'Active' })
+        .eq('id', account.id)
+        .eq('status', 'Pending Setup')
+        .select('id');
+      if (updateError) throw updateError;
+      if (!updated?.length) return res.status(409).json({ error: 'Your password is already set.' });
+
+      await cacheDel(authStatusKey(role, account.id));
+      await cacheDelPrefix('users:', 'departments:');
+
+      sendPasswordChangedEmail(account.email, {
+        name: account.full_name || 'there',
+        roleLabel: ROLE_LABEL[role] || 'SeeBu',
+        dashboardUrl: `${process.env.FRONTEND_URL || 'https://seebu.prannsss.dev'}${HOME_PATH[role] || ''}`,
+        changedAt: new Date(),
+      }).catch((e) => console.error('[changePassword] confirmation email failed:', e));
+
+      return res.status(200).json({ message: 'Password updated.', data: { role, home: HOME_PATH[role] || '/' } });
+    } catch (err: any) {
+      console.error('[changePassword]', err);
       return res.status(500).json({ error: serverErrorMessage(err) });
     }
   },

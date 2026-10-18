@@ -24,6 +24,10 @@ export function dateToDay(date: Date): string {
 }
 
 const dayLabel = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" })
+const phDateLabel = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Manila", month: "short", day: "numeric", year: "numeric" })
+
+/** "Oct 18, 2026" for a timestamp, as the day it was in the Philippines. */
+export const formatPhDate = (date: Date | string) => phDateLabel.format(new Date(date))
 
 /** "Oct 18, 2026" or "Oct 1 – 18, 2026" / "Sep 28 – Oct 18, 2026". */
 export function formatDayRange(from: string, to: string): string {
