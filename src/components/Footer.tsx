@@ -1,5 +1,6 @@
 ﻿import Link from "next/link";
 import Image from 'next/image';
+import { InstallAppLink } from "@/components/InstallAppLink";
 
 export function Footer() {
   return (
@@ -21,27 +22,22 @@ export function Footer() {
               Bridging the gap between the government and the people of Cebu City through technology.
             </p>
             <div className="flex gap-4 justify-center md:justify-start">
-              <Link className="text-slate-600 hover:text-primary transition-colors" href="#" aria-label="Website"><span className="material-symbols-outlined" aria-hidden="true">public</span></Link>
-              <Link className="text-slate-600 hover:text-primary transition-colors" href="#" aria-label="Email"><span className="material-symbols-outlined" aria-hidden="true">mail</span></Link>
-              <Link className="text-slate-600 hover:text-primary transition-colors" href="#" aria-label="Phone"><span className="material-symbols-outlined" aria-hidden="true">call</span></Link>
+              <a className="text-slate-600 hover:text-primary transition-colors" href="mailto:vfrancelaurence@gmail.com" aria-label="Email us at vfrancelaurence@gmail.com"><span className="material-symbols-outlined" aria-hidden="true">mail</span></a>
             </div>
           </div>
           <div className="flex flex-col items-center md:items-start">
             <h4 className="font-bold text-text-main dark:text-white mb-4">Platform</h4>
             <ul className="space-y-3 text-sm text-text-muted dark:text-gray-400 flex flex-col items-center md:items-start">
-              <li><Link className="hover:text-primary transition-colors" href="#">About Us</Link></li>
-              <li><Link className="hover:text-primary transition-colors" href="#">Services</Link></li>
-              <li><Link className="hover:text-primary transition-colors" href="#">Download App</Link></li>
-              <li><Link className="hover:text-primary transition-colors" href="#">For Government</Link></li>
+              <li><Link className="hover:text-primary transition-colors" href="/about">About Us</Link></li>
+              <li><Link className="hover:text-primary transition-colors" href="/services">Services</Link></li>
+              <InstallAppLink className="hover:text-primary transition-colors" />
             </ul>
           </div>
           <div className="flex flex-col items-center md:items-start">
             <h4 className="font-bold text-text-main dark:text-white mb-4">Support</h4>
             <ul className="space-y-3 text-sm text-text-muted dark:text-gray-400 flex flex-col items-center md:items-start">
-              <li><Link className="hover:text-primary transition-colors" href="#">Help Center</Link></li>
-              <li><Link className="hover:text-primary transition-colors" href="/client/report">Report an Issue</Link></li>
-              <li><Link className="hover:text-primary transition-colors" href="#">Contact Support</Link></li>
-              <li><Link className="hover:text-primary transition-colors" href="#">FAQs</Link></li>
+              <li><a className="hover:text-primary transition-colors" href="https://github.com/Prannsss/SeeBu/issues/new" target="_blank" rel="noopener noreferrer">Report an Issue</a></li>
+              <li><Link className="hover:text-primary transition-colors" href="/faq">FAQs</Link></li>
             </ul>
           </div>
           <div className="col-span-2 md:col-span-1 flex flex-col items-center md:items-start text-center md:text-left">
@@ -49,7 +45,6 @@ export function Footer() {
             <ul className="space-y-3 text-sm text-text-muted dark:text-gray-400 flex flex-col items-center md:items-start">
               <li><Link className="hover:text-primary transition-colors" href="/privacy">Privacy Policy</Link></li>
               <li><Link className="hover:text-primary transition-colors" href="/terms">Terms of Service</Link></li>
-              <li><Link className="hover:text-primary transition-colors" href="#">Cookie Policy</Link></li>
             </ul>
           </div>
         </div>

@@ -144,7 +144,7 @@ export default function PrivacyPolicyPage() {
         the right to access, correct, or request deletion of your personal information, object to
         or restrict certain processing, and withdraw consent where processing is based on consent.
         To exercise these rights, contact us at{" "}
-        <a href="mailto:privacy@seebu.app">privacy@seebu.app</a>. We may need to verify your
+        <a href="mailto:vfrancelaurence@gmail.com">vfrancelaurence@gmail.com</a>. We may need to verify your
         identity before fulfilling your request.
       </p>
 
@@ -173,7 +173,7 @@ export default function PrivacyPolicyPage() {
       <h2 id="contact">13. Contact Us</h2>
       <p>
         If you have questions about this Privacy Policy or our data practices, please contact us at{" "}
-        <a href="mailto:privacy@seebu.app">privacy@seebu.app</a>.
+        <a href="mailto:vfrancelaurence@gmail.com">vfrancelaurence@gmail.com</a>.
       </p>
     </LegalLayout>
   );

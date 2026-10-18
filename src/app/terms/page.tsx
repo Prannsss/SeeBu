@@ -53,7 +53,7 @@ export default function TermsOfServicePage() {
       <ul>
         <li>Maintaining the confidentiality of your password and account credentials;</li>
         <li>All activity that occurs under your account, whether authorized by you or not; and</li>
-        <li>Notifying us promptly at <a href="mailto:support@seebu.app">support@seebu.app</a> if you suspect unauthorized use of your account.</li>
+        <li>Notifying us promptly at <a href="mailto:vfrancelaurence@gmail.com">vfrancelaurence@gmail.com</a> if you suspect unauthorized use of your account.</li>
       </ul>
       <p>
         SeeBu supports sign-up and sign-in via email/password as well as third-party providers
@@ -181,7 +181,7 @@ export default function TermsOfServicePage() {
       <h2 id="contact">14. Contact Us</h2>
       <p>
         If you have questions about these Terms, please contact us at{" "}
-        <a href="mailto:support@seebu.app">support@seebu.app</a>.
+        <a href="mailto:vfrancelaurence@gmail.com">vfrancelaurence@gmail.com</a>.
       </p>
     </LegalLayout>
   );
