@@ -767,7 +767,12 @@ export const authController = {
       }
 
       const verificationCode = await issueVerificationToken(email, 'email_verify');
-      await sendVerificationEmail(email, user.full_name || 'SeeBu User', verificationCode);
+      try {
+        await sendVerificationEmail(email, user.full_name || 'SeeBu User', verificationCode);
+      } catch (mailErr) {
+        console.error('[resendVerification] email send failed:', mailErr);
+        return res.status(502).json({ error: "We couldn't send the verification email right now. Please try again in a few minutes." });
+      }
 
       return res.status(200).json({ message: 'Verification code sent to your email' });
     } catch (err: any) {
