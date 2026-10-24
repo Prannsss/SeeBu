@@ -13,12 +13,18 @@ export default function VerifyPage() {
   const [code, setCode] = useState("");
   const [email, setEmail] = useState("");
   const [isResending, setIsResending] = useState(false);
+  // Only set while EXPOSE_VERIFICATION_CODE is enabled on the backend
+  const [exposedCode, setExposedCode] = useState("");
 
   useEffect(() => {
     // Get email from session storage
     const storedEmail = sessionStorage.getItem('verification_email');
     if (storedEmail) {
       setEmail(storedEmail);
+    }
+    const storedCode = sessionStorage.getItem('verification_code');
+    if (storedCode) {
+      setExposedCode(storedCode);
     }
   }, []);
 
@@ -88,6 +94,11 @@ export default function VerifyPage() {
       
       if (!res.ok) {
         throw new Error(data.error || 'Failed to resend code');
+      }
+
+      if (data.verification_code) {
+        sessionStorage.setItem('verification_code', data.verification_code);
+        setExposedCode(data.verification_code);
       }
 
       gooeyToast.success("Code Sent!", {
@@ -167,6 +178,12 @@ export default function VerifyPage() {
 
           <div>
             <form className="space-y-5 sm:space-y-6" onSubmit={handleVerify}>
+              {exposedCode && (
+                <div className="rounded-lg border border-yellow-300 bg-yellow-50 dark:border-yellow-700 dark:bg-yellow-950/40 px-4 py-3 text-center text-sm text-yellow-900 dark:text-yellow-200">
+                  Your Verification code: <strong className="font-mono text-base tracking-widest">{exposedCode}</strong>
+                </div>
+              )}
+
               {/* Verification Code Input */}
               <div className="floating-input">
                 <input 

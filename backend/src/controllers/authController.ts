@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { supabase } from '../config/db';
 import { serverErrorMessage } from '../utils/errorResponse';
+import { EXPOSE_VERIFICATION_CODE } from '../config/devFlags';
 import { sendWelcomeEmail, sendVerificationEmail, sendPasswordResetEmail, sendPasswordChangedEmail } from '../utils/emailService';
 import { HOME_PATH, ROLE_LABEL, passwordProblems } from '../utils/staffInvites';
 import bcrypt from 'bcryptjs';
@@ -116,8 +117,9 @@ export const authController = {
       // The account already exists past this point, so email failures must not 500 —
       // otherwise the retry hits 409. The user can use /resend-verification instead.
       let emailSent = false;
+      let verificationCode: string | undefined;
       try {
-        const verificationCode = await issueVerificationToken(email, 'email_verify');
+        verificationCode = await issueVerificationToken(email, 'email_verify');
         await sendVerificationEmail(email, full_name, verificationCode);
         emailSent = true;
       } catch (mailErr) {
@@ -132,6 +134,7 @@ export const authController = {
           email: data.email,
           email_verified: false,
           email_sent: emailSent,
+          ...(EXPOSE_VERIFICATION_CODE && verificationCode ? { verification_code: verificationCode } : {}),
         },
       });
     } catch (err: any) {
@@ -829,7 +832,10 @@ export const authController = {
         return res.status(502).json({ error: "We couldn't send the verification email right now. Please try again in a few minutes." });
       }
 
-      return res.status(200).json({ message: 'Verification code sent to your email' });
+      return res.status(200).json({
+        message: 'Verification code sent to your email',
+        ...(EXPOSE_VERIFICATION_CODE ? { verification_code: verificationCode } : {}),
+      });
     } catch (err: any) {
       console.error('[resendVerification]', err);
       return res.status(500).json({ error: serverErrorMessage(err) });

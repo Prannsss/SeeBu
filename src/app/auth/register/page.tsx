@@ -146,7 +146,12 @@ export default function RegisterPage() {
 
       // Success - store user info for verification
       sessionStorage.setItem('verification_email', email);
-      sessionStorage.setItem('verification_code', data.data?.id || ''); // Using id as placeholder, actual code sent via email
+      // Only present while EXPOSE_VERIFICATION_CODE is enabled on the backend
+      if (data.data?.verification_code) {
+        sessionStorage.setItem('verification_code', data.data.verification_code);
+      } else {
+        sessionStorage.removeItem('verification_code');
+      }
       gooeyToast.success("Account Created!", {
         description: data.data?.email_sent === false
           ? "We couldn't send the verification email. Use \"Resend verification code\" on the next page."
