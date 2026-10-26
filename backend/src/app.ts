@@ -12,6 +12,7 @@ import userRoutes from './routes/userRoutes';
 import taskRoutes from './routes/taskRoutes';
 import departmentRoutes from './routes/departmentRoutes';
 import invitationRoutes from './routes/invitationRoutes';
+import { migrateInlinePhotos } from './utils/migrateInlinePhotos';
 
 // Load variables (resolve from this file, not cwd, so it works regardless of launch directory)
 dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
@@ -111,6 +112,8 @@ app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
+  // One-time data fix; runs in the background so it never delays startup.
+  migrateInlinePhotos().catch((err) => console.error('[migrateInlinePhotos] aborted:', err?.message || err));
 });
 
 // Render's free tier sleeps after 15 min without inbound traffic. Hitting our own public URL
