@@ -13,6 +13,7 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tansta
 import { ReportMediaGallery } from "@/components/reports/report-media-gallery"
 import { ListSkeleton } from "@/components/ui/list-skeleton"
 import { PaginationBar } from "@/components/ui/pagination-bar"
+import { IdPill } from "@/components/ui/id-pill"
 import { StickyTabsBar, scrollToStickyTabs } from "@/components/ui/sticky-tabs-bar"
 import { useCurrentUser } from "@/hooks/queries/useCurrentUser"
 import { useRealtimeReports } from "@/hooks/useRealtimeReports"
@@ -372,9 +373,7 @@ export default function WorkforceAdminTasksPage() {
               {/* Compact Report Summary Banner */}
               <div className="rounded-md bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 p-3.5">
                 <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                  <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
-                    {selectedTask.id}
-                  </span>
+                  <IdPill id={selectedTask.id} label="task ID" />
                   {selectedTask.related_report?.urgency && (
                     <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border capitalize ${urgencyBadgeClass(selectedTask.related_report.urgency)}`}>
                       {selectedTask.related_report.urgency} Urgency

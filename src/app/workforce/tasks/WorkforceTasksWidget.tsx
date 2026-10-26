@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ListSkeleton } from "@/components/ui/list-skeleton";
+import { IdPill } from "@/components/ui/id-pill";
 import { StickyTabsBar, scrollToStickyTabs } from "@/components/ui/sticky-tabs-bar";
 import { gooeyToast } from "goey-toast";
 import { useQueryClient } from "@tanstack/react-query";
@@ -322,9 +323,7 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
               <div className="py-2">
                 <div className="rounded-md bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 p-3.5">
                   <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                    <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
-                      {confirmAcceptTask.id}
-                    </span>
+                    <IdPill id={confirmAcceptTask.id} label="task ID" />
                     {(confirmAcceptTask.related_report?.urgency || confirmAcceptTask.priority) && (
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border capitalize ${urgencyBadgeClass(confirmAcceptTask.related_report?.urgency || confirmAcceptTask.priority)}`}>
                         {confirmAcceptTask.related_report?.urgency || confirmAcceptTask.priority} Priority

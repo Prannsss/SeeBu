@@ -28,6 +28,7 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tansta
 import { ReportMediaGallery } from "@/components/reports/report-media-gallery"
 import { ListSkeleton } from "@/components/ui/list-skeleton"
 import { PaginationBar } from "@/components/ui/pagination-bar"
+import { IdPill } from "@/components/ui/id-pill"
 import { StickyTabsBar, scrollToStickyTabs } from "@/components/ui/sticky-tabs-bar"
 import { useCurrentUser } from "@/hooks/queries/useCurrentUser"
 import { useRealtimeReports } from "@/hooks/useRealtimeReports"
@@ -598,9 +599,7 @@ export default function AdminReportsPage() {
                             {/* Compact Report Summary Banner */}
                             <div className="rounded-md bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 p-3.5">
                               <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                                <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
-                                  {item.id}
-                                </span>
+                                <IdPill id={item.id} />
                                 <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border capitalize ${urgencyBadgeClass(item.urgency)}`}>
                                   {item.urgency || 'Low'} Urgency
                                 </span>
@@ -646,9 +645,7 @@ export default function AdminReportsPage() {
                             {/* Compact Report Summary Banner */}
                             <div className="rounded-md bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 p-3.5">
                               <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                                <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
-                                  {item.id}
-                                </span>
+                                <IdPill id={item.id} />
                                 <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border capitalize ${urgencyBadgeClass(item.urgency)}`}>
                                   {item.urgency || 'Low'} Urgency
                                 </span>
@@ -707,9 +704,9 @@ export default function AdminReportsPage() {
                           <div className="grid gap-5 py-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
                             <div className="space-y-4">
                               <div className="rounded-md bg-slate-50 dark:bg-slate-900 border p-4 h-fit">
-                                <div className="flex items-center justify-between mb-3">
-                                  <div className="font-semibold text-base text-slate-900 dark:text-slate-100">Review Report Details</div>
-                                  <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">{item.id}</span>
+                                <div className="flex items-center justify-between gap-3 mb-3">
+                                  <div className="min-w-0 font-semibold text-base text-slate-900 dark:text-slate-100">Review Report Details</div>
+                                  <IdPill id={item.id} className="max-w-[55%] shrink-0" />
                                 </div>
                                 <div className="space-y-4">
                                   <div>
@@ -887,9 +884,9 @@ export default function AdminReportsPage() {
                         <div className="grid gap-5 py-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
                           <div className="space-y-4">
                             <div className="rounded-md bg-slate-50 dark:bg-slate-900 border p-4">
-                              <div className="flex items-center justify-between mb-3">
-                                <div className="font-semibold text-base text-slate-900 dark:text-slate-100">{item.title}</div>
-                                <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">{item.id}</span>
+                              <div className="flex items-center justify-between gap-3 mb-3">
+                                <div className="min-w-0 font-semibold text-base text-slate-900 dark:text-slate-100">{item.title}</div>
+                                <IdPill id={item.id} className="max-w-[55%] shrink-0" />
                               </div>
                               <div className="space-y-4">
                                 <div>
