@@ -31,6 +31,7 @@ import { useCurrentUser } from "@/hooks/queries/useCurrentUser"
 import { useRealtimeReports } from "@/hooks/useRealtimeReports"
 import { ReportMediaGallery } from "@/components/reports/report-media-gallery"
 import { ListSkeleton } from "@/components/ui/list-skeleton"
+import { StickyTabsBar, scrollToStickyTabs } from "@/components/ui/sticky-tabs-bar"
 import { statusBadgeClass, urgencyBadgeClass } from "@/lib/status-styles"
 import Link from "next/link"
 
@@ -195,54 +196,56 @@ export default function ClientHistoryPage() {
         </div>
 
         {/* Navigation Tabs */}
-        <Tabs defaultValue="all" onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-5 h-auto mb-6 bg-transparent border-b rounded-none p-0">
-            <TabsTrigger 
-              value="all" 
-              className="text-[11px] sm:text-xs md:text-sm lg:text-base py-3 px-0.5 sm:px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-blue-700 font-semibold transition-all duration-300 ease-in-out text-center truncate flex items-center justify-center gap-1"
-            >
-              <span>All</span>
-              <span className="hidden sm:inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                {countAll}
-              </span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="in_review" 
-              className="text-[11px] sm:text-xs md:text-sm lg:text-base py-3 px-0.5 sm:px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-blue-700 font-semibold transition-all duration-300 ease-in-out text-center truncate flex items-center justify-center gap-1"
-            >
-              <span>In Review</span>
-              <span className="hidden sm:inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
-                {countInReview}
-              </span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="action_taken" 
-              className="text-[11px] sm:text-xs md:text-sm lg:text-base py-3 px-0.5 sm:px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-blue-700 font-semibold transition-all duration-300 ease-in-out text-center truncate flex items-center justify-center gap-1"
-            >
-              <span>Action</span>
-              <span className="hidden sm:inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-300">
-                {countActionTaken}
-              </span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="resolved" 
-              className="text-[11px] sm:text-xs md:text-sm lg:text-base py-3 px-0.5 sm:px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-emerald-700 font-semibold transition-all duration-300 ease-in-out text-center truncate flex items-center justify-center gap-1"
-            >
-              <span>Resolved</span>
-              <span className="hidden sm:inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300">
-                {countResolved}
-              </span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="rejected" 
-              className="text-[11px] sm:text-xs md:text-sm lg:text-base py-3 px-0.5 sm:px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-red-700 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-red-700 font-semibold transition-all duration-300 ease-in-out text-center truncate flex items-center justify-center gap-1"
-            >
-              <span>Rejected</span>
-              <span className="hidden sm:inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300">
-                {countRejected}
-              </span>
-            </TabsTrigger>
-          </TabsList>
+        <Tabs defaultValue="all" onValueChange={(tab) => { setActiveTab(tab); scrollToStickyTabs(); }} className="w-full">
+          <StickyTabsBar className="bg-white/90 dark:bg-slate-950/90">
+            <TabsList className="grid w-full grid-cols-5 h-auto bg-transparent border-b rounded-none p-0">
+              <TabsTrigger 
+                value="all" 
+                className="text-[11px] sm:text-xs md:text-sm lg:text-base py-3 px-0.5 sm:px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-blue-700 font-semibold transition-all duration-300 ease-in-out text-center truncate flex items-center justify-center gap-1"
+              >
+                <span>All</span>
+                <span className="hidden sm:inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                  {countAll}
+                </span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="in_review" 
+                className="text-[11px] sm:text-xs md:text-sm lg:text-base py-3 px-0.5 sm:px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-blue-700 font-semibold transition-all duration-300 ease-in-out text-center truncate flex items-center justify-center gap-1"
+              >
+                <span>In Review</span>
+                <span className="hidden sm:inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                  {countInReview}
+                </span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="action_taken" 
+                className="text-[11px] sm:text-xs md:text-sm lg:text-base py-3 px-0.5 sm:px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-blue-700 font-semibold transition-all duration-300 ease-in-out text-center truncate flex items-center justify-center gap-1"
+              >
+                <span>Action</span>
+                <span className="hidden sm:inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-300">
+                  {countActionTaken}
+                </span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="resolved" 
+                className="text-[11px] sm:text-xs md:text-sm lg:text-base py-3 px-0.5 sm:px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-emerald-700 font-semibold transition-all duration-300 ease-in-out text-center truncate flex items-center justify-center gap-1"
+              >
+                <span>Resolved</span>
+                <span className="hidden sm:inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300">
+                  {countResolved}
+                </span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="rejected" 
+                className="text-[11px] sm:text-xs md:text-sm lg:text-base py-3 px-0.5 sm:px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-red-700 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-red-700 font-semibold transition-all duration-300 ease-in-out text-center truncate flex items-center justify-center gap-1"
+              >
+                <span>Rejected</span>
+                <span className="hidden sm:inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300">
+                  {countRejected}
+                </span>
+              </TabsTrigger>
+            </TabsList>
+          </StickyTabsBar>
           
           <TabsContent value={activeTab} className="m-0 focus-visible:outline-none">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">

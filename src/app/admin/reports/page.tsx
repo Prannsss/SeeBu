@@ -28,6 +28,7 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tansta
 import { ReportMediaGallery } from "@/components/reports/report-media-gallery"
 import { ListSkeleton } from "@/components/ui/list-skeleton"
 import { PaginationBar } from "@/components/ui/pagination-bar"
+import { StickyTabsBar, scrollToStickyTabs } from "@/components/ui/sticky-tabs-bar"
 import { useCurrentUser } from "@/hooks/queries/useCurrentUser"
 import { useRealtimeReports } from "@/hooks/useRealtimeReports"
 import { statusBadgeClass, urgencyBadgeClass } from "@/lib/status-styles"
@@ -122,11 +123,11 @@ export default function AdminReportsPage() {
     if (totalPages && page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
 
-  const changeTab = (tab: string) => { setActiveTab(tab); setPage(1); };
+  const changeTab = (tab: string) => { setActiveTab(tab); setPage(1); scrollToStickyTabs(); };
   const changeUrgency = (urgency: string) => { setUrgencyFilter(urgency); setPage(1); };
   const changePage = (next: number) => {
     setPage(next);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    scrollToStickyTabs();
   };
 
   const updateStatusMutation = useMutation({
@@ -283,7 +284,17 @@ export default function AdminReportsPage() {
     completionPhotos: (r.report_photos || []).filter((p: any) => p.is_completion_photo).map((p: any) => p.photo_url)
   })) : [];
 
-  const tabLabel = (tab: string) => (tabCounts?.[tab] !== undefined ? `${tab} (${tabCounts[tab]})` : tab);
+  // Four tabs don't fit "Label (n)" on one line at phone width, so the count stacks under the label there.
+  const tabLabel = (tab: string) => (
+    <span className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 min-w-0">
+      <span className="truncate max-w-full">{tab}</span>
+      {tabCounts?.[tab] !== undefined && (
+        <span className="text-[10px] sm:text-xs leading-none font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+          {tabCounts[tab]}
+        </span>
+      )}
+    </span>
+  );
 
   return (
     <div className="min-h-screen bg-white pb-32 dark:bg-slate-950 dark:text-slate-100">
@@ -313,32 +324,34 @@ export default function AdminReportsPage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={changeTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 h-auto mb-6 bg-transparent border-b rounded-none p-0">
-            <TabsTrigger
-              value="In Review"
-              className="text-xs sm:text-sm md:text-base py-3 px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-blue-700 font-semibold transition-all duration-300 ease-in-out text-center truncate"
-            >
-              {tabLabel("In Review")}
-            </TabsTrigger>
-            <TabsTrigger
-              value="Action Taken"
-              className="text-xs sm:text-sm md:text-base py-3 px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-blue-700 font-semibold transition-all duration-300 ease-in-out text-center truncate"
-            >
-              {tabLabel("Action Taken")}
-            </TabsTrigger>
-            <TabsTrigger
-              value="Resolved"
-              className="text-xs sm:text-sm md:text-base py-3 px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-emerald-700 font-semibold transition-all duration-300 ease-in-out text-center truncate"
-            >
-              {tabLabel("Resolved")}
-            </TabsTrigger>
-            <TabsTrigger
-              value="Rejected"
-              className="text-xs sm:text-sm md:text-base py-3 px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-red-700 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-red-700 font-semibold transition-all duration-300 ease-in-out text-center truncate"
-            >
-              {tabLabel("Rejected")}
-            </TabsTrigger>
-          </TabsList>
+          <StickyTabsBar className="bg-white/90 dark:bg-slate-950/90">
+            <TabsList className="grid w-full grid-cols-4 h-auto bg-transparent border-b rounded-none p-0">
+              <TabsTrigger
+                value="In Review"
+                className="text-xs sm:text-sm md:text-base py-3 px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-blue-700 font-semibold transition-all duration-300 ease-in-out text-center truncate"
+              >
+                {tabLabel("In Review")}
+              </TabsTrigger>
+              <TabsTrigger
+                value="Action Taken"
+                className="text-xs sm:text-sm md:text-base py-3 px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-blue-700 font-semibold transition-all duration-300 ease-in-out text-center truncate"
+              >
+                {tabLabel("Action Taken")}
+              </TabsTrigger>
+              <TabsTrigger
+                value="Resolved"
+                className="text-xs sm:text-sm md:text-base py-3 px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-emerald-700 font-semibold transition-all duration-300 ease-in-out text-center truncate"
+              >
+                {tabLabel("Resolved")}
+              </TabsTrigger>
+              <TabsTrigger
+                value="Rejected"
+                className="text-xs sm:text-sm md:text-base py-3 px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-red-700 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-red-700 font-semibold transition-all duration-300 ease-in-out text-center truncate"
+              >
+                {tabLabel("Rejected")}
+              </TabsTrigger>
+            </TabsList>
+          </StickyTabsBar>
 
           <TabsContent value={activeTab} className="m-0 focus-visible:outline-none">
             <div className={`grid gap-4 md:grid-cols-2 lg:grid-cols-2 transition-opacity ${isPlaceholderData ? "opacity-60" : ""}`} aria-busy={isPlaceholderData}>

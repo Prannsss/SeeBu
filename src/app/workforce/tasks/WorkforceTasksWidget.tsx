@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ListSkeleton } from "@/components/ui/list-skeleton";
+import { StickyTabsBar, scrollToStickyTabs } from "@/components/ui/sticky-tabs-bar";
 import { gooeyToast } from "goey-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTasks, useUpdateTaskStatus, useCompleteTask } from "@/hooks/queries/useTasks";
@@ -215,12 +216,14 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="mb-6 grid w-full grid-cols-3 h-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md p-1">
-            <TabsTrigger value="Assigned" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-amber-600 data-[state=active]:text-white transition-all">Assigned ({tabCount("Assigned")})</TabsTrigger>
-            <TabsTrigger value="Accepted" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-blue-600 data-[state=active]:text-white transition-all">In Progress ({tabCount("Accepted")})</TabsTrigger>
-            <TabsTrigger value="Completed" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-emerald-600 data-[state=active]:text-white transition-all">Completed ({tabCount("Completed")})</TabsTrigger>
-          </TabsList>
+        <Tabs value={activeTab} onValueChange={(tab) => { setActiveTab(tab); scrollToStickyTabs(); }} className="w-full">
+          <StickyTabsBar className="bg-slate-50/90 dark:bg-slate-950/90">
+            <TabsList className="grid w-full grid-cols-3 h-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md p-1">
+              <TabsTrigger value="Assigned" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-amber-600 data-[state=active]:text-white transition-all">Assigned ({tabCount("Assigned")})</TabsTrigger>
+              <TabsTrigger value="Accepted" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-blue-600 data-[state=active]:text-white transition-all">In Progress ({tabCount("Accepted")})</TabsTrigger>
+              <TabsTrigger value="Completed" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-emerald-600 data-[state=active]:text-white transition-all">Completed ({tabCount("Completed")})</TabsTrigger>
+            </TabsList>
+          </StickyTabsBar>
 
           <TabsContent value={activeTab} className="m-0 focus-visible:outline-none">
             <div className="grid gap-4">

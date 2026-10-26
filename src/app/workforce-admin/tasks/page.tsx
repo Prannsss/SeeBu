@@ -13,6 +13,7 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tansta
 import { ReportMediaGallery } from "@/components/reports/report-media-gallery"
 import { ListSkeleton } from "@/components/ui/list-skeleton"
 import { PaginationBar } from "@/components/ui/pagination-bar"
+import { StickyTabsBar, scrollToStickyTabs } from "@/components/ui/sticky-tabs-bar"
 import { useCurrentUser } from "@/hooks/queries/useCurrentUser"
 import { useRealtimeReports } from "@/hooks/useRealtimeReports"
 import { statusBadgeClass, urgencyBadgeClass } from "@/lib/status-styles"
@@ -128,10 +129,10 @@ export default function WorkforceAdminTasksPage() {
     if (totalPages && page > totalPages) setPage(totalPages)
   }, [page, totalPages])
 
-  const changeTab = (tab: TabKey) => { setActiveTab(tab); setPage(1) }
+  const changeTab = (tab: TabKey) => { setActiveTab(tab); setPage(1); scrollToStickyTabs() }
   const changePage = (next: number) => {
     setPage(next)
-    window.scrollTo({ top: 0, behavior: "smooth" })
+    scrollToStickyTabs()
   }
 
   const updateTaskMutation = useMutation({
@@ -313,11 +314,13 @@ export default function WorkforceAdminTasksPage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={(value) => changeTab(value as TabKey)} className="w-full">
-          <TabsList className="mb-6 grid w-full grid-cols-3 h-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md p-1">
-            <TabsTrigger value="Pending" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-blue-600 data-[state=active]:text-white transition-all">{tabLabel("Pending")}</TabsTrigger>
-            <TabsTrigger value="Assigned" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-amber-600 data-[state=active]:text-white transition-all">{tabLabel("Assigned")}</TabsTrigger>
-            <TabsTrigger value="Completed" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-emerald-600 data-[state=active]:text-white transition-all">{tabLabel("Completed")}</TabsTrigger>
-          </TabsList>
+          <StickyTabsBar className="bg-slate-50/90 dark:bg-slate-950/90">
+            <TabsList className="grid w-full grid-cols-3 h-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md p-1">
+              <TabsTrigger value="Pending" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-blue-600 data-[state=active]:text-white transition-all">{tabLabel("Pending")}</TabsTrigger>
+              <TabsTrigger value="Assigned" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-amber-600 data-[state=active]:text-white transition-all">{tabLabel("Assigned")}</TabsTrigger>
+              <TabsTrigger value="Completed" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-emerald-600 data-[state=active]:text-white transition-all">{tabLabel("Completed")}</TabsTrigger>
+            </TabsList>
+          </StickyTabsBar>
 
           {TABS.map((tab) => (
             <TabsContent key={tab} value={tab} className="m-0 focus-visible:outline-none">
