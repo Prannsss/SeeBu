@@ -269,12 +269,17 @@ function buildApiObject(fetcher: ApiFetcher) {
 
     // Reports
     reports: {
-      getAll: (params?: { municipality_id?: string; status?: string; reporter_id?: string; reporter_email?: string }) => {
+      // page/page_size return one page plus `pagination`; count_statuses adds per-status `counts`.
+      getAll: (params?: { municipality_id?: string; status?: string; urgency?: string; reporter_id?: string; reporter_email?: string; page?: number; page_size?: number; count_statuses?: string[] }) => {
         const query = buildQuery({
           municipality_id: params?.municipality_id,
           status: params?.status,
+          urgency: params?.urgency,
           reporter_id: params?.reporter_id,
           reporter_email: params?.reporter_email,
+          page: params?.page?.toString(),
+          page_size: params?.page_size?.toString(),
+          count_statuses: params?.count_statuses?.join(","),
         });
         return fetcher(`/api/v1/reports${query ? `?${query}` : ""}`);
       },
@@ -300,11 +305,16 @@ function buildApiObject(fetcher: ApiFetcher) {
 
     // Tasks
     tasks: {
-      getAll: (params?: { assigned_to?: string; delegated_to?: string; status?: string }) => {
+      // tab = Pending | Assigned | Completed; count_tabs adds per-tab `counts`.
+      getAll: (params?: { assigned_to?: string; delegated_to?: string; status?: string; tab?: string; page?: number; page_size?: number; count_tabs?: boolean }) => {
         const query = buildQuery({
           assigned_to: params?.assigned_to,
           delegated_to: params?.delegated_to,
           status: params?.status,
+          tab: params?.tab,
+          page: params?.page?.toString(),
+          page_size: params?.page_size?.toString(),
+          count_tabs: params?.count_tabs ? "true" : undefined,
         });
         return fetcher(`/api/v1/tasks${query ? `?${query}` : ""}`);
       },

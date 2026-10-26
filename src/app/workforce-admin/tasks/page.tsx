@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { ClipboardList, Users, CheckCircle2, Clock, Link2, MapPin, AlertTriangle } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card } from "@/components/ui/card"
@@ -9,9 +9,10 @@ import { Badge } from "@/components/ui/badge"
 import { gooeyToast } from "goey-toast"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query"
 import { ReportMediaGallery } from "@/components/reports/report-media-gallery"
 import { ListSkeleton } from "@/components/ui/list-skeleton"
+import { PaginationBar } from "@/components/ui/pagination-bar"
 import { useCurrentUser } from "@/hooks/queries/useCurrentUser"
 import { useRealtimeReports } from "@/hooks/useRealtimeReports"
 import { statusBadgeClass, urgencyBadgeClass } from "@/lib/status-styles"
@@ -47,6 +48,7 @@ type TaskItem = {
 
 type TabKey = "Pending" | "Assigned" | "Completed";
 const TABS: TabKey[] = ["Pending", "Assigned", "Completed"];
+const PAGE_SIZE = 10;
 
 const EMPTY_TEXT: Record<TabKey, { title: string; hint: string }> = {
   Pending: { title: "No tasks waiting for delegation", hint: "New tasks routed to your department will appear here." },
@@ -64,6 +66,7 @@ const statusLabel = (status: string) => (status === "Accepted" ? "In Progress" :
 export default function WorkforceAdminTasksPage() {
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<TabKey>("Pending")
+  const [page, setPage] = useState(1)
   const [delegateTo, setDelegateTo] = useState("")
   const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null)
   const [modalDelegateMode, setModalDelegateMode] = useState(false)
@@ -92,16 +95,44 @@ export default function WorkforceAdminTasksPage() {
   const officerNameById = new Map<string, string>(personnel.map((person: any) => [person.id, officerLabel(person)]));
   const activeOfficerIds = new Set(officers.map((o: { id: string }) => o.id));
 
-  const { data: tasksData, isPending: isTasksPending } = useQuery({
-    queryKey: ['workforce-admin-tasks', departmentId],
+  // One page of the active tab at a time; the tab split (Pending/Assigned/Completed) is done server-side.
+  const { data: tasksPage, isPending: isTasksPending, isPlaceholderData } = useQuery({
+    queryKey: ['workforce-admin-tasks', departmentId, activeTab, page],
     queryFn: async () => {
       const { apiClient } = await import('@/lib/api');
-      const json = await apiClient.tasks.getAll({ delegated_to: departmentId });
-      return json.data;
+      return apiClient.tasks.getAll({ delegated_to: departmentId, tab: activeTab, page, page_size: PAGE_SIZE });
     },
+    // Keep the current page on screen while the next page of the same tab loads.
+    placeholderData: (previous, previousQuery) => previousQuery?.queryKey[2] === activeTab ? previous : undefined,
     enabled: !!departmentId,
   })
+  const tasksData = tasksPage?.data
+  const totalTasks: number = tasksPage?.pagination?.total ?? 0
   const isLoading = isProfileLoading || (!!departmentId && isTasksPending)
+
+  // Tab totals in their own query so they stay put while switching tabs or pages.
+  const { data: tabCounts } = useQuery({
+    queryKey: ['workforce-admin-tasks', departmentId, 'counts'],
+    queryFn: async () => {
+      const { apiClient } = await import('@/lib/api');
+      const json = await apiClient.tasks.getAll({ delegated_to: departmentId, page: 1, page_size: 1, count_tabs: true });
+      return json.counts as Record<TabKey, number> | undefined;
+    },
+    placeholderData: keepPreviousData,
+    enabled: !!departmentId,
+  })
+
+  // Delegating or completing a task can empty the last page — step back to the new last page.
+  const totalPages: number | undefined = tasksPage?.pagination?.total_pages
+  useEffect(() => {
+    if (totalPages && page > totalPages) setPage(totalPages)
+  }, [page, totalPages])
+
+  const changeTab = (tab: TabKey) => { setActiveTab(tab); setPage(1) }
+  const changePage = (next: number) => {
+    setPage(next)
+    window.scrollTo({ top: 0, behavior: "smooth" })
+  }
 
   const updateTaskMutation = useMutation({
     mutationFn: async (payload: { id: string, status?: string, assigned_to?: string }) => {
@@ -145,8 +176,7 @@ export default function WorkforceAdminTasksPage() {
     } : null,
   })) : []
 
-  const tasksByTab: Record<TabKey, TaskItem[]> = { Pending: [], Assigned: [], Completed: [] }
-  tasksList.forEach((task) => tasksByTab[tabOf(task)].push(task))
+  const tabLabel = (tab: TabKey) => (tabCounts?.[tab] !== undefined ? `${tab} (${tabCounts[tab]})` : tab)
 
   // Delegating a task an officer already holds hands it to someone else.
   const isReassign = Boolean(selectedTask && tabOf(selectedTask) === "Assigned")
@@ -282,28 +312,35 @@ export default function WorkforceAdminTasksPage() {
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TabKey)} className="w-full">
+        <Tabs value={activeTab} onValueChange={(value) => changeTab(value as TabKey)} className="w-full">
           <TabsList className="mb-6 grid w-full grid-cols-3 h-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md p-1">
-            <TabsTrigger value="Pending" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-blue-600 data-[state=active]:text-white transition-all">Pending ({tasksByTab.Pending.length})</TabsTrigger>
-            <TabsTrigger value="Assigned" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-amber-600 data-[state=active]:text-white transition-all">Assigned ({tasksByTab.Assigned.length})</TabsTrigger>
-            <TabsTrigger value="Completed" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-emerald-600 data-[state=active]:text-white transition-all">Completed ({tasksByTab.Completed.length})</TabsTrigger>
+            <TabsTrigger value="Pending" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-blue-600 data-[state=active]:text-white transition-all">{tabLabel("Pending")}</TabsTrigger>
+            <TabsTrigger value="Assigned" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-amber-600 data-[state=active]:text-white transition-all">{tabLabel("Assigned")}</TabsTrigger>
+            <TabsTrigger value="Completed" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-emerald-600 data-[state=active]:text-white transition-all">{tabLabel("Completed")}</TabsTrigger>
           </TabsList>
 
           {TABS.map((tab) => (
             <TabsContent key={tab} value={tab} className="m-0 focus-visible:outline-none">
-              <div className="grid gap-4">
+              <div className={`grid gap-4 transition-opacity ${isPlaceholderData ? "opacity-60" : ""}`} aria-busy={isPlaceholderData}>
                 {isLoading ? (
                   <ListSkeleton />
-                ) : tasksByTab[tab].length === 0 ? (
+                ) : tasksList.length === 0 ? (
                   <div className="flex flex-col items-center text-center py-12 px-4 bg-white rounded-md border border-dashed border-slate-300">
                     <ClipboardList className="w-10 h-10 text-slate-500 mb-3" aria-hidden="true" />
                     <p className="text-base font-semibold text-slate-900">{EMPTY_TEXT[tab].title}</p>
                     <p className="text-sm text-slate-600 mt-1">{EMPTY_TEXT[tab].hint}</p>
                   </div>
                 ) : (
-                  tasksByTab[tab].map(renderTaskCard)
+                  tasksList.map(renderTaskCard)
                 )}
               </div>
+              <PaginationBar
+                page={page}
+                pageSize={PAGE_SIZE}
+                total={totalTasks}
+                onPageChange={changePage}
+                disabled={isPlaceholderData}
+              />
             </TabsContent>
           ))}
         </Tabs>

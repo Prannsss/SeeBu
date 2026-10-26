@@ -5,6 +5,7 @@ import { persistImageInputs, isTrustedStorageUrl } from '../utils/mediaStorage';
 import { invalidateWorkflowCaches } from '../utils/cache';
 import { sendReportTrackingEmail } from '../utils/emailService';
 import { notifyReportStatusChange } from '../utils/reportNotifications';
+import { parsePagination, paginationMeta, parseList } from '../utils/pagination';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { z } from 'zod';
@@ -265,7 +266,7 @@ export const reportController = {
   // READ REPORTS
   async getReports(req: Request, res: Response) {
     try {
-      const { municipality_id, status, reporter_id, reporter_email, updated_after } = req.query;
+      const { municipality_id, status, urgency, reporter_id, reporter_email, updated_after, count_statuses } = req.query;
       const reporterIdParam = reporter_id ? String(reporter_id).trim() : '';
 
       // completed_by references workforce_officers, so the completer and their department are
@@ -299,6 +300,10 @@ export const reportController = {
         // Reporter-scoped history should always return submitted reports across statuses.
         if (status && !options?.ignoreStatus) {
           q = q.eq('status', status);
+        }
+        // Case-insensitive exact match (no wildcards) — stored values vary in casing.
+        if (urgency) {
+          q = q.ilike('urgency', String(urgency));
         }
         return q;
       };
@@ -347,6 +352,9 @@ export const reportController = {
       }
 
       const isReporterScoped = Boolean(effectiveReporterId || emailValue);
+      // Reporter histories are small and merged from two queries, so only staff/public lists page.
+      const pagination = isReporterScoped ? null : parsePagination(req.query);
+      let total = 0;
 
       let data: any[] = [];
       if (effectiveReporterId && emailValue) {
@@ -368,8 +376,34 @@ export const reportController = {
         data = await runQuery((q) => q.eq('reporter_id', effectiveReporterId), { ignoreStatus: isReporterScoped });
       } else if (emailValue) {
         data = await runQuery((q) => q.ilike('reporter_email', emailValue), { ignoreStatus: isReporterScoped });
+      } else if (pagination) {
+        const { data: rows, count, error } = await applyBaseFilters(
+          supabase
+            .from('reports')
+            .select(baseSelect, { count: 'exact' })
+            .order('created_at', { ascending: false })
+            .order('id', { ascending: false })
+        ).range(pagination.from, pagination.to);
+        if (error) throw error;
+        data = rows || [];
+        total = count ?? 0;
       } else {
         data = await runQuery();
+      }
+
+      // Per-status totals for tab badges, under the same scope/urgency filters as the list.
+      let counts: Record<string, number> | undefined;
+      const countStatuses = isReporterScoped ? [] : parseList(count_statuses);
+      if (countStatuses.length) {
+        const entries = await Promise.all(countStatuses.map(async (countStatus) => {
+          const { count, error } = await applyBaseFilters(
+            supabase.from('reports').select('id', { count: 'exact', head: true }),
+            { ignoreStatus: true }
+          ).eq('status', countStatus);
+          if (error) throw error;
+          return [countStatus, count ?? 0] as const;
+        }));
+        counts = Object.fromEntries(entries);
       }
 
       data = data.map(({ completer, ...report }: any) => {
@@ -389,7 +423,11 @@ export const reportController = {
       });
 
       const sanitized = data.map((report: any) => stripReporterPii(report, caller));
-      return res.status(200).json({ data: sanitized });
+      return res.status(200).json({
+        data: sanitized,
+        ...(pagination ? { pagination: paginationMeta(pagination, total) } : {}),
+        ...(counts ? { counts } : {}),
+      });
     } catch (err: any) {
       return res.status(500).json({ error: serverErrorMessage(err) });
     }

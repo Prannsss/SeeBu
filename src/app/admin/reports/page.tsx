@@ -21,15 +21,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { gooeyToast } from "goey-toast"
 import { Textarea } from "@/components/ui/textarea"
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query"
 import { ReportMediaGallery } from "@/components/reports/report-media-gallery"
 import { ListSkeleton } from "@/components/ui/list-skeleton"
+import { PaginationBar } from "@/components/ui/pagination-bar"
 import { useCurrentUser } from "@/hooks/queries/useCurrentUser"
 import { useRealtimeReports } from "@/hooks/useRealtimeReports"
 import { statusBadgeClass, urgencyBadgeClass } from "@/lib/status-styles"
+
+const PAGE_SIZE = 10;
+const REPORT_TABS = ["In Review", "Action Taken", "Resolved", "Rejected"];
 
 export default function AdminReportsPage() {
   const queryClient = useQueryClient();
@@ -37,6 +41,7 @@ export default function AdminReportsPage() {
   useRealtimeReports({ enableToasts: true, userRole: "admin", municipalityId: currentUser?.municipality_id });
   const [activeTab, setActiveTab] = useState("In Review");
   const [urgencyFilter, setUrgencyFilter] = useState("All");
+  const [page, setPage] = useState(1);
   const [delegationOpen, setDelegationOpen] = useState<string | null>(null);    
   const [reviewOpen, setReviewOpen] = useState<string | null>(null);
   const [rejectMode, setRejectMode] = useState(false);
@@ -71,19 +76,58 @@ export default function AdminReportsPage() {
     return `${prefix}${'*'.repeat(phone.length - prefix.length - 4)}${visible}`;
   };
 
-  const { data: reportsData, isLoading } = useQuery({
-    queryKey: ['admin-reports', currentUser?.municipality_id],
+  // One page of the active tab is fetched at a time; status and urgency are filtered server-side.
+  const { data: reportsPage, isLoading, isPlaceholderData } = useQuery({
+    queryKey: ['admin-reports', currentUser?.municipality_id, activeTab, urgencyFilter, page],
     queryFn: async () => {
       const { apiClient } = await import('@/lib/api');
-      const municipalityId: string | undefined = currentUser?.municipality_id || undefined;
-      const json = municipalityId
-        ? await apiClient.reports.getAll({ municipality_id: municipalityId })
-        : await apiClient.reports.getAll();
-      return json.data;
+      return apiClient.reports.getAll({
+        municipality_id: currentUser?.municipality_id || undefined,
+        status: activeTab,
+        urgency: urgencyFilter === "All" ? undefined : urgencyFilter,
+        page,
+        page_size: PAGE_SIZE,
+      });
     },
+    // Keep the current page on screen while the next page of the same tab loads (no skeleton flash).
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[2] === activeTab && previousQuery?.queryKey[3] === urgencyFilter ? previous : undefined,
     // Wait for the profile so we never fetch unscoped (all municipalities) reports first.
     enabled: !!currentUser,
   });
+  const reportsData = reportsPage?.data;
+  const totalReports: number = reportsPage?.pagination?.total ?? 0;
+
+  // Tab totals live in their own query so they stay put while switching tabs or pages.
+  const { data: tabCounts } = useQuery({
+    queryKey: ['admin-reports', currentUser?.municipality_id, 'counts', urgencyFilter],
+    queryFn: async () => {
+      const { apiClient } = await import('@/lib/api');
+      const json = await apiClient.reports.getAll({
+        municipality_id: currentUser?.municipality_id || undefined,
+        urgency: urgencyFilter === "All" ? undefined : urgencyFilter,
+        page: 1,
+        page_size: 1,
+        count_statuses: REPORT_TABS,
+      });
+      return json.counts as Record<string, number> | undefined;
+    },
+    placeholderData: keepPreviousData,
+    enabled: !!currentUser,
+  });
+
+  // An action can empty the last page (e.g. approving its only report) — step back to the new last page.
+  const totalPages: number | undefined = reportsPage?.pagination?.total_pages;
+  useEffect(() => {
+    if (totalPages && page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  const changeTab = (tab: string) => { setActiveTab(tab); setPage(1); };
+  const changeUrgency = (urgency: string) => { setUrgencyFilter(urgency); setPage(1); };
+  const changePage = (next: number) => {
+    setPage(next);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const updateStatusMutation = useMutation({
     mutationFn: async (payload: { id: string, status: string, notes?: string, rejection_reason?: string, delegated_to?: string, assigned_to?: string, assigned_role?: string }) => {
@@ -239,11 +283,7 @@ export default function AdminReportsPage() {
     completionPhotos: (r.report_photos || []).filter((p: any) => p.is_completion_photo).map((p: any) => p.photo_url)
   })) : [];
 
-  const filteredItems = reportsList.filter((item: any) => {
-    const matchesTab = item.status === activeTab;
-    const matchesUrgency = urgencyFilter === "All" || (item.urgency || "").toLowerCase() === urgencyFilter.toLowerCase();
-    return matchesTab && matchesUrgency;
-  });
+  const tabLabel = (tab: string) => (tabCounts?.[tab] !== undefined ? `${tab} (${tabCounts[tab]})` : tab);
 
   return (
     <div className="min-h-screen bg-white pb-32 dark:bg-slate-950 dark:text-slate-100">
@@ -258,7 +298,7 @@ export default function AdminReportsPage() {
           </div>
           <div className="flex items-center gap-2 z-10 relative self-end sm:self-auto">
             <Filter className="h-5 w-5 text-slate-600" aria-hidden="true" />
-            <Select value={urgencyFilter} onValueChange={setUrgencyFilter}>
+            <Select value={urgencyFilter} onValueChange={changeUrgency}>
               <SelectTrigger aria-label="Filter by urgency" className="w-[140px] bg-white dark:bg-slate-900 border-slate-200 shadow-sm">
                 <SelectValue placeholder="Filter Urgency" />
               </SelectTrigger>
@@ -272,36 +312,36 @@ export default function AdminReportsPage() {
           </div>
         </div>
 
-        <Tabs defaultValue="In Review" onValueChange={setActiveTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={changeTab} className="w-full">
           <TabsList className="grid w-full grid-cols-4 h-auto mb-6 bg-transparent border-b rounded-none p-0">
             <TabsTrigger
               value="In Review"
               className="text-xs sm:text-sm md:text-base py-3 px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-blue-700 font-semibold transition-all duration-300 ease-in-out text-center truncate"
             >
-              In Review
+              {tabLabel("In Review")}
             </TabsTrigger>
             <TabsTrigger
               value="Action Taken"
               className="text-xs sm:text-sm md:text-base py-3 px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-blue-700 font-semibold transition-all duration-300 ease-in-out text-center truncate"
             >
-              Action Taken
+              {tabLabel("Action Taken")}
             </TabsTrigger>
             <TabsTrigger
               value="Resolved"
               className="text-xs sm:text-sm md:text-base py-3 px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-emerald-700 font-semibold transition-all duration-300 ease-in-out text-center truncate"
             >
-              Resolved
+              {tabLabel("Resolved")}
             </TabsTrigger>
             <TabsTrigger
               value="Rejected"
               className="text-xs sm:text-sm md:text-base py-3 px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-red-700 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-red-700 font-semibold transition-all duration-300 ease-in-out text-center truncate"
             >
-              Rejected
+              {tabLabel("Rejected")}
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value={activeTab} className="m-0 focus-visible:outline-none">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
+            <div className={`grid gap-4 md:grid-cols-2 lg:grid-cols-2 transition-opacity ${isPlaceholderData ? "opacity-60" : ""}`} aria-busy={isPlaceholderData}>
               {profilePending || (currentUser && isLoading) ? (
                 <ListSkeleton count={4} />
               ) : !currentUser ? (
@@ -309,14 +349,14 @@ export default function AdminReportsPage() {
                   We couldn&apos;t load your profile. Your session may have expired.{" "}
                   <a href="/auth/login" className="font-semibold text-primary underline">Sign in again</a>
                 </div>
-              ) : filteredItems.length === 0 ? (
+              ) : reportsList.length === 0 ? (
                 <div className="flex flex-col items-center text-center py-10 px-4 col-span-full bg-slate-50 dark:bg-slate-900 rounded-md border border-dashed border-slate-300 dark:border-slate-800">
                   <FileText className="h-10 w-10 text-slate-600 mb-3" aria-hidden="true" />
                   <p className="text-base font-semibold text-slate-900">No {activeTab.toLowerCase()} reports</p>
                   <p className="text-sm text-slate-600 mt-1">No records found for this category and urgency.</p>
                 </div>
               ) : (
-                filteredItems.map((item) => (
+                reportsList.map((item) => (
                   <Dialog
                     key={item.id}
                     open={delegationOpen === item.id}
@@ -1020,6 +1060,13 @@ export default function AdminReportsPage() {
                 ))
               )}
             </div>
+            <PaginationBar
+              page={page}
+              pageSize={PAGE_SIZE}
+              total={totalReports}
+              onPageChange={changePage}
+              disabled={isPlaceholderData}
+            />
           </TabsContent>
         </Tabs>
       </div>

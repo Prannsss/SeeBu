@@ -4,17 +4,26 @@ import { serverErrorMessage } from '../utils/errorResponse';
 import { persistImageInputs, isTrustedStorageUrl } from '../utils/mediaStorage';
 import { notifyReportStatusChange } from '../utils/reportNotifications';
 import { invalidateWorkflowCaches } from '../utils/cache';
+import { parsePagination, paginationMeta } from '../utils/pagination';
 
 const MAX_PROOF_PHOTO_BYTES = 8 * 1024 * 1024;
 // Statuses settable via PUT. 'Completed' is deliberately absent: it requires proof (completeTask).
 const STAFF_TASK_STATUSES = ['Pending', 'Assigned', 'Accepted', 'In Progress'];
 const OFFICER_TASK_STATUSES = ['Accepted', 'In Progress'];
 
+// Workforce-admin tabs: Completed, else held by an officer ("Assigned"), else waiting ("Pending").
+// Status is nullable, so "not Completed" has to keep nulls (neq alone would drop them).
+const TASK_TABS: Record<string, (query: any) => any> = {
+  Pending: (q) => q.or('status.is.null,status.neq.Completed').is('assigned_to', null),
+  Assigned: (q) => q.or('status.is.null,status.neq.Completed').not('assigned_to', 'is', null),
+  Completed: (q) => q.eq('status', 'Completed'),
+};
+
 export const taskController = {
   // READ TASKS
   async getTasks(req: Request, res: Response) {
     try {
-      const { status, updated_after } = req.query;
+      const { status, updated_after, tab, count_tabs } = req.query;
       const role = req.user?.role;
 
       // Scope by role: officers see only their own tasks, workforce admins only their department's,
@@ -29,11 +38,7 @@ export const taskController = {
       // Filtering on the linked report needs an inner join — done in this one query instead of
       // first fetching report ids and sending them back as a (growing) IN list.
       const filterByReport = Boolean(departmentId || municipalityId);
-      let query = supabase
-        .from('tasks')
-        .select(`
-          *,
-          related_report:reports${filterByReport ? '!inner' : ''}(
+      const relatedReportSelect = `related_report:reports${filterByReport ? '!inner' : ''}(
             id,
             title,
             description,
@@ -45,23 +50,59 @@ export const taskController = {
             municipalities(name),
             barangays(name),
             report_photos(photo_url, is_completion_photo)
-          )
-        `)
-        .order('created_at', { ascending: false });
+          )`;
 
-      if (updated_after) {
-        query = query.gte('updated_at', new Date(String(updated_after)).toISOString());
+      // Scope + filters shared by the list and the per-tab counts.
+      const applyFilters = (query: any) => {
+        let q = query;
+        if (updated_after) {
+          q = q.gte('updated_at', new Date(String(updated_after)).toISOString());
+        }
+        if (assignedTo) q = q.eq('assigned_to', String(assignedTo));
+        if (departmentId) q = q.eq('related_report.delegated_to', String(departmentId));
+        if (municipalityId) q = q.eq('related_report.municipality_id', String(municipalityId));
+        if (status) q = q.eq('status', String(status));
+        return q;
+      };
+
+      const pagination = parsePagination(req.query);
+      const tabFilter = tab && Object.hasOwn(TASK_TABS, String(tab)) ? TASK_TABS[String(tab)] : undefined;
+      if (tab && !tabFilter) {
+        return res.status(400).json({ error: `tab must be one of: ${Object.keys(TASK_TABS).join(', ')}` });
       }
 
-      if (assignedTo) query = query.eq('assigned_to', String(assignedTo));
-      if (departmentId) query = query.eq('related_report.delegated_to', String(departmentId));
-      if (municipalityId) query = query.eq('related_report.municipality_id', String(municipalityId));
-      if (status) query = query.eq('status', String(status));
+      let query = applyFilters(
+        supabase
+          .from('tasks')
+          .select(`*, ${relatedReportSelect}`, pagination ? { count: 'exact' } : undefined)
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: false })
+      );
+      if (tabFilter) query = tabFilter(query);
+      if (pagination) query = query.range(pagination.from, pagination.to);
 
-      const { data, error } = await query;
+      const { data, error, count } = await query;
       if (error) throw error;
 
-      return res.status(200).json({ data });
+      let counts: Record<string, number> | undefined;
+      if (count_tabs) {
+        // The inner join is still needed so department/municipality scoping applies to counts.
+        const countSelect = filterByReport ? 'id, related_report:reports!inner(delegated_to, municipality_id)' : 'id';
+        const entries = await Promise.all(Object.entries(TASK_TABS).map(async ([tabName, applyTab]) => {
+          const { count: tabCount, error: countError } = await applyTab(
+            applyFilters(supabase.from('tasks').select(countSelect, { count: 'exact', head: true }))
+          );
+          if (countError) throw countError;
+          return [tabName, tabCount ?? 0] as const;
+        }));
+        counts = Object.fromEntries(entries);
+      }
+
+      return res.status(200).json({
+        data,
+        ...(pagination ? { pagination: paginationMeta(pagination, count ?? 0) } : {}),
+        ...(counts ? { counts } : {}),
+      });
     } catch (err: any) {
       return res.status(500).json({ error: serverErrorMessage(err) });
     }
