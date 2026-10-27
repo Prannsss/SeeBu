@@ -10,6 +10,7 @@ type TurnstileApi = {
     options: {
       sitekey: string
       action: string
+      theme?: "auto" | "light" | "dark"
       size?: "normal" | "flexible" | "compact"
       callback: (token: string) => void
       "expired-callback"?: () => void
@@ -52,6 +53,8 @@ export const TurnstileWidget = forwardRef<TurnstileHandle, { action: string; onT
       widgetId.current = turnstile.render(container.current, {
         sitekey: TURNSTILE_SITE_KEY,
         action,
+        // The site is always light; "auto" would follow the OS and turn dark on a light page.
+        theme: "light",
         size: "flexible",
         callback: (token) => onTokenRef.current(token),
         "expired-callback": () => onTokenRef.current(null),
