@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Clock, MapPin, AlertTriangle, Link2, Camera, CheckCircle2, Inbox, ClipboardList } from "lucide-react";
@@ -10,13 +10,14 @@ import { Button } from "@/components/ui/button";
 import { ListSkeleton } from "@/components/ui/list-skeleton";
 import { IdPill } from "@/components/ui/id-pill";
 import { StickyTabsBar, scrollToStickyTabs } from "@/components/ui/sticky-tabs-bar";
+import { PaginationBar } from "@/components/ui/pagination-bar";
 import { gooeyToast } from "goey-toast";
-import { useQueryClient } from "@tanstack/react-query";
-import { useTasks, useUpdateTaskStatus, useCompleteTask } from "@/hooks/queries/useTasks";
+import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { useUpdateTaskStatus, useCompleteTask } from "@/hooks/queries/useTasks";
 import { ReportMediaGallery } from "@/components/reports/report-media-gallery";
 import { useRealtimeReports } from "@/hooks/useRealtimeReports";
 import { compressToDataUrl } from "@/lib/image-compress";
-import { isOfflineQueuedError } from "@/lib/api";
+import { apiClient, isOfflineQueuedError } from "@/lib/api";
 import { statusBadgeClass, urgencyBadgeClass } from "@/lib/status-styles";
 
 type LinkedReport = {
@@ -45,11 +46,9 @@ type TaskItem = {
   related_report: LinkedReport | null;
 };
 
-const TAB_STATUSES: Record<string, string[]> = {
-  Assigned: ["Assigned", "Pending"],
-  Accepted: ["Accepted", "In Progress"],
-  Completed: ["Completed"],
-};
+// Tab keys match the backend's officer tabs (Assigned = Assigned/Pending, Accepted = Accepted/In Progress).
+const TABS = ["Assigned", "Accepted", "Completed"] as const;
+const PAGE_SIZE = 10;
 
 const EMPTY_TEXT: Record<string, { title: string; hint: string }> = {
   Assigned: { title: "No assigned tasks right now", hint: "New tasks from your department will appear here." },
@@ -61,6 +60,7 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
   useRealtimeReports({ enableToasts: true, userRole: "workforce", userId });
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("Assigned");
+  const [page, setPage] = useState(1);
 
   // Modal states
   const [confirmAcceptTask, setConfirmAcceptTask] = useState<TaskItem | null>(null);
@@ -71,7 +71,31 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
   const [selectedTaskForReport, setSelectedTaskForReport] = useState<TaskItem | null>(null);
   const [isProcessingPhotos, setIsProcessingPhotos] = useState(false);
 
-  const { data: tasksData, isLoading } = useTasks({ assigned_to: userId });
+  // One page of the active tab at a time ("tasks" prefix so the task mutations refresh it).
+  const { data: tasksPage, isLoading, isPlaceholderData } = useQuery({
+    queryKey: ["tasks", "officer", userId, activeTab, page],
+    queryFn: () => apiClient.tasks.getAll({ tab: activeTab, page, page_size: PAGE_SIZE }),
+    // Keep the current page on screen while the next page of the same tab loads.
+    placeholderData: (previous, previousQuery) => previousQuery?.queryKey[3] === activeTab ? previous : undefined,
+  });
+  const tasksData = tasksPage?.data;
+  const totalTasks: number = tasksPage?.pagination?.total ?? 0;
+
+  // Tab totals in their own query so they stay put while switching tabs or pages.
+  const { data: tabCounts } = useQuery({
+    queryKey: ["tasks", "officer", userId, "counts"],
+    queryFn: async () => (await apiClient.tasks.getAll({ page: 1, page_size: 1, count_tabs: true })).counts as Record<string, number> | undefined,
+    placeholderData: keepPreviousData,
+  });
+
+  // Accepting or completing the last task on a page can empty it — step back to the new last page.
+  const totalPages: number | undefined = tasksPage?.pagination?.total_pages;
+  useEffect(() => {
+    if (totalPages && page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  const changeTab = (tab: string) => { setActiveTab(tab); setPage(1); scrollToStickyTabs(); };
+  const changePage = (next: number) => { setPage(next); scrollToStickyTabs(); };
   const { mutate: mutateTaskStatus, isPending: isUpdatingStatus } = useUpdateTaskStatus();
   const { mutate: completeTaskMutation, isPending: isCompletingTask } = useCompleteTask();
 
@@ -99,8 +123,7 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
     } : null,
   })) : [];
 
-  const filteredTasks = tasksList.filter((task: TaskItem) => TAB_STATUSES[activeTab].includes(task.status));
-  const tabCount = (tab: string) => tasksList.filter((task) => TAB_STATUSES[tab].includes(task.status)).length;
+  const tabCount = (tab: (typeof TABS)[number]) => tabCounts?.[tab] ?? 0;
   const canAccept = (status?: string) => status === "Assigned" || status === "Pending";
   const canComplete = (status?: string) => status === "Accepted" || status === "In Progress";
 
@@ -217,7 +240,7 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={(tab) => { setActiveTab(tab); scrollToStickyTabs(); }} className="w-full">
+        <Tabs value={activeTab} onValueChange={changeTab} className="w-full">
           <StickyTabsBar className="bg-slate-50/90 dark:bg-slate-950/90">
             <TabsList className="grid w-full grid-cols-3 h-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md p-1">
               <TabsTrigger value="Assigned" className="rounded py-2 text-xs sm:text-sm font-semibold truncate data-[state=active]:bg-amber-600 data-[state=active]:text-white transition-all">Assigned ({tabCount("Assigned")})</TabsTrigger>
@@ -227,17 +250,17 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
           </StickyTabsBar>
 
           <TabsContent value={activeTab} className="m-0 focus-visible:outline-none">
-            <div className="grid gap-4">
+            <div className={`grid gap-4 transition-opacity ${isPlaceholderData ? "opacity-60" : ""}`} aria-busy={isPlaceholderData}>
               {isLoading && !tasksData ? (
                 <ListSkeleton />
-              ) : filteredTasks.length === 0 ? (
+              ) : tasksList.length === 0 ? (
                 <div className="flex flex-col items-center text-center py-12 px-4 bg-white rounded-md border border-dashed border-slate-300">
                   <Inbox className="w-10 h-10 text-slate-500 mb-3" aria-hidden="true" />
                   <p className="text-base font-semibold text-slate-900">{EMPTY_TEXT[activeTab].title}</p>
                   <p className="text-sm text-slate-600 mt-1">{EMPTY_TEXT[activeTab].hint}</p>
                 </div>
               ) : (
-                filteredTasks.map((task: TaskItem) => (
+                tasksList.map((task: TaskItem) => (
                   <Card key={task.id} className="overflow-hidden hover:shadow-md transition-shadow dark:bg-slate-900">
                     <div className="flex flex-col md:flex-row">
                       <div className="flex-1 p-6">
@@ -306,6 +329,13 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
                 ))
               )}
             </div>
+            <PaginationBar
+              page={page}
+              pageSize={PAGE_SIZE}
+              total={totalTasks}
+              onPageChange={changePage}
+              disabled={isPlaceholderData}
+            />
           </TabsContent>
         </Tabs>
 
