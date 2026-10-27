@@ -42,7 +42,6 @@ function layout(opts: { preheader: string; heading: string; body: string }): str
         </a>
       </td></tr>
       <tr><td style="background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;">
-        <div style="height:6px;background:${BRAND};"></div>
         <div style="padding:32px 32px 28px;font-family:${FONT};color:#334155;font-size:15px;line-height:1.6;">
           <h1 style="margin:0 0 16px;font-size:22px;line-height:1.3;color:#0f172a;">${opts.heading}</h1>
           ${opts.body}
@@ -62,10 +61,11 @@ function layout(opts: { preheader: string; heading: string; body: string }): str
 
 const p = (html: string) => `<p style="margin:0 0 14px;">${html}</p>`;
 
+/** Full-width call-to-action (the cell carries the colour so Outlook, which ignores padding on links, still shows it). */
 const button = (href: string, label: string) => `
-<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0;">
-  <tr><td style="border-radius:10px;background:${BRAND};">
-    <a href="${href}" style="display:inline-block;padding:13px 26px;font-family:${FONT};font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:10px;">${label}</a>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0;">
+  <tr><td align="center" style="border-radius:10px;background:${BRAND};">
+    <a href="${href}" style="display:block;padding:14px 24px;font-family:${FONT};font-size:15px;font-weight:700;line-height:1.3;color:#ffffff;text-align:center;text-decoration:none;border-radius:10px;">${label}</a>
   </td></tr>
 </table>`;
 
@@ -80,9 +80,8 @@ const codeBox = (value: string, caption: string) => `
 
 const muted = (html: string) => `<p style="margin:0 0 14px;font-size:13px;color:#64748b;">${html}</p>`;
 
-/** Closing thank-you note, in the brand green. */
-const thanks = (html: string) =>
-  `<p style="margin:20px 0 0;padding:14px 16px;background:#f0fdf4;border-left:4px solid #2ecc71;border-radius:8px;color:#14532d;">${html}</p>`;
+/** Closing thank-you line: plain text, set a little apart from the content above. */
+const thanks = (html: string) => `<p style="margin:20px 0 0;">${html}</p>`;
 
 const sendSmtpEmail = async (payload: {
   to: string;
