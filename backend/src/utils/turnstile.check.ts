@@ -51,7 +51,12 @@ const pass = { success: true, action: 'report', hostname: 'seebu.prannsss.dev' }
   delete process.env.TURNSTILE_HOSTNAMES;
   delete process.env.FRONTEND_URL;
   reply = { body: pass };
-  assert.equal(await verifyTurnstile('tok', 'report'), false, 'no approved hostnames fails closed');
+  assert.equal(await verifyTurnstile('tok', 'report'), true, 'FRONTEND_URL unset: production host by default');
+  reply = { body: { ...pass, hostname: 'localhost' } };
+  assert.equal(await verifyTurnstile('tok', 'report'), false, 'default never allows localhost');
+  process.env.FRONTEND_URL = 'not a url';
+  reply = { body: pass };
+  assert.equal(await verifyTurnstile('tok', 'report'), false, 'unparseable FRONTEND_URL fails closed');
 
   process.env.FRONTEND_URL = 'https://seebu.prannsss.dev';
   delete process.env.TURNSTILE_SECRET;
