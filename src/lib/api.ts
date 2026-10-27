@@ -157,7 +157,7 @@ function buildQuery(params: Record<string, string | undefined>): string {
 
 export type AnalyticsRange = { from: string | null; to: string | null };
 
-export type InviteRole = "admin" | "workforce-admin" | "workforce";
+export type InviteRole = "superadmin" | "admin" | "workforce-admin" | "workforce";
 
 export type InvitationRequest = {
   role: InviteRole;
@@ -168,6 +168,8 @@ export type InvitationRequest = {
    *  Co-admins share the inviter's municipality; officers join the inviter's department. */
   department_id?: string | number;
   new_department_name?: string;
+  /** Superadmins inviting an admin: the existing municipality they'll manage. */
+  municipality_id?: string;
 };
 
 export type InvitationDetails = {
@@ -190,6 +192,8 @@ export type TeamInvitation = {
   name: string;
   email: string;
   department: string | null;
+  /** Superadmins' list only: the admin's municipality. */
+  municipality?: string | null;
   state: "pending" | "expired" | "accepted" | "declined" | "cancelled" | "replaced" | "revoked";
   /** Accepted only: "Pending Setup" until they choose their own password, then "Active". */
   accountStatus: string | null;

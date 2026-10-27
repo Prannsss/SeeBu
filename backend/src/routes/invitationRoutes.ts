@@ -5,10 +5,10 @@ import { requireRole } from '../middlewares/requireRole';
 import { authLimiter } from '../middlewares/rateLimiter';
 
 const router = Router();
-const team = [withAuth, requireRole(['admin', 'workforce-admin'])];
+const team = [withAuth, requireRole(['superadmin', 'admin', 'workforce-admin'])];
 
-// Admins invite co-admins and workforce admins; workforce admins invite officers to their department.
-// Each sees and manages its own team's invitations (by municipality / department).
+// Superadmins invite admins (for any municipality) and superadmins; admins invite co-admins and workforce
+// admins; workforce admins invite officers to their department. Each sees and manages its own team's invitations.
 router.get('/', ...team, invitationController.list);
 router.post('/', ...team, invitationController.create);
 router.post('/:id/cancel', ...team, invitationController.cancel);

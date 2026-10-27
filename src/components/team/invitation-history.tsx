@@ -175,6 +175,7 @@ export function InvitationHistory({ className }: { className?: string }) {
                         <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
                           {inv.roleLabel}
                           {inv.role === "workforce-admin" && inv.department ? ` · ${inv.department}` : ""}
+                          {inv.role === "admin" && inv.municipality ? ` · ${inv.municipality}` : ""}
                         </p>
                         <p className="text-xs text-slate-500 dark:text-slate-400">
                           {whenLine(inv)} · Invited by {inv.invitedByYou ? "you" : inv.invitedBy || "a teammate"}

@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 
-export type InviteRole = 'admin' | 'workforce-admin' | 'workforce';
+export type InviteRole = 'superadmin' | 'admin' | 'workforce-admin' | 'workforce';
 
 export const INVITE_TTL_DAYS = 7;
 
@@ -54,12 +54,18 @@ export function temporaryPassword(): string {
 export const newInviteToken = () => crypto.randomBytes(32).toString('base64url');
 export const hashInviteToken = (token: string) => crypto.createHash('sha256').update(token).digest('hex');
 
-/** Admins manage their municipality's admins and workforce admins; workforce admins, their department's officers. */
+/**
+ * Superadmins manage every admin and superadmin invitation; admins, their municipality's admins and
+ * workforce admins; workforce admins, their department's officers.
+ */
 export function inTeam(
   inv: { role: string; municipality_id: string | null; department_id: number | string | null },
   user: { role: string; municipality_id?: string | null; department_id?: number | string | null }
 ): boolean {
-  if (user.role === 'admin') return inv.role !== 'workforce' && !!user.municipality_id && inv.municipality_id === user.municipality_id;
+  if (user.role === 'superadmin') return inv.role === 'admin' || inv.role === 'superadmin';
+  if (user.role === 'admin') {
+    return (inv.role === 'admin' || inv.role === 'workforce-admin') && !!user.municipality_id && inv.municipality_id === user.municipality_id;
+  }
   if (user.role === 'workforce-admin') {
     return inv.role === 'workforce' && !!user.department_id && Number(inv.department_id) === Number(user.department_id);
   }

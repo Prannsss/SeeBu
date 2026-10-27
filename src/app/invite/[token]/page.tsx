@@ -22,6 +22,8 @@ import {
 import { apiClient, type InvitationDetails } from "@/lib/api";
 
 const ROLE_BLURB: Record<string, string> = {
+  superadmin:
+    "As a Super Admin, you'll oversee reports and analytics across every municipality and manage SeeBu's admins.",
   admin:
     "As an Admin, you'll review incoming reports for your municipality, route them to the right departments, and manage your team.",
   "workforce-admin":
@@ -31,8 +33,8 @@ const ROLE_BLURB: Record<string, string> = {
 };
 
 const article = (word: string) => (/^[aeiou]/i.test(word) ? "an" : "a");
-// Admins serve a municipality ("an Admin for Cebu City"); department staff work in one.
-const placePreposition = (role: string) => (role === "admin" ? "for" : "in");
+// Admins serve a municipality ("an Admin for Cebu City") and superadmins all of them; department staff work in one.
+const placePreposition = (role: string) => (role === "admin" || role === "superadmin" ? "for" : "in");
 
 type View =
   | { kind: "loading" }

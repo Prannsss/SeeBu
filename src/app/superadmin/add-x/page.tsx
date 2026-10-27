@@ -1,477 +1,291 @@
 ﻿"use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState } from "react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
-import { UserPlus, ShieldAlert, ShieldCheck, Loader2, Eye, EyeOff } from "lucide-react"
+import { UserPlus, ShieldAlert, ShieldCheck } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { PasswordChecklist } from "@/components/ui/password-checklist"
-import { VerificationCodeUI } from "@/components/ui/verification-code"
 import { gooeyToast } from "goey-toast"
-import { useMutation, useQuery } from "@tanstack/react-query"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
+import { apiClient, type InvitationRequest } from "@/lib/api"
+import { INVITATIONS_KEY, InvitationHistory } from "@/components/team/invitation-history"
+import { InviteSentPanel, type SentInvite } from "@/components/team/invite-sent-panel"
+
+// Phone number formatter for Philippine format
+const formatPhoneNumber = (value: string) => {
+  const digits = value.replace(/\D/g, "")
+  if (digits.startsWith("63")) return "+63" + digits.slice(2, 12)
+  if (digits.startsWith("0")) return "+63" + digits.slice(1, 11)
+  const limited = digits.slice(0, 10)
+  return limited ? "+63" + limited : ""
+}
+
+const TAB_CLASS =
+  "flex items-center justify-center gap-2 py-3 rounded-lg text-slate-600 dark:text-slate-400 data-[state=active]:bg-[#EAF6FD] dark:data-[state=active]:bg-[#00B2E2]/10 data-[state=active]:text-[#001731] dark:data-[state=active]:text-white data-[state=active]:shadow-none transition-all font-medium"
+
+/** Name, contact number and email: the same three fields on both invite forms. */
+function PersonFields({
+  prefix,
+  name,
+  setName,
+  contact,
+  setContact,
+  email,
+  setEmail,
+}: {
+  prefix: string
+  name: string
+  setName: (v: string) => void
+  contact: string
+  setContact: (v: string) => void
+  email: string
+  setEmail: (v: string) => void
+}) {
+  return (
+    <>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="floating-input !mt-0">
+          <input id={`${prefix}-name`} type="text" placeholder=" " required maxLength={100} value={name} onChange={(e) => setName(e.target.value)} />
+          <label htmlFor={`${prefix}-name`}>Full Name</label>
+          <span className="material-symbols-outlined input-icon">person</span>
+        </div>
+        <div className="floating-input !mt-0">
+          <input
+            id={`${prefix}-contact`}
+            type="tel"
+            placeholder=" "
+            required
+            inputMode="tel"
+            maxLength={13}
+            value={contact}
+            onChange={(e) => setContact(formatPhoneNumber(e.target.value))}
+          />
+          <label htmlFor={`${prefix}-contact`}>Contact Number</label>
+          <span className="material-symbols-outlined input-icon">call</span>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <div className="floating-input !mt-0">
+          <input
+            id={`${prefix}-email`}
+            type="email"
+            placeholder=" "
+            required
+            maxLength={100}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            aria-describedby={`${prefix}-email-hint`}
+          />
+          <label htmlFor={`${prefix}-email`}>Email Address</label>
+          <span className="material-symbols-outlined input-icon">mail</span>
+        </div>
+        <p id={`${prefix}-email-hint`} className="text-xs text-slate-500 ml-1">
+          The invitation and temporary password will be sent here. It&apos;s also their sign-in email.
+        </p>
+      </div>
+    </>
+  )
+}
 
 export default function SuperadminAddPage() {
   const [activeTab, setActiveTab] = useState("admin")
-  const [adminPassword, setAdminPassword] = useState("")
-  const [showAdminPassword, setShowAdminPassword] = useState(false)
-  const [superadminPassword, setSuperadminPassword] = useState("")
-  const [showSuperadminPassword, setShowSuperadminPassword] = useState(false)
-  const [isVerifying, setIsVerifying] = useState(false)
-  const [verifyingEmail, setVerifyingEmail] = useState("")
+  const queryClient = useQueryClient()
 
-  const formatPhoneNumber = (value: string) => {
-    const digits = value.replace(/\D/g, '');
-
-    if (digits.startsWith('63')) {
-      const remaining = digits.slice(2, 12);
-      return '+63' + remaining;
-    }
-
-    if (digits.startsWith('0')) {
-      const remaining = digits.slice(1, 11);
-      return '+63' + remaining;
-    }
-
-    const limited = digits.slice(0, 10);
-    return limited ? '+63' + limited : '';
-  };
-  const [municipalityId, setMunicipalityId] = useState("")
-  const [municipalityInput, setMunicipalityInput] = useState("")
-  const [showMunicipalityDropdown, setShowMunicipalityDropdown] = useState(false)
-  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
-  const municipalityInputRef = useRef<HTMLInputElement>(null)
-  const dropdownRef = useRef<HTMLDivElement>(null)
-
-  // Fetch municipalities from API
-  const { data: locationsData } = useQuery({
+  const { data: locations = [], isLoading: locationsLoading } = useQuery({
     queryKey: ["locations"],
-    queryFn: async () => {
-      const { apiClient } = await import('@/lib/api');
-      const json = await apiClient.locations.getAll();
-      return json.data || [];
-    }
+    queryFn: async () => (await apiClient.locations.getAll()).data || [],
+    staleTime: 24 * 60 * 60 * 1000,
   })
 
-  const municipalities = locationsData || [];
+  // ── Admin invitation (for a chosen municipality) ──
+  const [municipalityId, setMunicipalityId] = useState("")
+  const [adminName, setAdminName] = useState("")
+  const [adminContact, setAdminContact] = useState("")
+  const [adminEmail, setAdminEmail] = useState("")
+  const [adminSent, setAdminSent] = useState<SentInvite | null>(null)
 
-  // Filter municipalities based on input
-  const filteredMunicipalities = municipalities.filter((mun: any) =>
-    mun.name.toLowerCase().includes(municipalityInput.toLowerCase())
+  // ── Superadmin invitation (platform-wide) ──
+  const [saName, setSaName] = useState("")
+  const [saContact, setSaContact] = useState("")
+  const [saEmail, setSaEmail] = useState("")
+  const [saSent, setSaSent] = useState<SentInvite | null>(null)
+
+  const inviteMutation = useMutation({
+    mutationFn: (request: InvitationRequest) => apiClient.invitations.create(request),
+    onError: (error: any) => {
+      gooeyToast.error("Couldn't Send Invitation", { description: error?.message || "Please try again." })
+    },
+  })
+
+  const sendInvite = (request: InvitationRequest, onSent: (place: string) => void) => {
+    inviteMutation.mutate(request, {
+      onSuccess: (result: any) => {
+        onSent(result?.data?.place || "")
+        queryClient.invalidateQueries({ queryKey: INVITATIONS_KEY })
+        queryClient.invalidateQueries({ queryKey: ["superadmin-users"] })
+        gooeyToast.success("Invitation sent!", { description: `We emailed ${request.email} their invitation.` })
+      },
+    })
+  }
+
+  const handleAdminInvite = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!municipalityId) {
+      gooeyToast.error("Please choose the municipality this admin will manage.")
+      return
+    }
+    const municipalityName = locations.find((m: any) => m.id === municipalityId)?.name || municipalityId
+    sendInvite(
+      { role: "admin", municipality_id: municipalityId, full_name: adminName.trim(), email: adminEmail.trim(), contact_number: adminContact || undefined },
+      (place) => setAdminSent({ name: adminName.trim(), email: adminEmail.trim(), place: place || municipalityName })
+    )
+  }
+
+  const handleSuperadminInvite = (e: React.FormEvent) => {
+    e.preventDefault()
+    sendInvite(
+      { role: "superadmin", full_name: saName.trim(), email: saEmail.trim(), contact_number: saContact || undefined },
+      (place) => setSaSent({ name: saName.trim(), email: saEmail.trim(), place: place || "all municipalities" })
+    )
+  }
+
+  const resetAdminForm = () => {
+    setAdminSent(null)
+    setMunicipalityId("")
+    setAdminName("")
+    setAdminContact("")
+    setAdminEmail("")
+  }
+
+  const resetSuperadminForm = () => {
+    setSaSent(null)
+    setSaName("")
+    setSaContact("")
+    setSaEmail("")
+  }
+
+  const sendButton = (
+    <Button
+      className="w-full h-12 mt-4 text-base bg-[#00B2E2] hover:bg-[#0096C7] text-white font-medium shadow-sm transition-all rounded-lg"
+      type="submit"
+      disabled={inviteMutation.isPending}
+    >
+      {inviteMutation.isPending ? "Sending Invitation…" : "Send Invitation"}
+    </Button>
   )
 
-  // Handle blur on input - only close dropdown, don't trigger dialog
-  const handleMunicipalityBlur = () => {
-    setShowMunicipalityDropdown(false)
-  }
-
-  const handleMunicipalityFocus = () => {
-    setShowMunicipalityDropdown(true)
-  }
-
-  // Check if all required admin fields are filled
-  const isAdminFormValid = () => {
-    const nameEl = document.querySelector('#admin-name') as HTMLInputElement;
-    const contactEl = document.querySelector('#admin-contact') as HTMLInputElement;
-    return nameEl?.value?.trim() && contactEl?.value?.trim() && verifyingEmail?.trim() && adminPassword.length >= 8;
-  };
-
-  // Check if all required superadmin fields are filled
-  const isSuperadminFormValid = () => {
-    const nameEl = document.querySelector('#sa-name') as HTMLInputElement;
-    const contactEl = document.querySelector('#sa-contact') as HTMLInputElement;
-    return nameEl?.value?.trim() && contactEl?.value?.trim() && verifyingEmail?.trim() && superadminPassword.length >= 8;
-  };
-
-  const handleSelectOrAddMunicipality = (mun?: any) => {
-    if (mun) {
-      setMunicipalityInput(mun.name)
-      setMunicipalityId(mun.id)
-    } else {
-      // User clicked "Add new municipality" - validate form first
-      if (activeTab === 'admin' && !isAdminFormValid()) {
-        gooeyToast.error("Error", { description: "Please fill in all required fields before adding a municipality" });
-        return;
-      }
-      if (activeTab === 'superadmin' && !isSuperadminFormValid()) {
-        gooeyToast.error("Error", { description: "Please fill in all required fields before adding a municipality" });
-        return;
-      }
-      // Show confirmation dialog for new municipality
-      setTimeout(() => setConfirmDialogOpen(true), 100);
-    }
-    setShowMunicipalityDropdown(false)
-  }
-
-  const selectMunicipality = (mun: any) => {
-    handleSelectOrAddMunicipality(mun)
-  }
-
-  const handleConfirmCreate = () => {
-    // Generate ID from name: "Cebu City" -> "cebu-city"
-    const generatedId = municipalityInput
-      .toLowerCase()
-      .replace(/[^a-z0-9\s]/g, '')
-      .replace(/\s+/g, '-')
-    setMunicipalityId(generatedId)
-    setConfirmDialogOpen(false)
-    gooeyToast.success(`Municipality "${municipalityInput}" will be created`)
-  }
-
-  const provisionMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const { apiClient } = await import('@/lib/api');
-      const result = await apiClient.auth.provision(data);
-      
-      return result;
-    },
-    onSuccess: () => {
-      gooeyToast.success("Verification code sent!")
-      setIsVerifying(true)
-    },
-    onError: (error: any) => {
-      gooeyToast.error("Error", { description: error.message || "Failed to add user" })
-    }
-  })
-  
-  const handleAddSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    const form = e.currentTarget
-    
-    // We get the inputs based on the active tab
-    const prefix = activeTab === "admin" ? "admin" : "sa"
-    const fullNameElement = form.querySelector(`#${prefix}-name`) as HTMLInputElement
-    const contactElement = form.querySelector(`#${prefix}-contact`) as HTMLInputElement
-    
-    const payload: any = {
-      user_role: activeTab,
-      full_name: fullNameElement.value,
-      contact_number: contactElement.value,
-      email: verifyingEmail,
-      password: activeTab === "admin" ? adminPassword : superadminPassword,
-    }
-    
-    if (activeTab === "admin") {
-      if (!municipalityId) {
-        gooeyToast.error("Please select a municipality")
-        return
-      }
-      payload.municipality_id = municipalityId
-    }
-
-    provisionMutation.mutate(payload)
-  }
-
-  const handleVerifySuccess = () => {
-    setIsVerifying(false)
-    setAdminPassword("")
-    setSuperadminPassword("")
-    setVerifyingEmail("")
-    setMunicipalityId("")
-    // Find inputs to reset them
-    const inputs = document.querySelectorAll('input')
-    inputs.forEach(input => input.value = '')
-    gooeyToast.success(`${activeTab === 'admin' ? 'Admin' : 'Superadmin'} added successfully!`)
-  }
-
-  const handleVerifyCancel = () => {
-    setIsVerifying(false)
-  }
-
   return (
-    <div className="min-h-screen overflow-y-scroll bg-slate-50 pb-32 dark:bg-slate-950 dark:text-slate-100 flex flex-col">
-      <div className="container mx-auto max-w-3xl px-5 pt-10 pb-6 flex flex-col flex-1">
+    <div className="min-h-screen overflow-y-scroll bg-slate-50 pb-32 dark:bg-slate-950 dark:text-slate-100">
+      <div className="container mx-auto max-w-6xl px-5 pt-10 pb-6">
         <div className="mb-8 flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#e5f7fd] dark:bg-[#00B2E2]/20">
-            <UserPlus className="h-6 w-6 text-[#00B2E2] dark:text-[#00B2E2]" />
+            <UserPlus className="h-6 w-6 text-[#00B2E2] dark:text-[#00B2E2]" aria-hidden="true" />
           </div>
           <div>
             <h1 className="text-3xl font-bold">User Management</h1>
-            <p className="text-muted-foreground">Provision high-level administrative access and assign municipal jurisdictions.</p>
+            <p className="text-muted-foreground">Invite municipal admins and fellow superadmins.</p>
           </div>
         </div>
 
-        {isVerifying ? (
-          <div className="max-w-md mx-auto mt-12 w-full">
-            <VerificationCodeUI 
-              onVerify={handleVerifySuccess} 
-              onCancel={handleVerifyCancel} 
-              email={verifyingEmail || "the provided email"} 
-            />
-          </div>
-        ) : (
-          <div className="flex-1 overflow-visible">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full h-full flex flex-col">
-              <TabsList className="grid w-full grid-cols-2 mb-8 bg-transparent p-0 gap-2 shrink-0">
-                <TabsTrigger 
-                  value="admin" 
-                  className="flex items-center justify-center gap-2 py-3 rounded-lg text-slate-600 dark:text-slate-400 data-[state=active]:bg-[#EAF6FD] dark:data-[state=active]:bg-[#00B2E2]/10 data-[state=active]:text-[#001731] dark:data-[state=active]:text-white data-[state=active]:shadow-none transition-all font-medium"
-                >
-                  <ShieldCheck className="w-4 h-4" /> Add Admin
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="superadmin" 
-                  className="flex items-center justify-center gap-2 py-3 rounded-lg text-slate-600 dark:text-slate-400 data-[state=active]:bg-[#EAF6FD] dark:data-[state=active]:bg-[#00B2E2]/10 data-[state=active]:text-[#001731] dark:data-[state=active]:text-white data-[state=active]:shadow-none transition-all font-medium"
-                >
-                  <ShieldAlert className="w-4 h-4" /> Add Superadmin
-                </TabsTrigger>
-              </TabsList>
-          
-          <TabsContent value="admin" className="mt-0 outline-none border-0 w-full flex-1">
-            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 sm:p-8 shadow-sm border border-slate-200 dark:border-slate-800 h-full flex flex-col">
-              <div className="mb-6">
-                <h2 className="text-xl font-semibold mb-1">Create Municipal Admin</h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Admins manage resources and receive client reports for a specific municipality.
-                </p>
-              </div>
+        {/* Desktop: history on the left, form on the right. Mobile: the form comes first. */}
+        <div className="grid gap-8 lg:grid-cols-2 lg:items-start">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full min-w-0">
+            <TabsList className="grid w-full grid-cols-2 mb-8 bg-transparent p-0 gap-2">
+              <TabsTrigger value="admin" className={TAB_CLASS}>
+                <ShieldCheck className="w-4 h-4" aria-hidden="true" /> Add Admin
+              </TabsTrigger>
+              <TabsTrigger value="superadmin" className={TAB_CLASS}>
+                <ShieldAlert className="w-4 h-4" aria-hidden="true" /> Add Superadmin
+              </TabsTrigger>
+            </TabsList>
 
-              <form className="flex flex-col gap-4 flex-1" onSubmit={handleAddSubmit}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="floating-input !mt-0">
-                    <input id="admin-name" type="text" placeholder=" " required maxLength={50} />
-                    <label htmlFor="admin-name">Full Name</label>
-                    <span className="material-symbols-outlined input-icon">person</span>
-                  </div>
-                  <div className="floating-input !mt-0">
-                    <input
-                      id="admin-contact"
-                      type="tel"
-                      placeholder=" "
-                      required
-                      inputMode="tel"
-                      maxLength={13}
-                      onChange={(e) => {
-                        e.currentTarget.value = formatPhoneNumber(e.currentTarget.value);
-                      }}
-                    />
-                    <label htmlFor="admin-contact">Contact Number</label>
-                    <span className="material-symbols-outlined input-icon">call</span>
-                  </div>
-                </div>
-                
-                <div className="flex flex-col gap-1">
-                  <div className="floating-input !mt-0">
-                    <input 
-                      id="admin-email" 
-                      type="email" 
-                      placeholder=" " 
-                      required 
-                      maxLength={100}
-                      value={verifyingEmail}
-                      onChange={(e) => setVerifyingEmail(e.target.value)}
-                    />
-                    <label htmlFor="admin-email">Email Address</label>
-                    <span className="material-symbols-outlined input-icon">mail</span>
-                  </div>
-                  <p className="text-xs text-slate-500 ml-1">A verification link will be sent to this email.</p>
-                </div>
-
-                <div className="space-y-1 mt-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300 ml-1">Assigned Area (Municipality/City)</label>
-                  <div className="relative" ref={dropdownRef}>
-                    <div className="floating-input !mt-0">
-                      <input 
-                        id="municipality-search"
-                        ref={municipalityInputRef}
-                        type="text" 
-                        placeholder=" "
-                        title="Select or add municipality"
-                        value={municipalityInput}
-                        onChange={(e) => {
-                          setMunicipalityInput(e.target.value)
-                          setMunicipalityId("")
-                          setShowMunicipalityDropdown(true)
-                        }}
-                        onFocus={handleMunicipalityFocus}
-                        onBlur={handleMunicipalityBlur}
-                        className="pr-10"
-                        required
-                      />
-                      <label htmlFor="municipality-search">Select or Add Municipality</label>
-                      <span className="material-symbols-outlined input-icon">map</span>
+            <TabsContent value="admin" className="!mt-0 outline-none border-0 w-full">
+              <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 sm:p-8 shadow-sm border border-slate-200 dark:border-slate-800">
+                {adminSent ? (
+                  <InviteSentPanel invite={adminSent} roleLabel="Admin" onReset={resetAdminForm} />
+                ) : (
+                  <>
+                    <div className="mb-6">
+                      <h2 className="text-xl font-semibold mb-1">Invite a Municipal Admin</h2>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                        Admins review reports and manage the team for one municipality. They&apos;ll get an email with a temporary
+                        password and a link to accept the invitation.
+                      </p>
                     </div>
-                    {showMunicipalityDropdown && filteredMunicipalities.length > 0 && (
-                      <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg max-h-60 overflow-auto">
-                        {filteredMunicipalities.map((mun: any) => (
-                          <div 
-                            key={mun.id}
-                            onMouseDown={() => selectMunicipality(mun)}
-                            className="px-4 py-3 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm"
-                          >
-                            {mun.name}
-                          </div>
-                        ))}
-                        {municipalityInput && !filteredMunicipalities.some((m: any) => m.name.toLowerCase() === municipalityInput.toLowerCase()) && (
-                          <div 
-                            onMouseDown={handleMunicipalityBlur}
-                            className="px-4 py-3 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 text-[#00B2E2] dark:text-[#00B2E2] text-sm font-medium border-t border-slate-100 dark:border-slate-700"
-                          >
-                            + Add "{municipalityInput}"
-                          </div>
-                        )}
+
+                    <form className="flex flex-col gap-4" onSubmit={handleAdminInvite}>
+                      <div className="floating-input !mt-0">
+                        <select
+                          id="municipality-select"
+                          required
+                          value={municipalityId}
+                          onChange={(e) => setMunicipalityId(e.target.value)}
+                          className="report-select"
+                        >
+                          <option value="" disabled>
+                            {locationsLoading ? "Loading municipalities…" : "Select a municipality"}
+                          </option>
+                          {locations.map((m: any) => (
+                            <option key={m.id} value={m.id}>{m.name}</option>
+                          ))}
+                        </select>
+                        <label htmlFor="municipality-select">Assigned Area (Municipality/City)</label>
+                        <span className="material-symbols-outlined input-icon">map</span>
                       </div>
-                    )}
-                  </div>
-                  <p className="text-xs text-slate-500 ml-1">Type to search or enter a new municipality name.</p>
-                </div>
 
-                <div className="flex flex-col gap-1 mt-2">
-                  <div className="floating-input !mt-0">
-                    <input 
-                      id="admin-password" 
-                      type={showAdminPassword ? "text" : "password"}
-                      placeholder=" " 
-                      required 
-                      minLength={8}
-                      maxLength={50}
-                      value={adminPassword}
-                      onChange={(e) => setAdminPassword(e.target.value)}
-                    />
-                    <label htmlFor="admin-password">Temporary Password</label>
-                    <span className="material-symbols-outlined input-icon">lock</span>
-                    <button 
-                      type="button"
-                      onClick={() => setShowAdminPassword(!showAdminPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                    >
-                      {showAdminPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                    </button>
-                  </div>
-                  <div className="pt-2 pl-1">
-                    <PasswordChecklist password={adminPassword} />
-                  </div>
-                </div>
+                      <PersonFields
+                        prefix="admin"
+                        name={adminName}
+                        setName={setAdminName}
+                        contact={adminContact}
+                        setContact={setAdminContact}
+                        email={adminEmail}
+                        setEmail={setAdminEmail}
+                      />
 
-                <Button disabled={provisionMutation.isPending} className="w-full h-12 mt-auto text-base bg-[#00B2E2] hover:bg-[#0096C7] text-white font-medium shadow-sm transition-all rounded-lg" type="submit">
-                  {provisionMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                  Send Admin Invitation
-                </Button>
-              </form>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="superadmin" className="mt-0 outline-none border-0 w-full flex-1">
-            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 sm:p-8 shadow-sm border border-slate-200 dark:border-slate-800 h-full flex flex-col">
-              <div className="mb-6">
-                <h2 className="text-xl font-semibold mb-1">Create Superadmin</h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Superadmins have unrestricted global access across all municipalities.
-                </p>
+                      {sendButton}
+                    </form>
+                  </>
+                )}
               </div>
+            </TabsContent>
 
-              <form className="flex flex-col gap-4 flex-1" onSubmit={handleAddSubmit}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="floating-input !mt-0">
-                    <input id="sa-name" type="text" placeholder=" " required maxLength={50} />
-                    <label htmlFor="sa-name">Full Name</label>
-                    <span className="material-symbols-outlined input-icon">person</span>
-                  </div>
-                  <div className="floating-input !mt-0">
-                    <input
-                      id="sa-contact"
-                      type="tel"
-                      placeholder=" "
-                      required
-                      inputMode="tel"
-                      maxLength={13}
-                      onChange={(e) => {
-                        e.currentTarget.value = formatPhoneNumber(e.currentTarget.value);
-                      }}
-                    />
-                    <label htmlFor="sa-contact">Contact Number</label>
-                    <span className="material-symbols-outlined input-icon">call</span>
-                  </div>
-                </div>
-                
-                <div className="flex flex-col gap-1">
-                  <div className="floating-input !mt-0">
-                    <input 
-                      id="sa-email" 
-                      type="email" 
-                      placeholder=" " 
-                      required 
-                      maxLength={100}
-                      value={verifyingEmail}
-                      onChange={(e) => setVerifyingEmail(e.target.value)}
-                    />
-                    <label htmlFor="sa-email">Email Address</label>
-                    <span className="material-symbols-outlined input-icon">mail</span>
-                  </div>
-                  <p className="text-xs text-slate-500 ml-1">A verification link will be sent to this email.</p>
-                </div>
+            <TabsContent value="superadmin" className="!mt-0 outline-none border-0 w-full">
+              <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 sm:p-8 shadow-sm border border-slate-200 dark:border-slate-800">
+                {saSent ? (
+                  <InviteSentPanel invite={saSent} roleLabel="Super Admin" onReset={resetSuperadminForm} />
+                ) : (
+                  <>
+                    <div className="mb-6">
+                      <h2 className="text-xl font-semibold mb-1">Invite a Superadmin</h2>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                        Superadmins have access across every municipality, including analytics and user management. Only invite
+                        people you fully trust.
+                      </p>
+                    </div>
 
-                <div className="flex flex-col gap-1 mt-2">
-                  <div className="floating-input !mt-0 relative">
-                    <input 
-                      id="sa-password" 
-                      type={showSuperadminPassword ? "text" : "password"}
-                      placeholder=" " 
-                      required 
-                      minLength={8}
-                      maxLength={50}
-                      value={superadminPassword}
-                      onChange={(e) => setSuperadminPassword(e.target.value)}
-                    />
-                    <label htmlFor="sa-password">Temporary Password</label>
-                    <span className="material-symbols-outlined input-icon">lock</span>
-                    <button 
-                      type="button"
-                      onClick={() => setShowSuperadminPassword(!showSuperadminPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                    >
-                      {showSuperadminPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                    </button>
-                  </div>
-                  <div className="pt-2 pl-1">
-                    <PasswordChecklist password={superadminPassword} />
-                  </div>
-                </div>
+                    <form className="flex flex-col gap-4" onSubmit={handleSuperadminInvite}>
+                      <PersonFields
+                        prefix="sa"
+                        name={saName}
+                        setName={setSaName}
+                        contact={saContact}
+                        setContact={setSaContact}
+                        email={saEmail}
+                        setEmail={setSaEmail}
+                      />
 
-                <Button disabled={provisionMutation.isPending} className="w-full h-12 mt-auto text-base bg-[#00B2E2] hover:bg-[#0096C7] text-white font-medium shadow-sm transition-all rounded-lg" type="submit">
-                  {provisionMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                  Create Global Superadmin
-                </Button>
-              </form>
-            </div>
-          </TabsContent>
-        </Tabs>
-          </div>
-        )}
+                      {sendButton}
+                    </form>
+                  </>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          <InvitationHistory className="lg:order-first min-w-0" />
+        </div>
       </div>
-
-      {/* Confirmation Dialog for New Municipality */}
-      <Dialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
-        <DialogContent className="w-[calc(100%-2rem)] max-w-sm rounded-md p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-semibold">Municipality Not Found</DialogTitle>
-          </DialogHeader>
-          <div className="py-2">
-            <p className="text-sm text-slate-600 dark:text-slate-300">
-              "{municipalityInput}" does not exist. Would you like to add it as a new municipality?
-            </p>
-          </div>
-          <DialogFooter className="flex-row gap-3 mt-4">
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setConfirmDialogOpen(false)
-                setMunicipalityInput("")
-                municipalityInputRef.current?.focus()
-              }}
-              className="flex-1 bg-sky-700 hover:bg-sky-800 text-white hover:text-white border-sky-700 font-bold"
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleConfirmCreate}
-              className="flex-1 bg-[#00B2E2] hover:bg-[#0096C7] text-white"
-            >
-              Yes, Add New
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

@@ -25,8 +25,10 @@ import {
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://seebu.prannsss.dev';
 const TABLE_FOR_ROLE: Record<string, string> = Object.fromEntries(ACCOUNT_TABLES.map(({ table, role }) => [role, table]));
-// Who may invite whom: admins add co-admins and department heads; department heads add officers.
+// Who may invite whom: superadmins add admins and superadmins; admins add co-admins and department heads;
+// department heads add officers.
 const CAN_INVITE: Record<string, InviteRole[]> = {
+  superadmin: ['admin', 'superadmin'],
   admin: ['admin', 'workforce-admin'],
   'workforce-admin': ['workforce'],
 };
@@ -94,8 +96,9 @@ async function municipalityName(id: string | null): Promise<string | null> {
   return data?.name ?? null;
 }
 
-/** "Cebu City" for admins; "General Maintenance, Cebu City" for department staff. */
-async function placeName(municipalityId: string | null, department: Department | null): Promise<string> {
+/** "Cebu City" for admins; "General Maintenance, Cebu City" for department staff; superadmins aren't tied to one. */
+async function placeName(municipalityId: string | null, department: Department | null, role?: string): Promise<string> {
+  if (role === 'superadmin') return 'all municipalities';
   const city = await municipalityName(municipalityId);
   if (!department) return city || 'your municipality';
   return city ? `${department.name}, ${city}` : department.name;
@@ -172,7 +175,7 @@ function notifyInvitee(inv: Invitation, revoked: boolean, person: Person = inv) 
     await sendStaffAccessEndedEmail(person.email, {
       name: person.full_name,
       roleLabel: ROLE_LABEL[inv.role],
-      placeName: await placeName(inv.municipality_id, department),
+      placeName: await placeName(inv.municipality_id, department, inv.role),
       revoked,
     });
   })().catch((err) => console.error('[invitations] invitee notification failed:', err));
@@ -188,7 +191,7 @@ function notifyInviter(inv: Invitation, accepted: boolean) {
       inviteeName: inv.full_name,
       inviteeEmail: inv.email,
       roleLabel: ROLE_LABEL[inv.role],
-      placeName: await placeName(inv.municipality_id, department),
+      placeName: await placeName(inv.municipality_id, department, inv.role),
       accepted,
       dashboardUrl: `${FRONTEND_URL}${HOME_PATH[inv.invited_by_role] || ''}`,
     });
@@ -211,7 +214,9 @@ export const invitationController = {
         return res.status(403).json({
           error: inviterRole === 'workforce-admin'
             ? 'Workforce admins can only invite workforce officers.'
-            : 'Admins can invite co-admins and workforce admins.',
+            : inviterRole === 'superadmin'
+              ? 'Superadmins can invite admins and superadmins.'
+              : 'Admins can invite co-admins and workforce admins.',
         });
       }
       if (!fullName || fullName.length > 100) {
@@ -226,7 +231,18 @@ export const invitationController = {
       let municipalityId: string | null = null;
       let newDepartmentIn: string | null = null; // municipality to create `newDepartmentName` in
 
-      if (role === 'admin') {
+      if (role === 'superadmin') {
+        // Platform-wide: no municipality or department.
+      } else if (role === 'admin' && inviterRole === 'superadmin') {
+        // A superadmin picks which (existing) municipality the new admin will run.
+        const requested = String(req.body.municipality_id || '').trim();
+        const { data: municipality, error: municipalityError } = requested
+          ? await supabase.from('municipalities').select('id').eq('id', requested).maybeSingle()
+          : { data: null, error: null };
+        if (municipalityError) throw municipalityError;
+        if (!municipality) return res.status(400).json({ error: 'Please choose the municipality this admin will manage.' });
+        municipalityId = municipality.id;
+      } else if (role === 'admin') {
         // Co-admins share the inviting admin's municipality.
         municipalityId = req.user.municipality_id || null;
         if (!municipalityId) return res.status(400).json({ error: "Your account isn't linked to a municipality yet." });
@@ -322,8 +338,9 @@ export const invitationController = {
         contact_number: contactNumber,
         status: 'Invited',
         email_verified: false,
-        municipality_id: municipalityId,
       };
+      // The superadmins table has no municipality column.
+      if (role !== 'superadmin') account.municipality_id = municipalityId;
       if (department) account.department_id = department.id;
       if (role === 'workforce') {
         Object.assign(account, {
@@ -362,7 +379,7 @@ export const invitationController = {
       }
 
       // Without the email the invitee never gets the temporary password, so undo everything.
-      const [inviter, place] = await Promise.all([loadInviter(inviterRole, req.user.id), placeName(municipalityId, department)]);
+      const [inviter, place] = await Promise.all([loadInviter(inviterRole, req.user.id), placeName(municipalityId, department, role)]);
       try {
         await sendStaffInvitationEmail(email, {
           inviteeName: fullName,
@@ -412,7 +429,7 @@ export const invitationController = {
           inviteeName: inv.full_name,
           email: inv.email,
           inviterName: inviter?.full_name || 'Your administrator',
-          placeName: await placeName(inv.municipality_id, department),
+          placeName: await placeName(inv.municipality_id, department, inv.role),
           expiresAt: inv.expires_at,
         },
       });
@@ -485,18 +502,21 @@ export const invitationController = {
 
   async list(req: Request, res: Response) {
     try {
-      const isAdmin = req.user.role === 'admin';
-      const scopeId = isAdmin ? req.user.municipality_id : req.user.department_id;
-      if (!scopeId) return res.status(200).json({ data: [] });
+      const viewerRole: string = req.user.role;
+      const isSuperadmin = viewerRole === 'superadmin';
+      const scopeId = viewerRole === 'admin' ? req.user.municipality_id : req.user.department_id;
+      if (!isSuperadmin && !scopeId) return res.status(200).json({ data: [] });
 
       // ponytail: no pagination; a team's history stays small. Page it if one nears Supabase's 1,000-row cap.
       const query = supabase
         .from('staff_invitations')
-        .select('id, role, user_id, email, full_name, invited_by, status, expires_at, responded_at, created_at, department:departments(name)')
+        .select('id, role, user_id, email, full_name, invited_by, invited_by_role, status, expires_at, responded_at, created_at, department:departments(name), municipality:municipalities(name)')
         .order('created_at', { ascending: false });
-      const { data, error } = await (isAdmin
-        ? query.in('role', ['admin', 'workforce-admin']).eq('municipality_id', scopeId)
-        : query.eq('role', 'workforce').eq('department_id', scopeId));
+      const { data, error } = await (isSuperadmin
+        ? query.in('role', ['admin', 'superadmin'])
+        : viewerRole === 'admin'
+          ? query.in('role', ['admin', 'workforce-admin']).eq('municipality_id', scopeId)
+          : query.eq('role', 'workforce').eq('department_id', scopeId));
       if (error) throw error;
       const rows: any[] = data ?? [];
 
@@ -513,17 +533,18 @@ export const invitationController = {
         })
       );
 
-      // Everyone in one team's list was invited by someone of the viewer's own role.
-      const inviterIds = [...new Set(rows.map((r) => r.invited_by as string))];
+      // Inviters live in their own role's table (a superadmin's list also holds admins' co-admin invites).
       const inviters = new Map<string, { full_name: string; status: string }>();
-      if (inviterIds.length) {
-        const { data: found, error: invitersError } = await supabase
-          .from(TABLE_FOR_ROLE[req.user.role])
-          .select('id, full_name, status')
-          .in('id', inviterIds);
-        if (invitersError) throw invitersError;
-        for (const inviter of found ?? []) inviters.set(inviter.id, inviter);
-      }
+      await Promise.all(
+        [...new Set(rows.map((r) => String(r.invited_by_role)))].map(async (inviterRole) => {
+          const table = TABLE_FOR_ROLE[inviterRole];
+          if (!table) return;
+          const ids = [...new Set(rows.filter((r) => r.invited_by_role === inviterRole).map((r) => r.invited_by as string))];
+          const { data: found, error: invitersError } = await supabase.from(table).select('id, full_name, status').in('id', ids);
+          if (invitersError) throw invitersError;
+          for (const inviter of found ?? []) inviters.set(inviter.id, inviter);
+        })
+      );
 
       return res.status(200).json({
         data: rows.map((r) => ({
@@ -533,6 +554,8 @@ export const invitationController = {
           name: r.full_name,
           email: r.email,
           department: r.department?.name ?? null,
+          // Only a superadmin's list spans municipalities, so only there is it worth showing.
+          municipality: isSuperadmin ? r.municipality?.name ?? null : null,
           state: r.status === 'pending' && isExpired(r) ? 'expired' : r.status,
           accountStatus: accountStatus.get(r.user_id) ?? null,
           invitedBy: inviters.get(r.invited_by)?.full_name ?? null,
@@ -637,7 +660,7 @@ export const invitationController = {
         await sendStaffAccessRestoredEmail(person.email, {
           name: person.full_name,
           roleLabel: ROLE_LABEL[inv.role],
-          placeName: await placeName(inv.municipality_id, department),
+          placeName: await placeName(inv.municipality_id, department, inv.role),
           tempPassword,
           loginUrl: `${FRONTEND_URL}/auth/login?email=${encodeURIComponent(person.email)}`,
         });

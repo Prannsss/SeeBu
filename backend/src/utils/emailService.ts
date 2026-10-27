@@ -294,9 +294,11 @@ const plainText = (html: string) => html.replace(/<[^>]+>/g, '');
 
 // Admins serve a municipality ("an Admin for Cebu City"); department staff work in one
 // ("a Workforce Officer in General Maintenance, Cebu City").
-const placePreposition = (roleLabel: string) => (roleLabel === 'Admin' ? 'for' : 'in');
+const placePreposition = (roleLabel: string) => (roleLabel === 'Admin' || roleLabel === 'Super Admin' ? 'for' : 'in');
 
 const ROLE_BLURB: Record<string, string> = {
+  'Super Admin':
+    "As a Super Admin, you'll oversee reports and analytics across every municipality and manage SeeBu's admins.",
   Admin:
     "As an Admin, you'll review incoming reports for your municipality, route them to the right departments, and manage your team.",
   'Workforce Admin':

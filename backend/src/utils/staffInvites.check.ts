@@ -43,4 +43,13 @@ assert.ok(!inTeam(deptHead, sanitationHead), "department heads don't manage each
 assert.ok(!inTeam(officer, { role: 'workforce-admin', department_id: null }), 'head without a department');
 assert.ok(!inTeam(officer, { role: 'workforce', department_id: 7 }), 'officers manage no one');
 
+const superadmin = { role: 'superadmin' };
+const superInvite = { role: 'superadmin', municipality_id: null, department_id: null };
+assert.ok(inTeam(coAdmin, superadmin), 'superadmins manage admins');
+assert.ok(inTeam({ ...coAdmin, municipality_id: 'mandaue' }, superadmin), 'in every municipality');
+assert.ok(inTeam(superInvite, superadmin), 'and other superadmins');
+assert.ok(!inTeam(deptHead, superadmin), "department heads are their admin's team");
+assert.ok(!inTeam(officer, superadmin));
+assert.ok(!inTeam(superInvite, cebuAdmin), "admins don't manage superadmins");
+
 console.log('staffInvites.check PASS');
