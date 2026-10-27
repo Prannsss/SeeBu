@@ -19,6 +19,13 @@ const TASK_TABS: Record<string, (query: any) => any> = {
   Completed: (q) => q.eq('status', 'Completed'),
 };
 
+// Officer (workforce) tabs on My Tasks: waiting to be accepted, being worked on, done.
+const OFFICER_TASK_TABS: Record<string, (query: any) => any> = {
+  Assigned: (q) => q.in('status', ['Assigned', 'Pending']),
+  Accepted: (q) => q.in('status', ['Accepted', 'In Progress']),
+  Completed: (q) => q.eq('status', 'Completed'),
+};
+
 export const taskController = {
   // READ TASKS
   async getTasks(req: Request, res: Response) {
@@ -66,9 +73,11 @@ export const taskController = {
       };
 
       const pagination = parsePagination(req.query);
-      const tabFilter = tab && Object.hasOwn(TASK_TABS, String(tab)) ? TASK_TABS[String(tab)] : undefined;
+      // ?tab= follows the caller's own page: officers group statuses differently from workforce admins.
+      const tabs = role === 'workforce' ? OFFICER_TASK_TABS : TASK_TABS;
+      const tabFilter = tab && Object.hasOwn(tabs, String(tab)) ? tabs[String(tab)] : undefined;
       if (tab && !tabFilter) {
-        return res.status(400).json({ error: `tab must be one of: ${Object.keys(TASK_TABS).join(', ')}` });
+        return res.status(400).json({ error: `tab must be one of: ${Object.keys(tabs).join(', ')}` });
       }
 
       let query = applyFilters(
@@ -88,7 +97,7 @@ export const taskController = {
       if (count_tabs) {
         // The inner join is still needed so department/municipality scoping applies to counts.
         const countSelect = filterByReport ? 'id, related_report:reports!inner(delegated_to, municipality_id)' : 'id';
-        const entries = await Promise.all(Object.entries(TASK_TABS).map(async ([tabName, applyTab]) => {
+        const entries = await Promise.all(Object.entries(tabs).map(async ([tabName, applyTab]) => {
           const { count: tabCount, error: countError } = await applyTab(
             applyFilters(supabase.from('tasks').select(countSelect, { count: 'exact', head: true }))
           );
