@@ -40,10 +40,11 @@ export default function SuperadminUsersPage() {
   const userList = Array.isArray(users) ? users : [];
 
   const filteredUsers = userList.filter((user: any) => {
-    const nameMatch = user.name?.toLowerCase().includes(searchTerm.toLowerCase()) || user.email?.toLowerCase().includes(searchTerm.toLowerCase())
-    const roleMatch = roleFilter === "ALL" || user.role === roleFilter        
-    // area_id contains the municipality_id (e.g., "cebu-city") for matching
-    const areaMatch = areaFilter === "ALL" || user.area_id === areaFilter        
+    const term = searchTerm.trim().toLowerCase()
+    const nameMatch = !term || user.name?.toLowerCase().includes(term) || user.email?.toLowerCase().includes(term)
+    const roleMatch = roleFilter === "ALL" || user.role === roleFilter
+    // area_id is the municipality id (e.g. "cebu-city"); clients and superadmins have none and count as Global.
+    const areaMatch = areaFilter === "ALL" || (areaFilter === "Global" ? !user.area_id : user.area_id === areaFilter)
     return nameMatch && roleMatch && areaMatch
   })
 
@@ -59,9 +60,9 @@ export default function SuperadminUsersPage() {
   }
 
   const getStatusBadgeClass = (status: string) => {
-    return status === 'Active' 
-      ? 'bg-emerald-600 text-white' 
-      : 'bg-yellow-500 text-white'
+    if (status === 'Active') return 'bg-emerald-600 text-white'
+    if (status === 'Invited' || status === 'Pending Setup') return 'bg-yellow-500 text-white'
+    return 'bg-slate-500 text-white' // Inactive (access revoked)
   }
 
   return (
@@ -169,9 +170,7 @@ export default function SuperadminUsersPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="hidden md:table-cell">
-                        {user.municipality_id
-                          ? municipalities.find((m: any) => m.id === user.municipality_id)?.name || user.municipality_id
-                          : user.area}
+                        {user.area}
                       </TableCell>
                       <TableCell className="hidden md:table-cell">
                         <Badge variant="secondary" className={getStatusBadgeClass(user.status)}>
@@ -209,9 +208,7 @@ export default function SuperadminUsersPage() {
                               <div>
                                 <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Assigned Area</p>
                                 <p className="font-medium text-slate-900 dark:text-white">
-                                  {user.municipality_id
-                                    ? municipalities.find((m: any) => m.id === user.municipality_id)?.name || user.municipality_id
-                                    : user.area}
+                                  {user.area}
                                 </p>
                               </div>
                               <div>

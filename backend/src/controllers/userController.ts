@@ -3,6 +3,7 @@ import { supabase } from '../config/db';
 import { serverErrorMessage } from '../utils/errorResponse';
 import { emailExists } from '../utils/accounts';
 import { cacheDel, cacheDelPrefix, authStatusKey } from '../utils/cache';
+import { fetchAllRows } from '../utils/pagination';
 
 export const userController = {
   async getCurrentUser(req: Request, res: Response) {
@@ -91,12 +92,16 @@ export const userController = {
       const tables = ['clients', 'admins', 'superadmins', 'workforce_admins', 'workforce_officers'];
       let allUsers: any[] = [];
 
-      // Fetch municipality names once for mapping
-      const { data: municipalities } = await supabase.from('municipalities').select('id, name');
+      // Fetch municipality and department names once for mapping
+      const [{ data: municipalities }, { data: departments }] = await Promise.all([
+        supabase.from('municipalities').select('id, name'),
+        supabase.from('departments').select('id, name'),
+      ]);
       const munNameMap: Record<string, string> = {};
       (municipalities || []).forEach((m: any) => {
         munNameMap[m.id] = m.name;
       });
+      const deptNameMap = new Map<string, string>((departments || []).map((d: any) => [String(d.id), d.name]));
 
       for (const table of tables) {
         // Handle varying column names across tables, carefully alias them
@@ -110,9 +115,10 @@ export const userController = {
             if (hasDept) selectQuery += ', department_id';
         }
 
-        const { data: tbData, error } = await supabase.from(table).select(selectQuery).limit(100);
-        
-        if (tbData) {
+        // Every account, not just the first page (this was capped at 100 per table).
+        const tbData = await fetchAllRows(() => supabase.from(table).select(selectQuery).order('id', { ascending: true }));
+
+        if (tbData.length) {
           allUsers = [...allUsers, ...tbData.map((u: any) => {
             // Format area: convert 'cebu-city' to 'Cebu City'
             let areaDisplay = 'Global';
@@ -120,7 +126,7 @@ export const userController = {
               const rawName = munNameMap[u.municipality_id] || u.municipality_id;
               areaDisplay = rawName.replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
             } else if (u.department_id) {
-              areaDisplay = u.department_id;
+              areaDisplay = deptNameMap.get(String(u.department_id)) || 'Unassigned';
             }
             
             return {
