@@ -43,6 +43,43 @@ const UNRESOLVED_PALETTE = [
   "#ccfbf1", // light teal
 ]
 
+const AXIS_TICK = { fontSize: 12, fill: "#64748b" }
+const MAX_LABEL_CHARS = 18
+
+const shortLabel = (value: unknown) => {
+  const text = String(value ?? "")
+  return text.length > MAX_LABEL_CHARS ? text.slice(0, MAX_LABEL_CHARS) + "…" : text
+}
+
+/** Y-axis width that fits the longest (shortened) label in the page font, so labels never clip. */
+function labelColumnWidth(labels: unknown[]): number {
+  const texts = labels.map(shortLabel)
+  let widest = 0
+  try {
+    const ctx = document.createElement("canvas").getContext("2d")
+    if (ctx) {
+      ctx.font = `${AXIS_TICK.fontSize}px ${getComputedStyle(document.body).fontFamily}`
+      widest = Math.max(0, ...texts.map((t) => ctx.measureText(t).width))
+    }
+  } catch {
+    // no canvas — fall back to the estimate below
+  }
+  if (!widest) widest = Math.max(0, ...texts.map((t) => t.length)) * AXIS_TICK.fontSize * 0.62
+  // + tickMargin (8) and a little breathing room; capped so bars keep most of a phone-width card.
+  return Math.min(150, Math.ceil(widest) + 16)
+}
+
+/** Single-line category label (Recharts' default tick wraps when its own measurement disagrees). */
+function CategoryTick({ x, y, payload }: { x?: number; y?: number; payload?: { value: unknown } }) {
+  const full = String(payload?.value ?? "")
+  return (
+    <text x={x} y={y} dy={4} textAnchor="end" fontSize={AXIS_TICK.fontSize} fill={AXIS_TICK.fill}>
+      <title>{full}</title>
+      {shortLabel(full)}
+    </text>
+  )
+}
+
 // Detect whether the chart data uses the resolution-split format
 function isResolutionData(data: any[]): boolean {
   return data.length > 0 && "resolved" in data[0] && "unresolved" in data[0]
@@ -109,6 +146,15 @@ export function ChartBarInteractive({
   chartConfig?: ChartConfig
   className?: string
 }) {
+  // Label widths are measured in the page font; re-measure once web fonts finish loading,
+  // otherwise the fallback font's narrower metrics make long labels wrap.
+  const [, setFontsReady] = React.useState(false)
+  React.useEffect(() => {
+    let active = true
+    document.fonts?.ready.then(() => { if (active) setFontsReady(true) })
+    return () => { active = false }
+  }, [])
+
   if (!chartData || chartData.length === 0) {
     return (
       <Card className={"flex flex-col border-slate-200 dark:border-slate-800 shadow-sm w-full " + className}>
@@ -131,6 +177,7 @@ export function ChartBarInteractive({
 
   // Annotate each item with its color index
   const annotatedData = chartData.map((item, idx) => ({ ...item, __colorIndex: idx }))
+  const yAxisWidth = labelColumnWidth(chartData.map((item) => item.issueType))
 
   if (useResolution) {
     return (
@@ -151,20 +198,15 @@ export function ChartBarInteractive({
               margin={{ left: 0, right: 20, top: 4, bottom: 4 }}
             >
               <CartesianGrid vertical={true} horizontal={false} strokeDasharray="3 3" />
-              <XAxis type="number" tickLine={false} axisLine={false} tickMargin={8} />
+              <XAxis type="number" tickLine={false} axisLine={false} tickMargin={8} tick={AXIS_TICK} allowDecimals={false} />
               <YAxis
                 dataKey="issueType"
                 type="category"
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
-                width={110}
-                tickFormatter={(value) => {
-                  if (typeof value === "string" && value.length > 18) {
-                    return value.slice(0, 18) + "…"
-                  }
-                  return value
-                }}
+                tick={<CategoryTick />}
+                width={yAxisWidth}
               />
               <Tooltip content={<ResolutionTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
               {/* Resolved bar — left segment of stack, full issue-type color */}
@@ -212,20 +254,15 @@ export function ChartBarInteractive({
         <ChartContainer config={chartConfig} className="aspect-auto min-h-[350px] w-full">
           <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 16 }}>
             <CartesianGrid vertical={true} horizontal={false} />
-            <XAxis type="number" tickLine={false} axisLine={false} tickMargin={8} />
+            <XAxis type="number" tickLine={false} axisLine={false} tickMargin={8} tick={AXIS_TICK} allowDecimals={false} />
             <YAxis
               dataKey="issueType"
               type="category"
               tickLine={false}
               axisLine={false}
               tickMargin={8}
-              width={100}
-              tickFormatter={(value) => {
-                if (typeof value === "string" && value.length > 20) {
-                  return value.slice(0, 20) + "..."
-                }
-                return value
-              }}
+              tick={<CategoryTick />}
+              width={yAxisWidth}
             />
             {chartKeys.map((key) => (
               <Bar key={key} dataKey={key} fill={"var(--color-" + key + ")"} radius={4} />
