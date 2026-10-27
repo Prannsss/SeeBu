@@ -11,7 +11,8 @@ import { useCurrentUser } from '@/hooks/queries/useCurrentUser';
 import { CameraPrivacyNoticeModal } from '@/components/reports/camera-privacy-notice-modal';
 import { ReportPrivacyAgreementModal } from '@/components/reports/report-privacy-agreement-modal';
 import { scanImageForSensitiveData, type SensitiveDetectionResult } from '@/lib/sensitiveDataDetector';
-import { apiClient, apiFetchClient, isOfflineQueuedError } from '@/lib/api';
+import { apiClient, apiFetchClient } from '@/lib/api';
+import { TurnstileWidget, type TurnstileHandle } from '@/components/ui/turnstile-widget';
 import { compressToDataUrl } from '@/lib/image-compress';
 
 const useAuth = () => {
@@ -105,6 +106,9 @@ export function ReportWizard() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitPhase, setSubmitPhase] = useState<'preparing' | 'submitting'>('preparing');
+  // Cloudflare Turnstile: single-use token, verified by the backend before a report is created.
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileHandle>(null);
   const queryClient = useQueryClient();
   const { isLoggedIn, user } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
@@ -626,6 +630,11 @@ export function ReportWizard() {
       return;
     }
 
+    if (!turnstileToken) {
+      gooeyToast.error("Verification Required", { description: "Please complete the security check above the Submit button." });
+      return;
+    }
+
     if (flaggedPhotoIndices.size > 0) {
       gooeyToast.error("Sensitive Data Detected", {
         description: "Please remove or retake the flagged photos before submitting."
@@ -640,6 +649,12 @@ export function ReportWizard() {
   };
 
   const executeSubmit = async () => {
+    // The token can expire while the agreement is open, or was used by a previous attempt.
+    if (!turnstileToken) {
+      setShowAgreementModal(false);
+      gooeyToast.error("Verification Required", { description: "Please complete the security check again, then submit." });
+      return;
+    }
     try {
       setIsSubmitting(true);
       setSubmitPhase('preparing');
@@ -684,7 +699,8 @@ export function ReportWizard() {
         reporter_name: formData.anonymous ? null : (submissionData.reporterName || submittingUser?.name || null),
         reporter_email: formData.anonymous ? formData.reporterEmail : submissionData.reporterEmail,
         reporter_phone: formData.anonymous ? formData.reporterPhone : submissionData.reporterPhone,
-        photos: photoDataUrls
+        photos: photoDataUrls,
+        'cf-turnstile-response': turnstileToken,
       };
 
       // Anonymous users go direct to the backend (real client IP for rate
@@ -722,26 +738,9 @@ export function ReportWizard() {
           : "Use your tracking ID to check your report status anytime."
       });
     } catch (error) {
-      // Only proxied (logged-in) submissions are queued by the service worker.
+      // Reports aren't saved offline for later: the Turnstile token would expire before a replay.
       const errText = error instanceof Error ? error.message : '';
       const timedOut = /TimeoutError|timed out|timeout/i.test(errText);
-      if (isLoggedIn && !timedOut && isOfflineQueuedError(error)) {
-        gooeyToast.info('You are offline', {
-          description: 'Your report was saved and will be sent automatically when you reconnect.',
-        });
-        try {
-          sessionStorage.removeItem(DRAFT_STORAGE_KEY);
-        } catch {}
-        setShowAgreementModal(false);
-        // A full navigation while offline would show the browser's offline page; reset in place instead.
-        if (navigator.onLine) {
-          window.location.href = '/client';
-        } else {
-          setFormData(INITIAL_FORM_DATA);
-          setCurrentStep(1);
-        }
-        return;
-      }
       const message = error instanceof Error ? error.message : '';
       const status = (error as { status?: number })?.status;
       let errorMessage = message || "We could not submit your report. Please review the details and try again.";
@@ -753,6 +752,8 @@ export function ReportWizard() {
         errorMessage = 'The server took too long to respond. Please try again.';
       } else if (message.startsWith('API network error') && !navigator.onLine) {
         errorMessage = 'You are offline. Reconnect to the internet and try again.';
+      } else if (status === 403) {
+        errorMessage = "We couldn't verify the security check. Please wait for it to refresh, then submit again.";
       }
       gooeyToast.error("Report submission failed", {
         description: errorMessage,
@@ -760,6 +761,8 @@ export function ReportWizard() {
       console.error('Report submission error:', error);
     } finally {
       setIsSubmitting(false);
+      // Single-use token: always get a fresh one before another attempt.
+      turnstileRef.current?.reset();
     }
   };
 
@@ -1341,6 +1344,16 @@ export function ReportWizard() {
                 : 'Remove or retake the flagged photos to continue.'}
             </p>
           )}
+          {currentStep === totalSteps && (
+            <div className="max-w-xl mx-auto mb-4">
+              <TurnstileWidget ref={turnstileRef} action="report" onToken={setTurnstileToken} className="min-h-[65px]" />
+              {!turnstileToken && (
+                <p className="mt-2 text-xs text-slate-600" aria-live="polite">
+                  Complete the security check to submit your report.
+                </p>
+              )}
+            </div>
+          )}
           <div className="max-w-xl mx-auto flex flex-col-reverse sm:flex-row gap-3">
             {currentStep > 1 && (
               <button
@@ -1385,6 +1398,7 @@ export function ReportWizard() {
                 disabled={
                   isSubmitting ||
                   isScanningPhotos ||
+                  !turnstileToken ||
                   flaggedPhotoIndices.size > 0 ||
                   !formData.title.trim() ||
                   !formData.description.trim() ||

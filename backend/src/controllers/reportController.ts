@@ -6,6 +6,7 @@ import { invalidateWorkflowCaches } from '../utils/cache';
 import { sendReportTrackingEmail } from '../utils/emailService';
 import { notifyReportStatusChange } from '../utils/reportNotifications';
 import { parsePagination, paginationMeta, parseList } from '../utils/pagination';
+import { verifyTurnstile } from '../utils/turnstile';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { z } from 'zod';
@@ -122,6 +123,14 @@ export const reportController = {
   // CREATE REPORT
   async createReport(req: Request, res: Response) {
     try {
+      // Cloudflare Turnstile gate (anonymous and signed-in alike), before anything else runs.
+      // Signed-in reports arrive through the frontend's /api/proxy, so req.ip is the proxy's, not
+      // the visitor's; only direct (unauthenticated) requests pass their IP to siteverify.
+      const viaProxy = Boolean(req.headers.authorization);
+      if (!(await verifyTurnstile(req.body?.['cf-turnstile-response'], 'report', viaProxy ? undefined : req.ip))) {
+        return res.status(403).json({ error: "We couldn't verify the security check. Please complete it again and resubmit." });
+      }
+
       const {
         reporter_id,
         issue_type,

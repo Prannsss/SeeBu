@@ -63,15 +63,16 @@ const serwist = new Serwist({
         plugins: [],
       }),
     },
-    // Only report submission and task completion are queued for background sync.
-    // The page still receives a network error for a queued request, so the UI shows a
-    // "queued offline" message (isOfflineQueuedError from '@/lib/api'); backend
-    // completeTask returns 409 when a replay hits an already-completed task.
+    // Only task completion is queued for background sync. The page still receives a network
+    // error for a queued request, so the UI shows a "queued offline" message
+    // (isOfflineQueuedError from '@/lib/api'); backend completeTask returns 409 when a replay
+    // hits an already-completed task. Report submission is not queued: its Turnstile token
+    // is single-use and expires after 5 minutes, so a later replay would be rejected.
     {
       matcher: ({ request, url }) =>
         request.method === "POST" &&
         url.origin === self.location.origin &&
-        (url.pathname === "/api/proxy/reports" || /^\/api\/proxy\/tasks\/[^/]+\/complete$/.test(url.pathname)),
+        /^\/api\/proxy\/tasks\/[^/]+\/complete$/.test(url.pathname),
       handler: new NetworkOnly({
         plugins: [bgSyncPlugin],
       }),
