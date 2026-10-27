@@ -30,3 +30,15 @@ export function parseList(value: unknown, max = 10): string[] {
   if (!value) return [];
   return String(value).split(',').map((s) => s.trim()).filter(Boolean).slice(0, max);
 }
+
+/** PostgREST caps responses at 1000 rows, so page through them. `build` must return a FRESH query with a stable order. */
+export async function fetchAllRows<T = any>(build: () => any, pageSize = 1000): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await build().range(from, from + pageSize - 1);
+    if (error) throw error;
+    out.push(...(data || []));
+    if (!data || data.length < pageSize) break;
+  }
+  return out;
+}

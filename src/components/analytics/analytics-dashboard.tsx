@@ -26,6 +26,43 @@ type Analytics = {
   chartData: { date: string; reports: number; resolved: number }[]
   issueTypeData: { issueType: string; resolved: number; unresolved: number }[]
   areaData: { area: string; count: number }[]
+  /** Superadmin only: per-barangay counts ("Lahug, Cebu City" unless one municipality is selected). */
+  barangayData?: { area: string; count: number }[]
+}
+
+/** "Reports by …" card: a ranked list with bars scaled to the top entry. */
+function AreaCard({ title, rangeText, rows, columns, limit = 10 }: { title: string; rangeText: string; rows: { area: string; count: number }[]; columns: string; limit?: number }) {
+  const top = rows.slice(0, limit)
+  return (
+    <Card className="border-slate-200 dark:border-slate-800 shadow-sm min-w-0">
+      <CardHeader className="border-b border-slate-100 dark:border-slate-800 pb-3">
+        <CardTitle className="text-lg">{title}</CardTitle>
+        <CardDescription>
+          Where reports came from · {rangeText}
+          {rows.length > limit ? ` · top ${limit} of ${rows.length}` : ""}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="pt-4">
+        {top.length === 0 ? (
+          <p className="text-sm text-slate-600">No reports in this period.</p>
+        ) : (
+          <ol className={`grid gap-x-8 gap-y-4 ${columns}`}>
+            {top.map(({ area, count }) => (
+              <li key={area} className="min-w-0">
+                <div className="flex items-baseline justify-between gap-2 text-sm">
+                  <span className="truncate font-medium text-slate-800" title={area}>{area}</span>
+                  <span className="tabular-nums text-slate-600">{count.toLocaleString()}</span>
+                </div>
+                <div className="mt-1.5 h-2 rounded-full bg-slate-100" aria-hidden="true">
+                  <div className="h-2 rounded-full bg-primary" style={{ width: `${(count / top[0].count) * 100}%` }} />
+                </div>
+              </li>
+            ))}
+          </ol>
+        )}
+      </CardContent>
+    </Card>
+  )
 }
 
 type Municipality = { id: string; name: string; barangays?: { id: string; name: string }[] }
@@ -191,31 +228,15 @@ export function AnalyticsDashboard({ role }: { role: "admin" | "superadmin" }) {
               </Card>
             </div>
 
-            <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
-              <CardHeader className="border-b border-slate-100 dark:border-slate-800 pb-3">
-                <CardTitle className="text-lg">{isAdmin ? "Reports by barangay" : "Reports by municipality"}</CardTitle>
-                <CardDescription>Where reports came from · {rangeText}</CardDescription>
-              </CardHeader>
-              <CardContent className="pt-4">
-                {data.areaData.length === 0 ? (
-                  <p className="text-sm text-slate-600">No reports in this period.</p>
-                ) : (
-                  <ol className="grid gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {data.areaData.slice(0, 12).map(({ area, count }) => (
-                      <li key={area} className="min-w-0">
-                        <div className="flex items-baseline justify-between gap-2 text-sm">
-                          <span className="truncate font-medium text-slate-800">{area}</span>
-                          <span className="tabular-nums text-slate-600">{count.toLocaleString()}</span>
-                        </div>
-                        <div className="mt-1.5 h-2 rounded-full bg-slate-100" aria-hidden="true">
-                          <div className="h-2 rounded-full bg-primary" style={{ width: `${(count / data.areaData[0].count) * 100}%` }} />
-                        </div>
-                      </li>
-                    ))}
-                  </ol>
-                )}
-              </CardContent>
-            </Card>
+            {isAdmin ? (
+              <AreaCard title="Reports by barangay" rangeText={rangeText} rows={data.areaData} columns="sm:grid-cols-2 lg:grid-cols-3" limit={12} />
+            ) : (
+              // Superadmin: where reports came from at both levels, side by side.
+              <div className="grid gap-6 lg:grid-cols-2">
+                <AreaCard title="Reports by municipality" rangeText={rangeText} rows={data.areaData} columns="" />
+                <AreaCard title="Reports by barangay" rangeText={rangeText} rows={data.barangayData ?? []} columns="" />
+              </div>
+            )}
           </div>
         )}
       </div>

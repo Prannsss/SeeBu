@@ -1,20 +1,10 @@
 import { Request, Response } from 'express';
 import { supabase } from '../config/db';
 import { serverErrorMessage } from '../utils/errorResponse';
+import { fetchAllRows } from '../utils/pagination';
 
-// PostgREST caps responses at 1000 rows, so page through them. `build` must return a FRESH query
-// with a stable order. Responses are cached 60s by the cacheResponse('analytics') route middleware
-// and invalidated on every report/task mutation.
-async function fetchAllRows<T = any>(build: () => any, pageSize = 1000): Promise<T[]> {
-  const out: T[] = [];
-  for (let from = 0; ; from += pageSize) {
-    const { data, error } = await build().range(from, from + pageSize - 1);
-    if (error) throw error;
-    out.push(...(data || []));
-    if (!data || data.length < pageSize) break;
-  }
-  return out;
-}
+// Responses are cached 60s by the cacheResponse('analytics') route middleware and invalidated on
+// every report/task mutation.
 
 // Cebu runs on Philippine time (UTC+8, no DST): ranges and day buckets use it, never UTC —
 // otherwise reports filed between midnight and 8 AM land on the previous day.
@@ -139,7 +129,7 @@ export const analyticsController = {
       const [rows, open] = await Promise.all([
         fetchAllRows(() =>
           applyRange(
-            scope(supabase.from('reports').select('status, issue_type, other_type_specification, created_at, municipalities(name)')),
+            scope(supabase.from('reports').select('status, issue_type, other_type_specification, created_at, barangay_id, municipalities(name), barangays(name)')),
             from,
             to
           )
@@ -149,8 +139,24 @@ export const analyticsController = {
         openNow(scope),
       ]);
 
+      // Barangay names repeat across municipalities ("Poblacion"), so count by id and name the city
+      // too unless the view is already narrowed to one municipality.
+      const oneMunicipality = Boolean(municipality_id && municipality_id !== 'all');
+      const byBarangay = new Map<string, { area: string; count: number }>();
+      for (const row of rows as any[]) {
+        const key = String(row.barangay_id ?? 'unknown');
+        const name = row.barangays?.name || 'Unknown';
+        const entry = byBarangay.get(key) ?? {
+          area: oneMunicipality || !row.municipalities?.name ? name : `${name}, ${row.municipalities.name}`,
+          count: 0,
+        };
+        entry.count++;
+        byBarangay.set(key, entry);
+      }
+
       return res.status(200).json({
         ...summarize(rows, from, to, (row) => row.municipalities?.name || 'Unknown'),
+        barangayData: [...byBarangay.values()].sort((a, b) => b.count - a.count),
         openNow: open,
       });
     } catch (err: any) {
