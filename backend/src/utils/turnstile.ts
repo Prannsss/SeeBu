@@ -56,7 +56,10 @@ export async function verifyTurnstile(token: unknown, expectedAction: string, re
   }
 
   const ok = result.success === true && result.action === expectedAction && !!result.hostname && hostnames.has(result.hostname);
-  if (!ok) {
+  if (ok) {
+    // One line per verified token, so siteverify traffic is visible in the logs (no token or secret logged).
+    console.log(`[turnstile] verified action=${result.action} hostname=${result.hostname}`);
+  } else {
     console.warn('[turnstile] rejected:', {
       success: result.success,
       action: result.action,
