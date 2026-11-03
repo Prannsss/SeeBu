@@ -1,9 +1,9 @@
 // Self-check for "Use my location" place matching. Run: npx tsx src/lib/locate.check.ts
 import assert from "node:assert/strict"
-import { matchPlace, normalizePlaceName } from "./locate"
+import { matchPlace } from "./locate"
 
-// The live Cebu City barangay list (82 names, as in the database).
-const names = "Adlaon|Agsungot|Apas|Babag|Bacayan|Banilad|Basak Pardo|Basak San Nicolas|Binaliw|Bonbon|Budlaan|Buhisan|Bulacao|Buot-Taup Pardo|Busay|Calamba|Cambinocot|Capitol Site|Carreta|Central|Cogon Pardo|Cogon Ramos|Day-as|Duljo Fatima|Ermita|Guadalupe|Guba|Hipodromo|Inayawan|Kalubihan|Kalunasan|Kamagayan|Kamputhaw|Kasambagan|Kinasang-an Pardo|Labangon|Lahug|Lorega San Miguel|Lusaran|Luz|Mabini|Mabolo|Malubog|Mambaling|Pahina Central|Pahina San Nicolas|Pamutan|Pardo|Pari-an|Paril|Pasil|Pit-os|Poblacion Pardo|Pulangbato|Pung-ol Sibugay|Punta Princesa|Quiot Pardo|Sambag I|Sambag II|San Antonio|San Jose|San Nicolas Central|San Nicolas Proper|San Roque|Santa Cruz|Sapangdaku|Sawang Calero|Sinsin|Sirao|Suba Pasil|Sudlon I|Sudlon II|T. Padilla|Tabunan|Tagbao|Talamban|Taptap|Tejero|Tinago|Tisa|To-ong Pardo|Zapatera"
+// The live Cebu City barangay list (83 names, as in the database).
+const names = "Adlaon|Agsungot|Apas|Babag|Bacayan|Banilad|Basak Pardo|Basak San Nicolas|Binaliw|Bonbon|Budlaan|Buhisan|Bulacao|Buot-Taup Pardo|Busay|Calamba|Cambinocot|Capitol Site|Carreta|Central|Cogon Pardo|Cogon Ramos|Day-as|Duljo Fatima|Ermita|Guadalupe|Guba|Hipodromo|Inayawan|Kalubihan|Kalunasan|Kamagayan|Kamputhaw|Kasambagan|Kinasang-an Pardo|Labangon|Lahug|Lorega San Miguel|Lusaran|Luz|Mabini|Mabolo|Malubog|Mambaling|Pahina Central|Pahina San Nicolas|Pamutan|Pardo|Pari-an|Paril|Pasil|Pit-os|Poblacion Pardo|Pulangbato|Pung-ol Sibugay|Punta Princesa|Quiot Pardo|Sambag I|Sambag II|San Antonio|San Jose|San Nicolas Central|San Nicolas Proper|San Roque|Santa Cruz|Santo Niño|Sapangdaku|Sawang Calero|Sinsin|Sirao|Suba Pasil|Sudlon I|Sudlon II|T. Padilla|Tabunan|Tagbao|Talamban|Taptap|Tejero|Tinago|Tisa|To-ong Pardo|Zapatera"
 const barangays = names.split("|").map((name) => ({ name }))
 const pick = (...candidates: (string | undefined)[]) => matchPlace(barangays, candidates)?.name
 
@@ -35,9 +35,13 @@ assert.equal(pick("Sambag II", "Calamba"), "Sambag II")
 assert.equal(pick("Upper Pailob", "Calamba"), "Calamba")
 assert.equal(pick(undefined, "", "Mabolo"), "Mabolo")
 
+// Santo Niño (added to the database) under its OSM and abbreviated names
+assert.equal(pick("Señor Santo Niño"), "Santo Niño")
+assert.equal(pick("Sto. Niño"), "Santo Niño")
+assert.equal(pick("Santo Nino"), "Santo Niño")
+
 // Not one of ours
-assert.equal(pick("Señor Santo Niño"), undefined)
-assert.equal(normalizePlaceName("Señor Santo Niño"), "senorsantonino")
+assert.equal(pick("Banawa"), undefined)
 
 // Municipalities: "City" is noise, but the province "Cebu" must not be passed as a candidate
 const munis = [{ name: "Cebu City" }]

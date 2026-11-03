@@ -24,7 +24,7 @@ export const metadata = {
 
 export default function PrivacyPolicyPage() {
   return (
-    <LegalLayout title="Privacy Policy" effectiveDate="October 18, 2026" sections={sections}>
+    <LegalLayout title="Privacy Policy" effectiveDate="November 3, 2026" sections={sections}>
       <p>
         This Privacy Policy explains how SeeBu (&quot;we,&quot; &quot;us,&quot; or &quot;our&quot;)
         collects, uses, discloses, and safeguards information when you use our website, mobile
@@ -57,7 +57,11 @@ export default function PrivacyPolicyPage() {
         <li>Location data (such as an address or map coordinates) associated with a report. If you
           tap &quot;Use my location,&quot; your device&apos;s GPS coordinates are collected only with your
           browser&apos;s location permission and only at that moment, to look up your street address
-          (see <a href="#sharing">Section 5</a>);</li>
+          (see <a href="#sharing">Section 5</a>). When that reading is precise (within about 100 meters)
+          and you keep the area it found, the coordinates are also saved with your report so the
+          assigned staff can find the exact spot. They are visible only to you and to SeeBu staff,
+          never on the public tracking page, including for anonymous reports. If you type the
+          address instead, no coordinates are saved;</li>
         <li>Photos submitted as evidence of the reported issue; and</li>
         <li>A generated tracking ID used to look up a report&apos;s status without logging in.</li>
       </ul>

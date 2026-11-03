@@ -73,7 +73,11 @@ const MAX_SOURCE_IMAGE_SIZE_BYTES = 20 * 1024 * 1024;
 const FOCUS_RING = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2';
 const STEP_NAMES = ['Issue type', 'Location', 'Details', 'Contact'];
 const UNSUPPORTED_LOCATION = 'Sorry, this location is not supported at this time.';
+// Toast titles sit in a small pill, so they stay short; the full sentence goes in the description.
+const UNSUPPORTED_LOCATION_TITLE = 'Location not supported';
 const SERVICE_AREA_LABEL = 'Cebu City';
+// GPS fixes rougher than this aren't saved with the report: an exact-looking pin in the wrong place is worse than none.
+const MAX_SAVED_ACCURACY_M = 100;
 const INITIAL_FORM_DATA: FormData = {
   issueType: '',
   otherSpecify: '',
@@ -437,11 +441,16 @@ export function ReportWizard() {
   // Set when "Use my location" lands outside the service area (wrong city, VPN-shifted or mocked
   // location). Blocks Next until the reporter picks a supported municipality/barangay themselves.
   const [locationUnsupported, setLocationUnsupported] = useState(false);
+  // The GPS fix behind a successful "Use my location", saved with the report so staff maps can pin it
+  // exactly. Only precise fixes are kept; cleared if the reporter then picks a different area.
+  // `barangay` is the one GPS matched ('' if none, in which case choosing one keeps the fix).
+  const [gpsFix, setGpsFix] = useState<{ lat: number; lng: number; barangay: string } | null>(null);
   const markLocationUnsupported = () => {
     setLocationUnsupported(true);
+    setGpsFix(null);
     setFormData(prev => ({ ...prev, municipality: '', barangay: '' }));
-    gooeyToast.error(UNSUPPORTED_LOCATION, {
-      description: `SeeBu currently serves ${SERVICE_AREA_LABEL} only. Choose your barangay from the list to continue.`,
+    gooeyToast.error(UNSUPPORTED_LOCATION_TITLE, {
+      description: `${UNSUPPORTED_LOCATION} SeeBu currently serves ${SERVICE_AREA_LABEL} only. Choose your barangay from the list to continue.`,
     });
   };
   const handleUseMyLocation = async () => {
@@ -509,6 +518,7 @@ export function ReportWizard() {
         municipality: municipality.id,
         barangay: barangay?.id ?? '',
       }));
+      setGpsFix(fix.accuracy <= MAX_SAVED_ACCURACY_M ? { lat: fix.lat, lng: fix.lng, barangay: barangay?.id ?? '' } : null);
 
       const roughly = fix.accuracy > 100 ? ` Your location is approximate (±${Math.round(fix.accuracy)} m), so please double-check it.` : '';
       if (!geo.street) {
@@ -528,6 +538,9 @@ export function ReportWizard() {
   const updateFormData = (field: keyof FormData, value: string | boolean | File[]) => {
     // Picking an area from our own list (only supported ones are offered) lifts the location block.
     if ((field === 'municipality' || field === 'barangay') && value) setLocationUnsupported(false);
+    // Overriding the area GPS found means the issue may not be where the reporter stood, so the fix
+    // no longer applies. Filling in a barangay GPS couldn't match keeps it.
+    if (field === 'municipality' || (field === 'barangay' && gpsFix?.barangay && value !== gpsFix.barangay)) setGpsFix(null);
     setFormData(prev => {
       const updated = { ...prev, [field]: value };
       
@@ -581,7 +594,7 @@ export function ReportWizard() {
     // Step 2 guard
     if (currentStep === 2) {
       if (locationUnsupported) {
-        gooeyToast.error(UNSUPPORTED_LOCATION, { description: `Choose your ${SERVICE_AREA_LABEL} barangay from the list to continue.` });
+        gooeyToast.error(UNSUPPORTED_LOCATION_TITLE, { description: `${UNSUPPORTED_LOCATION} Choose your ${SERVICE_AREA_LABEL} barangay from the list to continue.` });
         return;
       }
       if (!formData.municipality || !formData.barangay || !formData.location.trim()) {
@@ -633,7 +646,7 @@ export function ReportWizard() {
       return;
     }
     if (locationUnsupported) {
-      gooeyToast.error(UNSUPPORTED_LOCATION, { description: `Choose your ${SERVICE_AREA_LABEL} barangay from the list to continue.` });
+      gooeyToast.error(UNSUPPORTED_LOCATION_TITLE, { description: `${UNSUPPORTED_LOCATION} Choose your ${SERVICE_AREA_LABEL} barangay from the list to continue.` });
       return;
     }
     if (!formData.municipality || !formData.barangay || !formData.location.trim()) {
@@ -721,6 +734,8 @@ export function ReportWizard() {
         barangay_id: formData.barangay,
         location: formData.location,
         landmark: formData.landmark,
+        latitude: gpsFix?.lat ?? null,
+        longitude: gpsFix?.lng ?? null,
         urgency: formData.urgency,
         is_anonymous: formData.anonymous,
         reporter_name: formData.anonymous ? null : (submissionData.reporterName || submittingUser?.name || null),

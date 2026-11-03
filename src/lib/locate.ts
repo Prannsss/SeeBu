@@ -25,6 +25,7 @@ const ALIASES: Record<string, string> = {
   poblacioncentral: "central",
   buot: "buottauppardo",
   buottaup: "buottauppardo",
+  senorsantonino: "santonino", // OSM names the area around City Hall "Señor Santo Niño"
 };
 
 /** Case-, accent-, punctuation- and numeral-insensitive key: "Sambag Ⅱ" = "Sambag II" = "Brgy. Sambag 2". */

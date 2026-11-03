@@ -131,9 +131,14 @@ CREATE TABLE reports (
     reporter_email VARCHAR(255),
     reporter_phone VARCHAR(20),
     is_anonymous BOOLEAN DEFAULT FALSE,
+    latitude DOUBLE PRECISION, -- GPS fix from "Use my location"; null when the address was typed
+    longitude DOUBLE PRECISION,
     delegated_to INTEGER REFERENCES departments(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT reports_coordinates_pair CHECK ((latitude IS NULL) = (longitude IS NULL)),
+    CONSTRAINT reports_latitude_range CHECK (latitude IS NULL OR latitude BETWEEN -90 AND 90),
+    CONSTRAINT reports_longitude_range CHECK (longitude IS NULL OR longitude BETWEEN -180 AND 180)
 );
 
 CREATE TABLE report_photos (
@@ -253,6 +258,7 @@ INSERT INTO barangays (id, municipality_id, name) VALUES
 ('cebu-city-san-nicolas-proper', 'cebu-city', 'San Nicolas Proper'),
 ('cebu-city-san-roque', 'cebu-city', 'San Roque'),
 ('cebu-city-santa-cruz', 'cebu-city', 'Santa Cruz'),
+('cebu-city-santo-nino', 'cebu-city', 'Santo Niño'),
 ('cebu-city-sapangdaku', 'cebu-city', 'Sapangdaku'),
 ('cebu-city-sawang-calero', 'cebu-city', 'Sawang Calero'),
 ('cebu-city-sinsin', 'cebu-city', 'Sinsin'),

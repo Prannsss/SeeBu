@@ -52,6 +52,8 @@ export const taskController = {
             urgency,
             location,
             landmark,
+            latitude,
+            longitude,
             delegated_to,
             municipality_id,
             municipalities(name),

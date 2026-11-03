@@ -63,7 +63,7 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
       client={queryClient}
       persistOptions={{
         persister,
-        buster: 'v3', // bump to discard persisted caches whose shape changed (v3: locations stored as a raw array)
+        buster: 'v4', // bump to discard persisted caches whose shape or data changed (v3: locations stored as a raw array; v4: Santo Niño barangay added)
         maxAge: 24 * 60 * 60_000,
       }}
     >

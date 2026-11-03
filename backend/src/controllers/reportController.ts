@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { supabase } from '../config/db';
 import { serverErrorMessage } from '../utils/errorResponse';
+import { reportCoordinates } from '../utils/coordinates';
 import { persistImageInputs, isTrustedStorageUrl } from '../utils/mediaStorage';
 import { invalidateWorkflowCaches } from '../utils/cache';
 import { sendReportTrackingEmail } from '../utils/emailService';
@@ -31,6 +32,9 @@ const reportSchema = z.object({
   reporter_name: z.string().max(255).optional().nullable(),
   reporter_email: z.string().email().optional().nullable().or(z.literal('')),
   reporter_phone: z.string().max(50).optional().nullable(),
+  // GPS fix from "Use my location"; both or neither (checked below).
+  latitude: z.number().finite().min(-90).max(90).optional().nullable(),
+  longitude: z.number().finite().min(-180).max(180).optional().nullable(),
   photos: z.array(z.string().refine(val => {
     if (val.startsWith('data:image/')) {
       const sizeInBytes = val.length * 0.75;
@@ -44,7 +48,9 @@ const reportSchema = z.object({
 });
 
 const STAFF_ROLES = ['admin', 'superadmin', 'workforce', 'workforce-admin'];
-const REPORTER_PII_FIELDS = ['reporter_name', 'reporter_email', 'reporter_phone'] as const;
+// The GPS fix can reveal where the reporter was (e.g. their home), so it's hidden like contact details.
+const REPORTER_PII_FIELDS = ['reporter_name', 'reporter_email', 'reporter_phone', 'latitude', 'longitude'] as const;
+
 
 /** Decode the Bearer token if present; never throws. */
 function decodeBearer(req: Request): { id: string; role: string } | null {
@@ -222,6 +228,7 @@ export const reportController = {
           reporter_name: is_anonymous ? null : effectiveReporterName,
           reporter_email: is_anonymous ? null : effectiveReporterEmail,
           reporter_phone: is_anonymous ? null : effectiveReporterPhone,
+          ...reportCoordinates(validation.data.latitude, validation.data.longitude),
           status: 'In Review'
         }])
         .select()
