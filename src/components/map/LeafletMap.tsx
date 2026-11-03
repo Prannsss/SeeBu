@@ -89,6 +89,7 @@ export default function LeafletMap({ item, onOpen, padding, zoomControl = true }
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors'
         url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
         maxZoom={19}
+        className="seebu-tiles"
       />
       {zoomControl && <ZoomControl position="topright" />}
       <FlyToItem item={item} padding={padding} />

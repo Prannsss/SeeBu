@@ -566,3 +566,8 @@
   color: #9ca3af;
   border-bottom-color: #374151;
 }
+
+/* Map tiles (Leaflet): muted so the status-coloured pins stand out. Only the tiles, not the pins. */
+.seebu-tiles {
+  filter: saturate(0.4) brightness(1.03);
+}
