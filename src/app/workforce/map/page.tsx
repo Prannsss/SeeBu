@@ -75,7 +75,8 @@ export default function WorkforceMapPage() {
       onRefresh={() => refetch()}
       isRefreshing={isFetching}
       detailsLink={(item) => ({
-        href: "/workforce/tasks",
+        // My Tasks opens this task's next step on arrival: accept, submit proof, or its report.
+        href: `/workforce/tasks?task=${encodeURIComponent(item.id)}`,
         label: item.status === "Completed" ? "Open in My Tasks" : item.status === "Accepted" || item.status === "In Progress" ? "Submit proof in My Tasks" : "Accept in My Tasks",
       })}
       emptyText="No tasks in this group."

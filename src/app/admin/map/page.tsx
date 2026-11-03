@@ -90,7 +90,8 @@ export default function AdminMapPage() {
       onRefresh={() => refetch()}
       isRefreshing={isFetching}
       detailsLink={(item) => ({
-        href: "/admin/reports",
+        // The Reports page opens this report's review (or details) dialog on arrival.
+        href: `/admin/reports?report=${encodeURIComponent(item.id)}`,
         label: item.status === "In Review" ? "Review in Reports" : "Open in Reports",
       })}
       emptyText="No reports with this status and urgency."

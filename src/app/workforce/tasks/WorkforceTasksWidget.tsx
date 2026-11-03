@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Clock, MapPin, AlertTriangle, Link2, Camera, CheckCircle2, Inbox, ClipboardList } from "lucide-react";
@@ -59,6 +60,7 @@ const EMPTY_TEXT: Record<string, { title: string; hint: string }> = {
 export function WorkforceTasksWidget({ userId }: { userId: string }) {
   useRealtimeReports({ enableToasts: true, userRole: "workforce", userId });
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState("Assigned");
   const [page, setPage] = useState(1);
 
@@ -99,7 +101,7 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
   const { mutate: mutateTaskStatus, isPending: isUpdatingStatus } = useUpdateTaskStatus();
   const { mutate: completeTaskMutation, isPending: isCompletingTask } = useCompleteTask();
 
-  const tasksList: TaskItem[] = Array.isArray(tasksData) ? tasksData.map((t: any) => ({
+  const toTaskItem = (t: any): TaskItem => ({
     id: t.id,
     title: t.title,
     location: t.location || "N/A",
@@ -121,7 +123,8 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
       reporterPhotos: (t.related_report.report_photos || []).filter((p: any) => !p.is_completion_photo).map((p: any) => p.photo_url),
       completionPhotos: (t.related_report.report_photos || []).filter((p: any) => p.is_completion_photo).map((p: any) => p.photo_url),
     } : null,
-  })) : [];
+  });
+  const tasksList: TaskItem[] = Array.isArray(tasksData) ? tasksData.map(toTaskItem) : [];
 
   const tabCount = (tab: (typeof TABS)[number]) => tabCounts?.[tab] ?? 0;
   const canAccept = (status?: string) => status === "Assigned" || status === "Pending";
@@ -198,6 +201,40 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
     }
     setSelectedTaskForReport(task);
   };
+
+  // Deep link from the map: /workforce/tasks?task=<id> opens the step that task is at: accept it,
+  // submit proof, or (once completed) its linked report. The task comes from the map's loaded
+  // results (it may not be on this tab's first page), else from this page once it loads.
+  const [deepLinkId, setDeepLinkId] = useState<string | null>(null);
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("task");
+    if (!id) return;
+    setDeepLinkId(id);
+    // Drop the param so a refresh or Back doesn't reopen the modal.
+    router.replace("/workforce/tasks", { scroll: false });
+  }, [router]);
+  useEffect(() => {
+    if (!deepLinkId) return;
+    let raw: any;
+    for (const [, data] of queryClient.getQueriesData<any>({ queryKey: ["tasks", "officer"] })) {
+      raw = Array.isArray(data?.data) ? data.data.find((t: any) => t.id === deepLinkId) : undefined;
+      if (raw) break;
+    }
+    if (!raw) {
+      if (!tasksPage || isPlaceholderData) return; // this page is still loading; it may have the task
+      gooeyToast.error("Task not found", { description: "It may have been reassigned to another officer." });
+      setDeepLinkId(null);
+      return;
+    }
+    setDeepLinkId(null);
+    const task = toTaskItem(raw);
+    setActiveTab(canAccept(task.status) ? "Assigned" : canComplete(task.status) ? "Accepted" : "Completed");
+    setPage(1);
+    if (canAccept(task.status)) setConfirmAcceptTask(task);
+    else if (canComplete(task.status)) handleOpenCompleteModal(task.id);
+    else handleViewLinkedReport(task);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deepLinkId, tasksPage, isPlaceholderData]);
 
   const handleConfirmComplete = () => {
     if (!selectedTaskId) return;

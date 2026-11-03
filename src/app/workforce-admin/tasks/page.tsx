@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { ClipboardList, Users, CheckCircle2, Clock, Link2, MapPin, AlertTriangle } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card } from "@/components/ui/card"
@@ -67,6 +68,7 @@ const statusLabel = (status: string) => (status === "Accepted" ? "In Progress" :
 
 export default function WorkforceAdminTasksPage() {
   const queryClient = useQueryClient()
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabKey>("Pending")
   const [page, setPage] = useState(1)
   const [delegateTo, setDelegateTo] = useState("")
@@ -232,8 +234,8 @@ export default function WorkforceAdminTasksPage() {
     if (!id) return
     setDeepLink({ id, assign: params.get("action") === "assign" })
     // Drop the params so a refresh or Back doesn't reopen the modal.
-    window.history.replaceState(window.history.state, "", window.location.pathname)
-  }, [])
+    router.replace("/workforce-admin/tasks", { scroll: false })
+  }, [router])
   useEffect(() => {
     if (!deepLink) return
     let raw: any

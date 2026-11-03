@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { gooeyToast } from "goey-toast"
 import { Textarea } from "@/components/ui/textarea"
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query"
@@ -39,6 +40,7 @@ const REPORT_TABS = ["In Review", "Action Taken", "Resolved", "Rejected"];
 
 export default function AdminReportsPage() {
   const queryClient = useQueryClient();
+  const router = useRouter();
   const { data: currentUser, isPending: profilePending } = useCurrentUser();
   useRealtimeReports({ enableToasts: true, userRole: "admin", municipalityId: currentUser?.municipality_id });
   const [activeTab, setActiveTab] = useState("In Review");
@@ -262,7 +264,68 @@ export default function AdminReportsPage() {
     });
   }
 
-  const reportsList = Array.isArray(reportsData) ? reportsData.map(r => ({
+  // Deep link from the map: /admin/reports?report=<id> opens that report's review dialog (In Review)
+  // or its details. The report comes from the map's loaded results, else from the API; if it isn't
+  // on the first page of its tab, it's shown at the top of the list so its dialog can open.
+  const [pendingReportId, setPendingReportId] = useState<string | null>(null);
+  const [linkedReport, setLinkedReport] = useState<any>(null);
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("report");
+    if (!id) return;
+    setPendingReportId(id);
+    // Drop the param so a refresh or Back doesn't reopen the dialog.
+    router.replace("/admin/reports", { scroll: false });
+  }, [router]);
+  useEffect(() => {
+    if (!pendingReportId || !currentUser) return;
+    let cancelled = false;
+    (async () => {
+      let raw: any;
+      for (const [, data] of queryClient.getQueriesData<any>({ queryKey: ['admin-reports'] })) {
+        raw = Array.isArray(data?.data) ? data.data.find((r: any) => r.id === pendingReportId) : undefined;
+        if (raw) break;
+      }
+      if (!raw) {
+        try {
+          const { apiClient } = await import('@/lib/api');
+          raw = (await apiClient.reports.getById(pendingReportId))?.data;
+        } catch {}
+      }
+      if (cancelled) return;
+      setPendingReportId(null);
+      if (!raw || (currentUser.municipality_id && raw.municipality_id && raw.municipality_id !== currentUser.municipality_id)) {
+        gooeyToast.error("Report not found", { description: "It may have been removed or belongs to another municipality." });
+        return;
+      }
+      if (REPORT_TABS.includes(raw.status)) setActiveTab(raw.status);
+      setUrgencyFilter("All");
+      setPage(1);
+      setLinkedReport(raw);
+      if (raw.status === 'In Review') {
+        setRejectMode(false);
+        setDelegateMode(false);
+        setRejectReasonType("");
+        setRejectReasonOther("");
+        setDelegateDepartmentId("");
+        setDelegateAssignee("");
+        setReviewOpen(raw.id);
+      } else {
+        setResolvedOpen(raw.id);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [pendingReportId, currentUser, queryClient]);
+  // Once its dialog closes (or an action moves it), the linked report goes back to its normal place.
+  useEffect(() => {
+    if (linkedReport && reviewOpen !== linkedReport.id && resolvedOpen !== linkedReport.id) setLinkedReport(null);
+  }, [linkedReport, reviewOpen, resolvedOpen]);
+
+  const listSource: any[] = Array.isArray(reportsData)
+    ? (linkedReport && (linkedReport.status === activeTab || !REPORT_TABS.includes(linkedReport.status)) && !reportsData.some((r: any) => r.id === linkedReport.id)
+        ? [linkedReport, ...reportsData]
+        : reportsData)
+    : [];
+  const reportsList = listSource.length ? listSource.map(r => ({
     id: r.id,
     title: r.title,
     issueType: r.issue_type,
