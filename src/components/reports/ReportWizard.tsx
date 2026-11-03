@@ -72,6 +72,8 @@ interface FormData {
 const MAX_SOURCE_IMAGE_SIZE_BYTES = 20 * 1024 * 1024;
 const FOCUS_RING = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2';
 const STEP_NAMES = ['Issue type', 'Location', 'Details', 'Contact'];
+const UNSUPPORTED_LOCATION = 'Sorry, this location is not supported at this time.';
+const SERVICE_AREA_LABEL = 'Cebu City';
 const INITIAL_FORM_DATA: FormData = {
   issueType: '',
   otherSpecify: '',
@@ -432,11 +434,21 @@ export function ReportWizard() {
   // Free OSM services (no API key): Nominatim + Photon via lib/locate (rate-limited, cached, with timeouts).
   // ponytail: swap to a keyed provider if traffic grows past Nominatim's 1 req/s policy.
   const locateRun = useRef(0);
+  // Set when "Use my location" lands outside the service area (wrong city, VPN-shifted or mocked
+  // location). Blocks Next until the reporter picks a supported municipality/barangay themselves.
+  const [locationUnsupported, setLocationUnsupported] = useState(false);
+  const markLocationUnsupported = () => {
+    setLocationUnsupported(true);
+    setFormData(prev => ({ ...prev, municipality: '', barangay: '' }));
+    gooeyToast.error(UNSUPPORTED_LOCATION, {
+      description: `SeeBu currently serves ${SERVICE_AREA_LABEL} only. Choose your barangay from the list to continue.`,
+    });
+  };
   const handleUseMyLocation = async () => {
     const run = ++locateRun.current;
     setIsLocating(true);
     try {
-      const { getBestPosition, reverseGeocode, matchPlace, LocateError } = await import('@/lib/locate');
+      const { getBestPosition, reverseGeocode, matchPlace, isInCebuCityArea, LocateError } = await import('@/lib/locate');
 
       let fix;
       try {
@@ -450,6 +462,12 @@ export function ReportWizard() {
             : code === 'insecure' ? "Location only works over a secure (https) connection. Please type the address."
             : "Couldn't get your location. Move near a window or turn on GPS, then try again — or type the address.",
         });
+        return;
+      }
+
+      // Far outside Cebu City: no need to ask the map service.
+      if (!isInCebuCityArea(fix.lat, fix.lng)) {
+        if (run === locateRun.current) markLocationUnsupported();
         return;
       }
 
@@ -476,11 +494,10 @@ export function ReportWizard() {
       // Only accept locations inside a municipality SeeBu serves (currently Cebu City)
       const municipality = matchPlace(municipalities, geo.municipalityCandidates);
       if (!municipality) {
-        gooeyToast.error("Outside Service Area", {
-          description: `SeeBu currently covers ${municipalities.map(m => m.name).join(', ')} only. Your location appears to be elsewhere.`,
-        });
+        markLocationUnsupported();
         return;
       }
+      setLocationUnsupported(false);
       // A mapped barangay boundary is authoritative: if it isn't one of ours, don't guess a neighbour.
       const barangay = geo.barangayBoundary
         ? matchPlace(municipality.barangays, [geo.barangayBoundary])
@@ -509,6 +526,8 @@ export function ReportWizard() {
   };
 
   const updateFormData = (field: keyof FormData, value: string | boolean | File[]) => {
+    // Picking an area from our own list (only supported ones are offered) lifts the location block.
+    if ((field === 'municipality' || field === 'barangay') && value) setLocationUnsupported(false);
     setFormData(prev => {
       const updated = { ...prev, [field]: value };
       
@@ -561,6 +580,10 @@ export function ReportWizard() {
     }
     // Step 2 guard
     if (currentStep === 2) {
+      if (locationUnsupported) {
+        gooeyToast.error(UNSUPPORTED_LOCATION, { description: `Choose your ${SERVICE_AREA_LABEL} barangay from the list to continue.` });
+        return;
+      }
       if (!formData.municipality || !formData.barangay || !formData.location.trim()) {
         gooeyToast.error("Missing Location", { description: "Please fill in all required location fields." });
         return;
@@ -607,6 +630,10 @@ export function ReportWizard() {
     // Guard required fields
     if (!formData.issueType) {
       gooeyToast.error("Incomplete Selection", { description: "Please select an issue type." });
+      return;
+    }
+    if (locationUnsupported) {
+      gooeyToast.error(UNSUPPORTED_LOCATION, { description: `Choose your ${SERVICE_AREA_LABEL} barangay from the list to continue.` });
       return;
     }
     if (!formData.municipality || !formData.barangay || !formData.location.trim()) {
@@ -1040,6 +1067,19 @@ export function ReportWizard() {
                     </button>
                   </div>
 
+                  {locationUnsupported && (
+                    <div role="alert" className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
+                      <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden />
+                      <div className="text-sm">
+                        <p className="font-semibold">{UNSUPPORTED_LOCATION}</p>
+                        <p className="mt-1 text-red-700">
+                          Your device reported a location outside {SERVICE_AREA_LABEL}, which is the only area SeeBu serves for now.
+                          Choose the municipality and barangay where the issue is to continue.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="floating-input">
                     <input
                       id="landmark"
@@ -1374,7 +1414,7 @@ export function ReportWizard() {
                 disabled={
                   isScanningPhotos ||
                   (currentStep === 1 && (!formData.issueType || (formData.issueType === 'other' && !formData.otherSpecify))) ||
-                  (currentStep === 2 && (!formData.municipality || !formData.barangay || !formData.location)) ||
+                  (currentStep === 2 && (locationUnsupported || !formData.municipality || !formData.barangay || !formData.location)) ||
                   (currentStep === 3 && (!formData.title || !formData.description || formData.photos.length === 0 || flaggedPhotoIndices.size > 0))
                 }
                 className={`w-full sm:flex-1 flex items-center justify-center gap-2 h-12 px-6 rounded-lg bg-primary text-white font-semibold hover:bg-primary/90 transition-all disabled:opacity-60 disabled:cursor-not-allowed ${FOCUS_RING}`}

@@ -62,6 +62,20 @@ export function matchPlace<T extends { name: string }>(list: T[] | undefined, ca
 }
 
 // ============================================================================================
+// Service area
+// ============================================================================================
+
+// Generous box around Cebu City (Adlaon/Lusaran in the north to Inayawan/Kinasang-an in the south,
+// Sudlon/Tabunan in the west to the port in the east). Fixes outside it are rejected without a
+// map lookup; inside it, reverse geocoding still decides (the box also covers parts of Mandaue,
+// Talisay, Consolacion and Balamban).
+const CEBU_CITY_BOX = { south: 10.22, north: 10.52, west: 123.7, east: 123.97 };
+
+export function isInCebuCityArea(lat: number, lng: number): boolean {
+  return lat >= CEBU_CITY_BOX.south && lat <= CEBU_CITY_BOX.north && lng >= CEBU_CITY_BOX.west && lng <= CEBU_CITY_BOX.east;
+}
+
+// ============================================================================================
 // GPS
 // ============================================================================================
 
