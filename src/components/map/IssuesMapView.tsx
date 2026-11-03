@@ -26,7 +26,7 @@ import { IdPill } from "@/components/ui/id-pill";
 import { ReportMediaGallery } from "@/components/reports/report-media-gallery";
 import { statusBadgeClass, urgencyBadgeClass } from "@/lib/status-styles";
 import { formatPhDate } from "@/lib/ph-date";
-import { geocodeAddress, precisionLabel, type GeoPoint } from "@/lib/geocode";
+import { PRIORITY, geocodeArea, geocodeStreet, offsetDuplicate, precisionLabel, type GeoPoint, type GeoToken } from "@/lib/geocode";
 import { TONE_STYLES, type MapFilter, type MapItem, type MapTone, type PinnedItem } from "./types";
 import type { MapPadding } from "./LeafletMap";
 
@@ -101,27 +101,81 @@ function useViewport() {
 const addressKey = (i: MapItem) =>
   [i.lat ?? "", i.lng ?? "", i.street ?? "", i.barangay ?? "", i.municipality ?? ""].join("|").toLowerCase();
 
-type GeoState =
-  | { status: "idle" }
-  | { status: "locating" }
-  | { status: "found"; point: GeoPoint }
-  | { status: "missing" };
+const MAX_STREET_DRIFT_M = 1500;
+/** Equirectangular approximation: plenty within a city. */
+function metresBetween(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
+  const rad = Math.PI / 180;
+  const x = (b.lng - a.lng) * rad * Math.cos(((a.lat + b.lat) / 2) * rad);
+  const y = (b.lat - a.lat) * rad;
+  return Math.sqrt(x * x + y * y) * 6371000;
+}
 
-/** Geocode only the selected record (rate-limited + cached in lib/geocode). */
-function useGeocodedItem(item: MapItem | null): GeoState {
-  const [result, setResult] = useState<{ key: string; point: GeoPoint | null } | null>(null);
-  const key = item ? addressKey(item) : null;
+const areaKey = (i: MapItem) => [i.lat ?? "", i.lng ?? "", i.barangay ?? "", i.municipality ?? ""].join("|").toLowerCase();
+const addressOf = (i: MapItem) => ({ street: i.street, barangay: i.barangay, municipality: i.municipality, lat: i.lat, lng: i.lng });
+const hasStreet = (i: MapItem) => !!(i.street && i.street.trim() && i.street !== "N/A");
+
+/**
+ * Pins for every record, in two passes through the rate-limited, cached geocoder: barangay
+ * centers first (few lookups, shared by many records, so the map fills quickly), then each
+ * street. The selected record jumps the queue; switching tabs drops the old tab's lookups.
+ */
+function usePinnedItems(items: MapItem[], selectedId: string | null) {
+  const [area, setArea] = useState<Record<string, GeoPoint | null>>({});
+  const [street, setStreet] = useState<Record<string, GeoPoint | null>>({});
+
+  const lookup = useCallback((item: MapItem, priority: { area: number; street: number }, token: GeoToken) => {
+    const ak = areaKey(item);
+    const sk = addressKey(item);
+    geocodeArea(addressOf(item), priority.area, token).then((p) => {
+      if (p !== undefined && !token.cancelled) setArea((prev) => (ak in prev ? prev : { ...prev, [ak]: p }));
+    });
+    geocodeStreet(addressOf(item), priority.street, token).then((p) => {
+      if (p !== undefined && !token.cancelled) setStreet((prev) => (sk in prev ? prev : { ...prev, [sk]: p }));
+    });
+  }, []);
+
   useEffect(() => {
-    if (!item || !key) return;
-    let alive = true;
-    geocodeAddress({ street: item.street, barangay: item.barangay, municipality: item.municipality, lat: item.lat, lng: item.lng })
-      .then((point) => { if (alive) setResult({ key, point }); });
-    return () => { alive = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
-  if (!item) return { status: "idle" };
-  if (!result || result.key !== key) return { status: "locating" };
-  return result.point ? { status: "found", point: result.point } : { status: "missing" };
+    const token: GeoToken = { cancelled: false };
+    for (const item of items) lookup(item, { area: PRIORITY.area, street: PRIORITY.street }, token);
+    return () => { token.cancelled = true; };
+  }, [items, lookup]);
+
+  const selected = items.find((i) => i.id === selectedId);
+  useEffect(() => {
+    if (!selected) return;
+    const token: GeoToken = { cancelled: false };
+    lookup(selected, { area: PRIORITY.selected, street: PRIORITY.selected }, token);
+    return () => { token.cancelled = true; };
+  }, [selected, lookup]);
+
+  return useMemo(() => {
+    const seen = new Map<string, number>();
+    let waiting = 0; // no point yet
+    let refining = 0; // at its barangay center, street lookup still pending
+    let missing = 0; // couldn't be placed at all
+    const pinned: PinnedItem[] = items.map((item) => {
+      const sk = addressKey(item);
+      const ak = areaKey(item);
+      // A street match far from its barangay is the wrong stretch of a long road (or a namesake):
+      // fall back to the barangay center rather than pin it in the wrong neighbourhood.
+      const streetPoint = street[sk];
+      const areaPoint = area[ak];
+      const trustStreet = streetPoint && (!areaPoint || areaPoint.precision !== "barangay" || metresBetween(streetPoint, areaPoint) <= MAX_STREET_DRIFT_M);
+      const base = (trustStreet ? streetPoint : null) || areaPoint;
+      if (!base) {
+        const streetDone = !hasStreet(item) || sk in street;
+        if (ak in area && streetDone) missing++;
+        else waiting++;
+        return item;
+      }
+      if (hasStreet(item) && !(sk in street)) refining++;
+      const spot = `${base.lat.toFixed(5)},${base.lng.toFixed(5)}`;
+      const n = seen.get(spot) ?? 0;
+      seen.set(spot, n + 1);
+      return { ...item, point: offsetDuplicate(base, n) };
+    });
+    return { pinned, waiting, refining, missing };
+  }, [items, area, street]);
 }
 
 const locationLine = (item: MapItem) =>
@@ -147,7 +201,7 @@ function ItemCard({
   onOpen: () => void;
 }) {
   return (
-    <li>
+    <li data-map-item={item.id}>
       <div
         className={`rounded-xl border bg-white transition-all dark:bg-slate-900 ${
           selected ? "border-slate-900 shadow-md ring-1 ring-slate-900 dark:border-slate-100 dark:ring-slate-100" : "border-slate-200 hover:border-slate-300 hover:shadow-sm dark:border-slate-800"
@@ -525,11 +579,14 @@ export function IssuesMapView({
         .some((v) => v && v.toLowerCase().includes(q))
     );
   }, [items, query]);
-  // Only the selected record is geocoded and pinned.
-  const selectedItem = visibleItems.find((i) => i.id === selectedId) ?? null;
-  const geo = useGeocodedItem(selectedItem);
-  const pinnedSelected: PinnedItem | null =
-    selectedItem && geo.status === "found" ? { ...selectedItem, point: geo.point } : null;
+  const { pinned, waiting, refining, missing } = usePinnedItems(visibleItems, selectedId);
+  const selectedPinned = pinned.find((i) => i.id === selectedId) ?? null;
+
+  // A pin picked on the map scrolls its card into view in the list.
+  useEffect(() => {
+    if (!selectedId) return;
+    document.querySelector(`[data-map-item="${CSS.escape(selectedId)}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [selectedId]);
 
   useEffect(() => {
     if (selectedId && !visibleItems.some((i) => i.id === selectedId)) setSelectedId(null);
@@ -542,8 +599,7 @@ export function IssuesMapView({
     },
     [desktop]
   );
-  const openBase = visibleItems.find((i) => i.id === openId) ?? null;
-  const openItem: PinnedItem | null = openBase && openBase.id === pinnedSelected?.id ? pinnedSelected : openBase;
+  const openItem = pinned.find((i) => i.id === openId) ?? null;
 
   // The role dock (max-w-xl, centered) can overlap the pane's bottom or the legend on narrower desktops.
   const dockLeft = (viewportW - DOCK_WIDTH) / 2;
@@ -624,7 +680,7 @@ export function IssuesMapView({
         </div>
       ) : (
         <ul className="space-y-2.5 p-3">
-          {visibleItems.map((item) => (
+          {pinned.map((item) => (
             <ItemCard
               key={item.id}
               item={item}
@@ -650,34 +706,47 @@ export function IssuesMapView({
   );
 
   const singular = noun.replace(/s$/, "");
+  const placed = pinned.length - waiting - missing;
+  const selectedPoint = selectedPinned?.point;
   const mapHint = (
     <div className="pointer-events-auto flex max-w-full items-center gap-2 rounded-full border border-slate-200 bg-white/95 py-2 pl-3.5 pr-2 text-xs font-medium text-slate-700 shadow-md backdrop-blur dark:border-slate-700 dark:bg-slate-900/95 dark:text-slate-200" role="status">
-      {geo.status === "idle" && (
-        <span className="flex items-center gap-2 pr-1.5">
-          <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500" aria-hidden="true" />
-          Select a {singular} from the list to view it on the map
+      {!selectedPinned ? (
+        <span className="flex min-w-0 items-center gap-2 pr-1.5">
+          {waiting > 0 ? (
+            <>
+              <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden="true" />
+              <span className="truncate">Placing pins… {placed} of {pinned.length}</span>
+            </>
+          ) : (
+            <>
+              <MapPin className="h-3.5 w-3.5 shrink-0 text-primary-dark" aria-hidden="true" />
+              <span className="truncate">
+                {placed} {placed === 1 ? singular : noun} on the map · tap a pin for details
+                {missing > 0 && <span className="text-slate-500"> · {missing} couldn&apos;t be placed</span>}
+                {refining > 0 && <span className="text-slate-500"> · refining to street level…</span>}
+              </span>
+            </>
+          )}
         </span>
-      )}
-      {geo.status === "locating" && (
-        <span className="flex items-center gap-2 pr-1.5">
-          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden="true" /> Locating {selectedItem?.id} on the map…
-        </span>
-      )}
-      {(geo.status === "found" || geo.status === "missing") && (
+      ) : (
         <>
-          {geo.status === "found" ? (
+          {selectedPoint ? (
             <Crosshair className="h-3.5 w-3.5 shrink-0 text-primary-dark" aria-hidden="true" />
+          ) : waiting > 0 || refining > 0 ? (
+            <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden="true" />
           ) : (
             <AlertCircle className="h-3.5 w-3.5 shrink-0 text-amber-700" aria-hidden="true" />
           )}
           <span className="truncate">
-            {geo.status === "found" ? (
-              <><span className="font-semibold">{selectedItem?.title}</span> · {precisionLabel[geo.point.precision]}</>
+            {selectedPoint ? (
+              <><span className="font-semibold">{selectedPinned.title}</span> · {precisionLabel[selectedPoint.precision]}</>
+            ) : waiting > 0 || refining > 0 ? (
+              <>Locating {selectedPinned.id} on the map…</>
             ) : (
               <>Couldn&apos;t find this {singular}&apos;s address on OpenStreetMap</>
             )}
           </span>
-          <button type="button" onClick={() => setSelectedId(null)} className="shrink-0 rounded-full p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-900" aria-label="Clear map">
+          <button type="button" onClick={() => setSelectedId(null)} className="shrink-0 rounded-full p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-900" aria-label="Clear selection">
             <X className="h-3.5 w-3.5" />
           </button>
         </>
@@ -708,8 +777,10 @@ export function IssuesMapView({
       {/* Map (own stacking context so Leaflet's z-indices stay below the pane, sheet and dialogs) */}
       <div className="absolute inset-0 isolate z-0">
         <LeafletMap
-          item={pinnedSelected}
-          onOpen={() => setOpenId(selectedId)}
+          items={pinned}
+          selectedId={selectedId}
+          onSelect={(id) => { setSelectedId(id); setOpenId(id); }}
+          settled={waiting === 0}
           padding={padding}
           zoomControl={desktop}
         />
