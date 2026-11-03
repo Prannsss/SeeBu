@@ -20,6 +20,7 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // Linting is oxlint (`npm run lint`), not ESLint; this stops `next build` looking for ESLint.
   eslint: {
     ignoreDuringBuilds: true,
   },

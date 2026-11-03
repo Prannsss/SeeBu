@@ -1,0 +1,34 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": [
+    "react",
+    "nextjs",
+    "jsx-a11y",
+    "typescript",
+    "unicorn",
+    "oxc"
+  ],
+  "env": {
+    "browser": true,
+    "node": true,
+    "es2022": true
+  },
+  "categories": {
+    "correctness": "warn"
+  },
+  "rules": {
+    "react/rules-of-hooks": "error",
+    "react/exhaustive-deps": "warn",
+    "react/jsx-key": "error",
+    "nextjs/no-html-link-for-pages": "warn",
+    "nextjs/no-img-element": "warn",
+    "nextjs/no-sync-scripts": "error",
+    "no-unused-vars": "warn"
+  },
+  "ignorePatterns": [
+    "public/sw.js",
+    "public/swe-worker-*.js",
+    "backend/dist/**",
+    "next-env.d.ts"
+  ]
+}
