@@ -370,9 +370,12 @@
   display: none !important;
 }
 
-/* Allow title to wrap for long text */
+/* Titles stay on one line: the pill outline is drawn for one line, so a wrapped title spills out
+   of it. Longer titles are moved into the description by GooeyToasterProvider; this only guards. */
 .gooey-title {
-  white-space: normal !important;
+  white-space: nowrap !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
   overflow-wrap: anywhere;
   word-break: break-word;
   max-width: 260px;

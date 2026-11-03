@@ -3,6 +3,9 @@
 import { useEffect, useRef } from "react";
 import { GooeyToaster, gooeyToast } from "goey-toast";
 
+// Longest title that fits the toast's one-line pill (12px bold, ~260px wide).
+const MAX_TITLE_LENGTH = 32;
+
 export default function GooeyToasterProvider() {
   const isPatchedRef = useRef(false);
 
@@ -13,15 +16,24 @@ export default function GooeyToasterProvider() {
       method: "success" | "error" | "warning" | "info" | "loading",
       fallbackTitle: string,
       fallbackDescription: string,
+      shortTitle: string,
     ) => {
       const toastApi = gooeyToast as any;
       const originalMethod = toastApi[method];
       if (typeof originalMethod !== "function") return;
 
       toastApi[method] = (title: unknown, options?: Record<string, unknown>) => {
-        const normalizedTitle = typeof title === "string" ? title.trim() : "";
+        let normalizedTitle = typeof title === "string" ? title.trim() : "";
         const normalizedOptions =
           options && typeof options === "object" ? { ...options } : {};
+
+        // The title sits in a one-line pill; a longer one wraps out of its outline. Move it into the
+        // description (which wraps freely) under a short title for the toast's type.
+        if (normalizedTitle.length > MAX_TITLE_LENGTH) {
+          const existing = typeof normalizedOptions.description === "string" ? normalizedOptions.description.trim() : "";
+          normalizedOptions.description = existing ? `${normalizedTitle} ${existing}` : normalizedTitle;
+          normalizedTitle = shortTitle;
+        }
 
         const rawDescription = normalizedOptions.description;
         const normalizedDescription =
@@ -46,11 +58,11 @@ export default function GooeyToasterProvider() {
       };
     };
 
-    patchToastMethod("success", "Success", "Operation completed successfully.");
-    patchToastMethod("error", "Something went wrong", "Please try again.");
-    patchToastMethod("warning", "Warning", "Please review the message.");
-    patchToastMethod("info", "Notice", "Here is an update.");
-    patchToastMethod("loading", "Loading", "Please wait...");
+    patchToastMethod("success", "Success", "Operation completed successfully.", "Success");
+    patchToastMethod("error", "Something went wrong", "Please try again.", "Action needed");
+    patchToastMethod("warning", "Warning", "Please review the message.", "Warning");
+    patchToastMethod("info", "Notice", "Here is an update.", "Notice");
+    patchToastMethod("loading", "Loading", "Please wait...", "Loading");
 
     isPatchedRef.current = true;
   }, []);
