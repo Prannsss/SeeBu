@@ -67,7 +67,11 @@ export default function AdminMapPage() {
       items={items}
       isLoading={profilePending || (!!currentUser && isLoading)}
       error={!profilePending && !currentUser ? (
-        <>We couldn&apos;t load your profile. <a href="/auth/login" className="font-semibold text-primary underline">Sign in again</a></>
+        <>
+          We couldn&apos;t load your profile.{" "}
+          {/* oxlint-disable-next-line nextjs/no-html-link-for-pages -- a full page load drops the expired session's cached state */}
+          <a href="/auth/login" className="font-semibold text-primary underline">Sign in again</a>
+        </>
       ) : undefined}
       filters={[{ value: "All", label: "All", count: allCount }, ...STATUSES.map((s) => ({ value: s, label: s, count: counts?.[s] }))]}
       activeFilter={status}

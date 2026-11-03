@@ -54,6 +54,7 @@ export function ReportMediaGallery({ title, images, emptyText }: ReportMediaGall
                     aria-label={`Open image ${index + 1}`}
                   >
                     <div className="relative aspect-video w-full">
+                      {/* oxlint-disable-next-line nextjs/no-img-element -- photos are already compressed before upload; next/image would only add per-image optimisation cost */}
                       <img
                         src={image.url}
                         alt={image.alt || `${title} ${index + 1}`}
@@ -87,6 +88,7 @@ export function ReportMediaGallery({ title, images, emptyText }: ReportMediaGall
                 aria-label={`Open thumbnail ${index + 1}`}
               >
                 <div className="aspect-square w-full">
+                  {/* oxlint-disable-next-line nextjs/no-img-element -- photos are already compressed before upload; next/image would only add per-image optimisation cost */}
                   <img
                     src={image.url}
                     alt={image.alt || `${title} thumbnail ${index + 1}`}
@@ -108,6 +110,7 @@ export function ReportMediaGallery({ title, images, emptyText }: ReportMediaGall
           </DialogHeader>
           {activeImage ? (
             <div className="overflow-hidden rounded-md border border-slate-200 bg-black dark:border-slate-700">
+              {/* oxlint-disable-next-line nextjs/no-img-element -- photos are already compressed before upload; next/image would only add per-image optimisation cost */}
               <img src={activeImage.url} alt={activeImage.alt || title} decoding="async" className="max-h-[75vh] w-full object-contain" />
             </div>
           ) : null}

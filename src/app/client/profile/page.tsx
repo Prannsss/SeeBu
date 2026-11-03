@@ -6,7 +6,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { useCurrentUser } from "@/hooks/queries/useCurrentUser"
 import { useLogout } from "@/hooks/use-logout"
 import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import {
   AlertDialog,
@@ -61,7 +61,7 @@ export default function ClientProfilePage() {
       } else {
         gooeyToast.error(res.error || "Failed to delete account");
       }
-    } catch (err) {
+    } catch {
       gooeyToast.error("Failed to delete account");
     }
   }
@@ -85,7 +85,7 @@ export default function ClientProfilePage() {
       } else {
         gooeyToast.error(res.error || "Update failed");
       }
-    } catch (err) {
+    } catch {
       gooeyToast.error("Failed to update profile");
     }
   }

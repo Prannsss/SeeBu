@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Clock, MapPin, AlertTriangle, Link2, Camera, CheckCircle2, Inbox, ClipboardList } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ListSkeleton } from "@/components/ui/list-skeleton";
 import { IdPill } from "@/components/ui/id-pill";
@@ -470,6 +470,7 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
                     {completionPhotoUrls.map((url, index) => (
                       <div key={`${url}-${index}`} className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
+                        {/* oxlint-disable-next-line nextjs/no-img-element -- local preview of a just-picked photo (blob/data URL); next/image can't optimise it */}
                         <img
                           src={url}
                           alt={`Completion proof preview ${index + 1}`}

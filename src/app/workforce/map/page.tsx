@@ -62,7 +62,11 @@ export default function WorkforceMapPage() {
       items={items}
       isLoading={profilePending || (!!profile && isLoading)}
       error={!profilePending && !profile ? (
-        <>We couldn&apos;t load your profile. <a href="/auth/login" className="font-semibold text-primary underline">Sign in again</a></>
+        <>
+          We couldn&apos;t load your profile.{" "}
+          {/* oxlint-disable-next-line nextjs/no-html-link-for-pages -- a full page load drops the expired session's cached state */}
+          <a href="/auth/login" className="font-semibold text-primary underline">Sign in again</a>
+        </>
       ) : undefined}
       filters={[{ value: "All", label: "All", count: allCount }, ...TABS.map((t) => ({ ...t, count: counts?.[t.value] }))]}
       activeFilter={tab}

@@ -341,7 +341,7 @@ export function ReportWizard() {
         }
       };
       sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
-    } catch (e) {
+    } catch {
       // Ignore quota exceptions
     }
   }, [formData, currentStep, trackingNumber]);
@@ -1136,10 +1136,10 @@ export function ReportWizard() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                    <p id="report-urgency-label" className="block text-sm font-medium text-slate-700 mb-2">
                       Urgency Level *
-                    </label>
-                    <div className="grid grid-cols-3 gap-3">
+                    </p>
+                    <div role="group" aria-labelledby="report-urgency-label" className="grid grid-cols-3 gap-3">
                       {urgencyLevels.map((level) => (
                         <button
                           key={level.value}
@@ -1160,10 +1160,10 @@ export function ReportWizard() {
 
                   {/* Photo Upload */}
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                    <p id="report-photos-label" className="block text-sm font-medium text-slate-700 mb-2">
                       Upload Photos (Max 5) *
-                    </label>
-                    <div className="space-y-3">
+                    </p>
+                    <div role="group" aria-labelledby="report-photos-label" className="space-y-3">
                       {formData.photos.length < 5 && (
                         <div className="grid grid-cols-2 gap-3">
                           <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-400 rounded-lg cursor-pointer bg-slate-50 hover:bg-slate-100 hover:border-primary transition-colors focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2">
@@ -1212,6 +1212,7 @@ export function ReportWizard() {
                               const isFlagged = flaggedPhotoIndices.has(index);
                               return (
                                 <div key={index} className={`relative group rounded-lg overflow-hidden ${isFlagged ? 'ring-2 ring-red-700 ring-offset-2' : ''}`}>
+                                  {/* oxlint-disable-next-line nextjs/no-img-element -- local preview of a just-picked photo (blob/data URL); next/image can't optimise it */}
                                   <img
                                     src={photoPreviewUrls[index]}
                                     alt={`Preview ${index + 1}`}
@@ -1518,6 +1519,7 @@ export function ReportWizard() {
         <div className="flex-1 w-full bg-black flex items-center justify-center relative overflow-hidden py-16">
           <div className="relative w-full max-w-[calc(100vh*0.75)] sm:max-w-md aspect-[3/4] bg-gray-900 overflow-hidden shadow-xl">
             {flash && <div className="absolute inset-0 bg-white z-[110] animate-pulse pointer-events-none"></div>}
+            {/* oxlint-disable-next-line jsx-a11y/media-has-caption -- live camera viewfinder; there is no audio to caption */}
             <video 
               ref={videoRef} 
               autoPlay 

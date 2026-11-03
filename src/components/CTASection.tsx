@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useScrollAnimation } from '@/hooks/use-scroll-animation';
 
 export function CTASection() {
@@ -17,9 +18,9 @@ export function CTASection() {
         <div className="relative z-10">
           <h2 className="text-4xl lg:text-5xl font-black text-white mb-6">Be part of a <span className="font-display italic text-yellow-500">smarter</span> Cebu.</h2>
           <p className="text-gray-300 text-lg mb-10 max-w-2xl mx-auto">Join thousands of residents making a difference. Download the app via "Add to Home Screen" or sign up online today.</p>
-          <a href="/auth/register" className="inline-block bg-primary hover:bg-primary-dark text-white font-bold text-lg py-4 px-10 rounded-xl transition-transform hover:scale-105 shadow-lg shadow-primary/30">
+          <Link href="/auth/register" className="inline-block bg-primary hover:bg-primary-dark text-white font-bold text-lg py-4 px-10 rounded-xl transition-transform hover:scale-105 shadow-lg shadow-primary/30">
             Get Started Now
-          </a>
+          </Link>
         </div>
       </div>
     </section>

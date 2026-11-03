@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { LegalLayout, LegalSection } from "@/components/legal/LegalLayout";
 
 const sections: LegalSection[] = [
@@ -36,7 +37,7 @@ export default function TermsOfServicePage() {
       <h2 id="acceptance">1. Acceptance of Terms</h2>
       <p>
         By creating an account, submitting a report, or otherwise accessing the Service, you agree
-        to be bound by these Terms and by our <a href="/privacy">Privacy Policy</a>, which is
+        to be bound by these Terms and by our <Link href="/privacy">Privacy Policy</Link>, which is
         incorporated into these Terms by reference. If you do not agree, do not use the Service.
       </p>
       <p>
@@ -108,7 +109,7 @@ export default function TermsOfServicePage() {
       <ul>
         <li>Access must be limited to legitimate government business related to report handling;</li>
         <li>Status updates and resolutions must reflect the genuine state of the reported issue;</li>
-        <li>Any resident data accessed through these accounts must be handled in accordance with our <a href="/privacy">Privacy Policy</a> and applicable data privacy law; and</li>
+        <li>Any resident data accessed through these accounts must be handled in accordance with our <Link href="/privacy">Privacy Policy</Link> and applicable data privacy law; and</li>
         <li>Credentials for these account types are not self-service and are issued or approved by an existing administrator.</li>
       </ul>
 

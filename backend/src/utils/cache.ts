@@ -138,7 +138,7 @@ async function redisDelPrefix(r: Redis, p: string): Promise<void> {
 export async function cacheDelPrefix(...prefixes: string[]): Promise<void> {
   generation++;
   const ps = prefixes.map((prefix) => NS + prefix);
-  for (const k of [...memory.keys()]) if (ps.some((p) => k.startsWith(p))) memory.delete(k);
+  for (const k of memory.keys()) if (ps.some((p) => k.startsWith(p))) memory.delete(k);
   const r = redis();
   if (!r) {
     if (getClient()) dirty = true;

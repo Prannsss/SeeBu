@@ -54,13 +54,6 @@ function TrackingContent() {
   const [activeTrackingId, setActiveTrackingId] = useState<string | null>(null);
   const [error, setError] = useState<{ notFound: boolean; message: string } | null>(null);
 
-  // Trigger search on mount if a query parameter exists
-  useEffect(() => {
-    if (defaultQuery) {
-      handleTrack(new Event("submit") as any, true);
-    }
-  }, [defaultQuery]);
-
   const fetchTrackingData = async (reportId: string, showToast = true) => {
     const normalizedReportId = normalizeTrackingId(reportId);
     if (!normalizedReportId) {
@@ -124,7 +117,7 @@ function TrackingContent() {
     }
   };
 
-const handleTrack = async (e: React.FormEvent, silent = false) => {
+  const handleTrack = async (e: React.FormEvent, silent = false) => {
     e.preventDefault();
     const normalizedTrackingId = normalizeTrackingId(trackingNumber);
     if (!normalizedTrackingId) return;
@@ -138,6 +131,15 @@ const handleTrack = async (e: React.FormEvent, silent = false) => {
       setError({ notFound: err?.status === 404, message: err?.status === 404 ? `No report found for ${normalizedTrackingId}. Check the tracking number and try again.` : "Could not check the status right now. Please try again." });
     }
   };
+
+  // Look up the ?id= report on arrival (and when the link changes). Only the id should re-run it,
+  // not every keystroke that rebuilds handleTrack.
+  useEffect(() => {
+    if (defaultQuery) {
+      handleTrack(new Event("submit") as any, true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultQuery]);
 
   useEffect(() => {
     if (!activeTrackingId) return;
@@ -174,7 +176,7 @@ const handleTrack = async (e: React.FormEvent, silent = false) => {
     return "bg-amber-50 border-amber-200";
   };
 
-  const getTimelineDisplayKind = (event: TimelineEvent, index: number, total: number) => {
+  const getTimelineDisplayKind = (event: TimelineEvent, index: number) => {
     const isLatestEvent = index === 0;
     const kind = getStatusKind(event.status);
     const normalizedStatus = event.status.trim().toLowerCase();
@@ -186,15 +188,15 @@ const handleTrack = async (e: React.FormEvent, silent = false) => {
     return kind;
   };
 
-  const getTimelineIcon = (event: TimelineEvent, index: number, total: number) => {
-    const kind = getTimelineDisplayKind(event, index, total);
+  const getTimelineIcon = (event: TimelineEvent, index: number) => {
+    const kind = getTimelineDisplayKind(event, index);
     if (kind === "success") return <CheckCircle className="h-5 w-5 text-green-600" />;
     if (kind === "rejected") return <XCircle className="h-5 w-5 text-red-700" />;
     return <Clock className="h-5 w-5 text-amber-600" />;
   };
 
-  const getTimelineCircleClass = (event: TimelineEvent, index: number, total: number) => {
-    const kind = getTimelineDisplayKind(event, index, total);
+  const getTimelineCircleClass = (event: TimelineEvent, index: number) => {
+    const kind = getTimelineDisplayKind(event, index);
     if (kind === "success") return "bg-green-50 border-green-200";
     if (kind === "rejected") return "bg-red-50 border-red-200";
     return "bg-amber-50 border-amber-200";
@@ -300,8 +302,8 @@ const handleTrack = async (e: React.FormEvent, silent = false) => {
               <div className="relative space-y-6 before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-slate-200 dark:before:bg-slate-800">
                 {result.timeline.map((event, index) => (
                   <div key={event.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                    <div className={`flex items-center justify-center w-10 h-10 rounded-full border-4 border-white dark:border-slate-900 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 ${getTimelineCircleClass(event, index, result.timeline.length)}`}>
-                      {getTimelineIcon(event, index, result.timeline.length)}
+                    <div className={`flex items-center justify-center w-10 h-10 rounded-full border-4 border-white dark:border-slate-900 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 ${getTimelineCircleClass(event, index)}`}>
+                      {getTimelineIcon(event, index)}
                     </div>
                     
                     <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700">

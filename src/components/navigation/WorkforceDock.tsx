@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Home, ClipboardList, User, ShieldCheck, Map as MapIcon } from "lucide-react";
+import { Home, ClipboardList, User, Map as MapIcon } from "lucide-react";
 import Dock from "@/components/ui/dock";
 
 const ROUTES = ['/workforce', '/workforce/tasks', '/workforce/map', '/workforce/profile'];

@@ -1,12 +1,12 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { LogOut, Pencil, Trash2, UserRound } from "lucide-react"
+import { LogOut, Pencil, UserRound } from "lucide-react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useCurrentUser } from "@/hooks/queries/useCurrentUser"
 import { useLogout } from "@/hooks/use-logout"
 import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import {
   AlertDialog,
@@ -51,21 +51,6 @@ export default function WorkforceProfilePage() {
     await logout()
   }
 
-  const handleDeleteAccount = async () => {
-    try {
-      const { deleteAccount } = await import("@/app/actions/user.actions");
-      const res = await deleteAccount();
-      if (res.success) {
-        gooeyToast.success("Account deleted successfully");
-        await logout();
-      } else {
-        gooeyToast.error("Error", { description: res.error || "Failed to delete account" });
-      }
-    } catch (err) {
-      gooeyToast.error("Error", { description: "Failed to delete account" });
-    }
-  }
-
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -86,7 +71,7 @@ export default function WorkforceProfilePage() {
       } else {
         gooeyToast.error(res.error || "Update failed");
       }
-    } catch (err) {
+    } catch {
       gooeyToast.error("Failed to update profile");
     }
   }

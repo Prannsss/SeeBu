@@ -152,7 +152,7 @@ export const authController = {
       let verified;
       try {
         verified = await verifyGoogleIdToken(credential);
-      } catch (verifyErr: any) {
+      } catch {
         return res.status(401).json({ error: 'Invalid Google credential' });
       }
       const { email, full_name } = verified;
@@ -226,7 +226,7 @@ export const authController = {
       let verified;
       try {
         verified = await verifyFacebookAccessToken(accessToken);
-      } catch (verifyErr: any) {
+      } catch {
         return res.status(401).json({ error: 'Invalid Facebook access token' });
       }
       const { email, full_name } = verified;

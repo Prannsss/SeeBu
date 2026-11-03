@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { LegalLayout, LegalSection } from "@/components/legal/LegalLayout";
 
 const sections: LegalSection[] = [
@@ -30,7 +31,7 @@ export default function PrivacyPolicyPage() {
         experience, and related services (collectively, the &quot;Service&quot;) for reporting and
         tracking public infrastructure and community issues in Cebu City. By using the Service, you
         agree to the collection and use of information described here. This Policy should be read
-        together with our <a href="/terms">Terms of Service</a>.
+        together with our <Link href="/terms">Terms of Service</Link>.
       </p>
 
       <h2 id="overview">1. Overview</h2>

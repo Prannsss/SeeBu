@@ -1,7 +1,6 @@
 ﻿"use client"
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { Card } from "@/components/ui/card"
 import { 
   FileWarning, 
   MapPin, 
@@ -424,6 +423,7 @@ export default function AdminReportsPage() {
               ) : !currentUser ? (
                 <div className="text-center py-10 col-span-full text-slate-600 bg-slate-50 rounded-md border border-dashed border-slate-300" role="alert">
                   We couldn&apos;t load your profile. Your session may have expired.{" "}
+                  {/* oxlint-disable-next-line nextjs/no-html-link-for-pages -- a full page load drops the expired session's cached state */}
                   <a href="/auth/login" className="font-semibold text-primary underline">Sign in again</a>
                 </div>
               ) : reportsList.length === 0 ? (

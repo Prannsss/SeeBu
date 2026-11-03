@@ -23,7 +23,32 @@
     "nextjs/no-html-link-for-pages": "warn",
     "nextjs/no-img-element": "warn",
     "nextjs/no-sync-scripts": "error",
-    "no-unused-vars": "warn"
+    "no-unused-vars": [
+      "warn",
+      {
+        "ignoreRestSiblings": true,
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_",
+        "caughtErrorsIgnorePattern": "^_"
+      }
+    ],
+    "jsx-a11y/aria-role": [
+      "warn",
+      {
+        "ignoreNonDOM": true
+      }
+    ],
+    "jsx-a11y/label-has-associated-control": [
+      "warn",
+      {
+        "depth": 3
+      }
+    ],
+    "jsx-a11y/prefer-tag-over-role": "off",
+    "react/set-state-in-effect": "off",
+    "react/purity": "off",
+    "react/refs": "off",
+    "react/preserve-manual-memoization": "off"
   },
   "ignorePatterns": [
     "public/sw.js",

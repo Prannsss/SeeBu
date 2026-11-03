@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import {
   AlertCircle,
   Calendar,
@@ -75,27 +75,26 @@ const LEGEND_WIDTH = 370;
 
 type SheetSnap = "peek" | "half" | "full";
 
+const subscribeMedia = (query: string) => (onChange: () => void) => {
+  const mq = window.matchMedia(query);
+  mq.addEventListener("change", onChange);
+  return () => mq.removeEventListener("change", onChange);
+};
+const subscribeDesktop = subscribeMedia("(min-width: 768px)");
+const subscribeResize = (onChange: () => void) => {
+  window.addEventListener("resize", onChange);
+  return () => window.removeEventListener("resize", onChange);
+};
+
+/** Desktop layout from the first client render (no effect, no flash of the other layout). */
 function useIsDesktop() {
-  const [desktop, setDesktop] = useState(true);
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 768px)");
-    const update = () => setDesktop(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, []);
-  return desktop;
+  return useSyncExternalStore(subscribeDesktop, () => window.matchMedia("(min-width: 768px)").matches, () => true);
 }
 
 function useViewport() {
-  const [size, setSize] = useState({ w: 1280, h: 800 });
-  useEffect(() => {
-    const update = () => setSize({ w: window.innerWidth, h: window.innerHeight });
-    update();
-    window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
-  }, []);
-  return size;
+  const w = useSyncExternalStore(subscribeResize, () => window.innerWidth, () => 1280);
+  const h = useSyncExternalStore(subscribeResize, () => window.innerHeight, () => 800);
+  return { w, h };
 }
 
 const addressKey = (i: MapItem) =>

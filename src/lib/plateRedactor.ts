@@ -224,7 +224,7 @@ function detectPlateRegions(canvas: HTMLCanvasElement): PlateRegion[] {
 
   // Stage 1 – precompute per-row densities for cheap pre-filtering
   const scanStep = Math.max(1, Math.floor(height / 120));
-  const rowDensities: number[] = new Array(height).fill(0);
+  const rowDensities: number[] = Array.from({ length: height }, () => 0);
   for (let y = 0; y < height; y += scanStep) {
     rowDensities[y] = rowEdgeDensity(
       data, width, y, 0, width,
