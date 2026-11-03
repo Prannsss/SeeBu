@@ -76,7 +76,7 @@ export default function WorkforceAdminTasksPage() {
   const [modalDelegateMode, setModalDelegateMode] = useState(false)
 
   const { data: profileData, isLoading: isProfileLoading } = useCurrentUser()
-  useRealtimeReports({ enableToasts: true, userRole: "workforce-admin", userId: profileData?.id });
+  useRealtimeReports({ enableToasts: true, userRole: "workforce-admin", userId: profileData?.id, departmentId: profileData?.department_id });
 
   const departmentId = profileData?.department_id ? String(profileData.department_id) : "";
 

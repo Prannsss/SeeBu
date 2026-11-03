@@ -15,7 +15,7 @@ const statusLabel = (status: string) => (status === "Accepted" ? "In Progress" :
 
 export default function WorkforceAdminMapPage() {
   const { data: profile, isPending: profilePending } = useCurrentUser()
-  useRealtimeReports({ enableToasts: true, userRole: "workforce-admin", userId: profile?.id })
+  useRealtimeReports({ enableToasts: true, userRole: "workforce-admin", userId: profile?.id, departmentId: profile?.department_id })
   const [tab, setTab] = useState("Pending")
   const [page, setPage] = useState(1)
   const departmentId = profile?.department_id ? String(profile.department_id) : ""
