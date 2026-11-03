@@ -26,7 +26,7 @@ import { IdPill } from "@/components/ui/id-pill";
 import { ReportMediaGallery } from "@/components/reports/report-media-gallery";
 import { statusBadgeClass, urgencyBadgeClass } from "@/lib/status-styles";
 import { formatPhDate } from "@/lib/ph-date";
-import { geocodeAddress, offsetDuplicate, precisionLabel, type GeoPoint } from "@/lib/geocode";
+import { geocodeAddress, precisionLabel, type GeoPoint } from "@/lib/geocode";
 import { TONE_STYLES, type MapFilter, type MapItem, type MapTone, type PinnedItem } from "./types";
 import type { MapPadding } from "./LeafletMap";
 
@@ -70,6 +70,8 @@ const PANE_MIN = 320;
 const PANE_MAX = 680;
 const DOCK_SPACE = 112; // the fixed role dock at the bottom of every staff page
 const SHEET_HEADER = 64;
+const DOCK_WIDTH = 576; // max-w-xl
+const LEGEND_WIDTH = 370;
 
 type SheetSnap = "peek" | "half" | "full";
 
@@ -85,64 +87,41 @@ function useIsDesktop() {
   return desktop;
 }
 
-function useViewportHeight() {
-  const [h, setH] = useState(800);
+function useViewport() {
+  const [size, setSize] = useState({ w: 1280, h: 800 });
   useEffect(() => {
-    const update = () => setH(window.innerHeight);
+    const update = () => setSize({ w: window.innerWidth, h: window.innerHeight });
     update();
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
   }, []);
-  return h;
+  return size;
 }
 
 const addressKey = (i: MapItem) =>
   [i.lat ?? "", i.lng ?? "", i.street ?? "", i.barangay ?? "", i.municipality ?? ""].join("|").toLowerCase();
 
-/** Geocode each distinct address once (rate-limited + cached in lib/geocode) and attach the points. */
-function usePinnedItems(items: MapItem[]) {
-  const [points, setPoints] = useState<Record<string, GeoPoint | null>>({});
-  const requested = useRef(new Set<string>());
+type GeoState =
+  | { status: "idle" }
+  | { status: "locating" }
+  | { status: "found"; point: GeoPoint }
+  | { status: "missing" };
 
+/** Geocode only the selected record (rate-limited + cached in lib/geocode). */
+function useGeocodedItem(item: MapItem | null): GeoState {
+  const [result, setResult] = useState<{ key: string; point: GeoPoint | null } | null>(null);
+  const key = item ? addressKey(item) : null;
   useEffect(() => {
+    if (!item || !key) return;
     let alive = true;
-    for (const item of items) {
-      const key = addressKey(item);
-      if (requested.current.has(key)) continue;
-      requested.current.add(key);
-      geocodeAddress({ street: item.street, barangay: item.barangay, municipality: item.municipality, lat: item.lat, lng: item.lng })
-        .then((point) => {
-          if (alive) setPoints((prev) => ({ ...prev, [key]: point }));
-          else requested.current.delete(key); // unmounted mid-flight: let a remount ask again (cache makes it free)
-        });
-    }
-    return () => {
-      alive = false;
-    };
-  }, [items]);
-
-  return useMemo(() => {
-    const seen = new Map<string, number>();
-    let pending = 0;
-    let unplaced = 0;
-    const pinned: PinnedItem[] = items.map((item) => {
-      const key = addressKey(item);
-      if (!(key in points)) {
-        pending++;
-        return item;
-      }
-      const base = points[key];
-      if (!base) {
-        unplaced++;
-        return item;
-      }
-      const spot = `${base.lat.toFixed(5)},${base.lng.toFixed(5)}`;
-      const n = seen.get(spot) ?? 0;
-      seen.set(spot, n + 1);
-      return { ...item, point: offsetDuplicate(base, n) };
-    });
-    return { pinned, pending, unplaced };
-  }, [items, points]);
+    geocodeAddress({ street: item.street, barangay: item.barangay, municipality: item.municipality, lat: item.lat, lng: item.lng })
+      .then((point) => { if (alive) setResult({ key, point }); });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  if (!item) return { status: "idle" };
+  if (!result || result.key !== key) return { status: "locating" };
+  return result.point ? { status: "found", point: result.point } : { status: "missing" };
 }
 
 const locationLine = (item: MapItem) =>
@@ -162,7 +141,7 @@ function ItemCard({
   onSelect,
   onOpen,
 }: {
-  item: PinnedItem;
+  item: MapItem;
   selected: boolean;
   onSelect: () => void;
   onOpen: () => void;
@@ -202,18 +181,16 @@ function ItemCard({
           </div>
         </button>
         <div className="flex items-center justify-between border-t border-slate-100 px-3.5 py-2 text-xs dark:border-slate-800">
-          <span className="flex items-center gap-1 text-slate-500">
-            {item.point ? (
-              <>
-                <Crosshair className="h-3 w-3" aria-hidden="true" />
-                {item.point.precision === "street" || item.point.precision === "exact" ? "Pinned" : "Approximate"}
-              </>
-            ) : (
-              <>
-                <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> Locating…
-              </>
-            )}
-          </span>
+          {selected ? (
+            <span className="flex items-center gap-1 font-semibold text-primary-dark">
+              <Crosshair className="h-3 w-3" aria-hidden="true" /> Showing on map
+            </span>
+          ) : (
+            <button type="button" onClick={onSelect} className="flex items-center gap-1 text-slate-600 hover:text-slate-900 dark:text-slate-400">
+              <MapPin className="h-3 w-3" aria-hidden="true" /> View on map
+              {!!item.photos?.length && <span className="text-slate-400">· {item.photos.length} photo{item.photos.length > 1 ? "s" : ""}</span>}
+            </button>
+          )}
           <button type="button" onClick={onOpen} className="inline-flex items-center gap-0.5 font-semibold text-slate-900 hover:text-primary dark:text-slate-100">
             View details <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
@@ -394,7 +371,7 @@ export function IssuesMapView({
   noun = "items",
 }: IssuesMapViewProps) {
   const desktop = useIsDesktop();
-  const viewportH = useViewportHeight();
+  const { w: viewportW, h: viewportH } = useViewport();
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -492,7 +469,11 @@ export function IssuesMapView({
         .some((v) => v && v.toLowerCase().includes(q))
     );
   }, [items, query]);
-  const { pinned, pending, unplaced } = usePinnedItems(visibleItems);
+  // Only the selected record is geocoded and pinned.
+  const selectedItem = visibleItems.find((i) => i.id === selectedId) ?? null;
+  const geo = useGeocodedItem(selectedItem);
+  const pinnedSelected: PinnedItem | null =
+    selectedItem && geo.status === "found" ? { ...selectedItem, point: geo.point } : null;
 
   useEffect(() => {
     if (selectedId && !visibleItems.some((i) => i.id === selectedId)) setSelectedId(null);
@@ -505,10 +486,17 @@ export function IssuesMapView({
     },
     [desktop]
   );
-  const openItem = pinned.find((i) => i.id === openId) ?? null;
+  const openBase = visibleItems.find((i) => i.id === openId) ?? null;
+  const openItem: PinnedItem | null = openBase && openBase.id === pinnedSelected?.id ? pinnedSelected : openBase;
+
+  // The role dock (max-w-xl, centered) can overlap the pane's bottom or the legend on narrower desktops.
+  const dockLeft = (viewportW - DOCK_WIDTH) / 2;
+  const dockRight = dockLeft + DOCK_WIDTH;
+  const paneUnderDock = paneOpen && 16 + paneWidth > dockLeft;
+  const legendUnderDock = viewportW - 16 - LEGEND_WIDTH < dockRight;
 
   const padding: MapPadding = desktop
-    ? { top: 16, right: 56, bottom: 48, left: paneOpen ? paneWidth + 32 : 16 }
+    ? { top: 72, right: 56, bottom: 16, left: paneOpen ? paneWidth + 32 : 16 }
     : { top: 120, right: 16, bottom: sheetHeight, left: 16 };
 
   // --- shared pieces -------------------------------------------------------------------------
@@ -576,7 +564,7 @@ export function IssuesMapView({
         </div>
       ) : (
         <ul className="space-y-2.5 p-3">
-          {pinned.map((item) => (
+          {visibleItems.map((item) => (
             <ItemCard
               key={item.id}
               item={item}
@@ -601,12 +589,41 @@ export function IssuesMapView({
     </>
   );
 
-  const geoStatus =
-    pending > 0 ? (
-      <span className="flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> Locating {pending} on the map…</span>
-    ) : unplaced > 0 ? (
-      <span>{unplaced} couldn&apos;t be placed on the map</span>
-    ) : null;
+  const singular = noun.replace(/s$/, "");
+  const mapHint = (
+    <div className="pointer-events-auto flex max-w-full items-center gap-2 rounded-full border border-slate-200 bg-white/95 py-2 pl-3.5 pr-2 text-xs font-medium text-slate-700 shadow-md backdrop-blur dark:border-slate-700 dark:bg-slate-900/95 dark:text-slate-200" role="status">
+      {geo.status === "idle" && (
+        <span className="flex items-center gap-2 pr-1.5">
+          <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500" aria-hidden="true" />
+          Select a {singular} from the list to view it on the map
+        </span>
+      )}
+      {geo.status === "locating" && (
+        <span className="flex items-center gap-2 pr-1.5">
+          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden="true" /> Locating {selectedItem?.id} on the map…
+        </span>
+      )}
+      {(geo.status === "found" || geo.status === "missing") && (
+        <>
+          {geo.status === "found" ? (
+            <Crosshair className="h-3.5 w-3.5 shrink-0 text-primary-dark" aria-hidden="true" />
+          ) : (
+            <AlertCircle className="h-3.5 w-3.5 shrink-0 text-amber-700" aria-hidden="true" />
+          )}
+          <span className="truncate">
+            {geo.status === "found" ? (
+              <><span className="font-semibold">{selectedItem?.title}</span> · {precisionLabel[geo.point.precision]}</>
+            ) : (
+              <>Couldn&apos;t find this {singular}&apos;s address on OpenStreetMap</>
+            )}
+          </span>
+          <button type="button" onClick={() => setSelectedId(null)} className="shrink-0 rounded-full p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-900" aria-label="Clear map">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </>
+      )}
+    </div>
+  );
 
   const countLine = (
     <span>
@@ -631,9 +648,8 @@ export function IssuesMapView({
       {/* Map (own stacking context so Leaflet's z-indices stay below the pane, sheet and dialogs) */}
       <div className="absolute inset-0 isolate z-0">
         <LeafletMap
-          items={pinned}
-          selectedId={selectedId}
-          onSelect={(id) => { setSelectedId(id); setOpenId(id); }}
+          item={pinnedSelected}
+          onOpen={() => setOpenId(selectedId)}
           padding={padding}
           zoomControl={desktop}
         />
@@ -643,7 +659,7 @@ export function IssuesMapView({
         <>
           {/* Desktop: floating, resizable list pane */}
           <aside
-            className={`absolute bottom-28 left-4 top-4 z-10 flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl transition-transform duration-200 dark:border-slate-800 dark:bg-slate-950 ${paneOpen ? "" : "-translate-x-[calc(100%+1rem)]"}`}
+            className={`absolute bottom-4 left-4 top-4 z-10 flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl transition-transform duration-200 dark:border-slate-800 dark:bg-slate-950 ${paneOpen ? "" : "-translate-x-[calc(100%+1rem)]"}`}
             style={{ width: paneWidth }}
             aria-label={`${title} list`}
           >
@@ -661,9 +677,9 @@ export function IssuesMapView({
               </div>
               <div className="mt-3 flex gap-2">{searchBox}{toolbar}</div>
               <div className="mt-3">{filterChips}</div>
-              <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-slate-500">{countLine}{geoStatus}</div>
+              <div className="mt-2 text-[11px] text-slate-500">{countLine}</div>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{listBody}</div>
+            <div className={`min-h-0 flex-1 overflow-y-auto overscroll-contain ${paneUnderDock ? "pb-24" : ""}`}>{listBody}</div>
 
             {/* Resize handle */}
             <div
@@ -694,7 +710,15 @@ export function IssuesMapView({
             {paneOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
           </button>
 
-          <div className="absolute bottom-28 right-4 z-10">{legendEl}</div>
+          <div
+            className="pointer-events-none absolute top-4 z-10 flex justify-center transition-[left] duration-200"
+            style={{ left: paneOpen ? paneWidth + 32 : 16, right: 72 }}
+          >
+            {mapHint}
+          </div>
+
+          {/* Bottom-right, just above the OSM attribution (lifted only when the dock would cover it). */}
+          <div className="absolute right-4 z-10" style={{ bottom: legendUnderDock ? DOCK_SPACE : 28 }}>{legendEl}</div>
         </>
       ) : (
         <>
@@ -709,7 +733,8 @@ export function IssuesMapView({
                 </button>
               )}
             </div>
-            <div className="pr-12">{filterChips}</div>
+            {filterChips}
+            <div className="pointer-events-none flex justify-center pt-1">{mapHint}</div>
           </div>
 
           {sheetHeight < viewportH * 0.6 && (
@@ -737,7 +762,7 @@ export function IssuesMapView({
                   <h1 className="truncate text-sm font-bold text-slate-900 dark:text-slate-100">
                     {isLoading ? title : `${visibleItems.length} ${noun}`}
                   </h1>
-                  <div className="text-[11px] text-slate-500">{geoStatus ?? countLine}</div>
+                  <div className="text-[11px] text-slate-500">{countLine}</div>
                 </div>
                 <button
                   type="button"

@@ -9,7 +9,7 @@
  *  - every request goes through one module-wide queue spaced 1.1s apart (shared by all maps),
  *  - results (including misses) are cached in localStorage for 30 days,
  *  - identical addresses are only looked up once.
- * Each address falls back from street → barangay → municipality, so a pin always lands
+ * Each address falls back from street → barangay → municipality, so a pin usually lands
  * somewhere sensible; `precision` says which level matched.
  */
 
@@ -141,14 +141,6 @@ export async function geocodeAddress(address: GeoAddress): Promise<GeoPoint | nu
     if (point) return { ...point, precision };
   }
   return null;
-}
-
-/** Spread pins that share a point (e.g. several reports placed at the same barangay center). */
-export function offsetDuplicate(point: GeoPoint, index: number): GeoPoint {
-  if (index === 0) return point;
-  const angle = index * 2.399963; // golden angle: an even spiral
-  const radius = 0.00018 * Math.sqrt(index); // ~20m per ring
-  return { ...point, lat: point.lat + radius * Math.cos(angle), lng: point.lng + radius * Math.sin(angle) };
 }
 
 export const precisionLabel: Record<GeoPrecision, string> = {

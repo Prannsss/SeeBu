@@ -2,7 +2,7 @@
 
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Circle, MapContainer, Marker, TileLayer, ZoomControl, useMap } from "react-leaflet";
 import { DEFAULT_CENTER } from "@/lib/geocode";
 import { TONE_STYLES, type PinnedItem } from "./types";
@@ -10,23 +10,40 @@ import { TONE_STYLES, type PinnedItem } from "./types";
 export type MapPadding = { top: number; right: number; bottom: number; left: number };
 
 type Props = {
-  items: PinnedItem[];
-  selectedId: string | null;
-  onSelect: (id: string) => void;
-  /** Screen space covered by the floating pane / bottom sheet, so pins are framed in the visible part. */
+  /** The one record on the map (the selected one), or null for an empty map. */
+  item: PinnedItem | null;
+  /** The pin was clicked. */
+  onOpen: () => void;
+  /** Screen space covered by the floating pane / bottom sheet, so the pin lands in the visible part. */
   padding: MapPadding;
   /** +/- buttons (off on phones, where pinch-zoom is natural and the corner holds the search bar). */
   zoomControl?: boolean;
 };
 
-const iconCache = new Map<string, L.DivIcon>();
+const escapeAttr = (value: string) => value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 
-function pinIcon(color: string, selected: boolean, approximate: boolean) {
-  const key = `${color}-${selected}-${approximate}`;
-  const hit = iconCache.get(key);
-  if (hit) return hit;
-  const size = selected ? 44 : 32;
-  const icon = L.divIcon({
+/** A photo bubble (report's first image) with a pointer, or a plain pin when there's no photo. */
+function pinIcon(color: string, photo: string | undefined, approximate: boolean) {
+  if (photo) {
+    const w = 72;
+    const h = 84;
+    return L.divIcon({
+      className: "seebu-pin",
+      iconSize: [w, h],
+      iconAnchor: [w / 2, h],
+      html: `<div style="position:relative;width:${w}px;height:${h}px;filter:drop-shadow(0 4px 8px rgba(15,23,42,.35))">
+        <div style="width:${w}px;height:${w}px;border-radius:16px;background:${color};padding:3px;box-sizing:border-box">
+          <img src="${escapeAttr(photo)}" alt="" loading="eager" referrerpolicy="no-referrer"
+            style="display:block;width:100%;height:100%;object-fit:cover;border-radius:13px;border:2px solid #fff;box-sizing:border-box;background:#e2e8f0"/>
+        </div>
+        <div style="position:absolute;left:50%;bottom:0;width:0;height:0;transform:translateX(-50%);
+          border-left:9px solid transparent;border-right:9px solid transparent;border-top:13px solid ${color}"></div>
+        ${approximate ? `<span style="position:absolute;top:-6px;right:-6px;background:#fff;color:#92400e;border:1px solid #fcd34d;border-radius:999px;font:700 9px/1 system-ui,sans-serif;padding:3px 5px">≈</span>` : ""}
+      </div>`,
+    });
+  }
+  const size = 48;
+  return L.divIcon({
     className: "seebu-pin",
     iconSize: [size, size],
     iconAnchor: [size / 2, size - 2],
@@ -36,104 +53,65 @@ function pinIcon(color: string, selected: boolean, approximate: boolean) {
       <circle cx="16" cy="12.5" r="4.5" fill="#fff"/>
     </svg>`,
   });
-  iconCache.set(key, icon);
-  return icon;
 }
 
 /** Point the map so `latlng` sits in the middle of the visible (uncovered) area. */
 function centerFor(map: L.Map, latlng: L.LatLngExpression, zoom: number, padding: MapPadding) {
-  const shift = L.point((padding.left - padding.right) / 2, (padding.top - padding.bottom) / 2);
+  // Nudge down a little so a tall photo pin isn't cut off at the top.
+  const shift = L.point((padding.left - padding.right) / 2, (padding.top - padding.bottom) / 2 + 40);
   return map.unproject(map.project(latlng, zoom).subtract(shift), zoom);
 }
 
-function Viewport({ items, selectedId, padding }: Pick<Props, "items" | "selectedId" | "padding">) {
+function FlyToItem({ item, padding }: { item: PinnedItem | null; padding: MapPadding }) {
   const map = useMap();
   const paddingRef = useRef(padding);
   paddingRef.current = padding;
-
-  // Re-frame whenever the set of pins changes (new filter, new page, geocoding finished).
-  const pinned = items.filter((i) => i.point);
-  const pinKey = pinned.map((i) => i.id).join("|");
-  const selectedRef = useRef(selectedId);
-  selectedRef.current = selectedId;
+  const point = item?.point;
   useEffect(() => {
-    // Don't yank the view away from a pin the user is looking at.
-    if (!pinned.length || selectedRef.current) return;
-    const p = paddingRef.current;
-    const bounds = L.latLngBounds(pinned.map((i) => [i.point!.lat, i.point!.lng] as [number, number]));
-    map.fitBounds(bounds, {
-      paddingTopLeft: [p.left + 40, p.top + 40],
-      paddingBottomRight: [p.right + 40, p.bottom + 40],
-      maxZoom: 16,
-      animate: true,
-    });
+    if (!point) return;
+    const zoom = point.precision === "street" || point.precision === "exact" ? 17 : point.precision === "barangay" ? 15 : 13;
+    map.flyTo(centerFor(map, [point.lat, point.lng], zoom, paddingRef.current), zoom, { duration: 0.8 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, pinKey]);
-
-  // Fly to the selected pin.
-  const selected = pinned.find((i) => i.id === selectedId);
-  const selectedPoint = selected?.point;
-  useEffect(() => {
-    if (!selectedPoint) return;
-    const zoom = Math.max(map.getZoom(), selectedPoint.precision === "street" || selectedPoint.precision === "exact" ? 17 : 15);
-    map.flyTo(centerFor(map, [selectedPoint.lat, selectedPoint.lng], zoom, paddingRef.current), zoom, { duration: 0.8 });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, selectedId, selectedPoint?.lat, selectedPoint?.lng]);
-
+  }, [map, item?.id, point?.lat, point?.lng]);
   return null;
 }
 
 /** The tile map itself. Loaded client-only (Leaflet needs `window`). */
-export default function LeafletMap({ items, selectedId, onSelect, padding, zoomControl = true }: Props) {
-  const selected = items.find((i) => i.id === selectedId && i.point);
-  const approxRadius = selected?.point?.precision === "barangay" ? 450 : selected?.point?.precision === "municipality" ? 1500 : 0;
-
-  const markers = useMemo(
-    () =>
-      items
-        .filter((i) => i.point)
-        // Selected pin drawn last so it sits on top.
-        .sort((a, b) => Number(a.id === selectedId) - Number(b.id === selectedId)),
-    [items, selectedId]
-  );
+export default function LeafletMap({ item, onOpen, padding, zoomControl = true }: Props) {
+  const point = item?.point;
+  const approximate = point?.precision === "barangay" || point?.precision === "municipality";
+  const approxRadius = point?.precision === "barangay" ? 450 : point?.precision === "municipality" ? 1500 : 0;
+  const color = item ? TONE_STYLES[item.tone].pin : "#000";
 
   return (
-    <MapContainer
-      center={DEFAULT_CENTER}
-      zoom={13}
-      zoomControl={false}
-      className="h-full w-full"
-      attributionControl
-      worldCopyJump
-    >
+    <MapContainer center={DEFAULT_CENTER} zoom={13} zoomControl={false} className="h-full w-full" attributionControl worldCopyJump>
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors'
         url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
         maxZoom={19}
       />
       {zoomControl && <ZoomControl position="topright" />}
-      <Viewport items={items} selectedId={selectedId} padding={padding} />
+      <FlyToItem item={item} padding={padding} />
 
-      {selected?.point && approxRadius > 0 && (
+      {item && point && approxRadius > 0 && (
         <Circle
-          center={[selected.point.lat, selected.point.lng]}
+          center={[point.lat, point.lng]}
           radius={approxRadius}
-          pathOptions={{ color: TONE_STYLES[selected.tone].pin, weight: 2, dashArray: "6 6", fillOpacity: 0.12 }}
+          pathOptions={{ color, weight: 2, dashArray: "6 6", fillOpacity: 0.12 }}
         />
       )}
 
-      {markers.map((item) => (
+      {item && point && (
         <Marker
           key={item.id}
-          position={[item.point!.lat, item.point!.lng]}
-          icon={pinIcon(TONE_STYLES[item.tone].pin, item.id === selectedId, item.point!.precision === "barangay" || item.point!.precision === "municipality")}
-          title={item.title}
+          position={[point.lat, point.lng]}
+          icon={pinIcon(color, item.photos?.[0], approximate)}
+          title={`${item.title} — open details`}
           alt={item.title}
           keyboard
-          zIndexOffset={item.id === selectedId ? 1000 : 0}
-          eventHandlers={{ click: () => onSelect(item.id) }}
+          eventHandlers={{ click: onOpen }}
         />
-      ))}
+      )}
     </MapContainer>
   );
 }
