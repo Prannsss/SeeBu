@@ -569,5 +569,5 @@
 
 /* Map tiles (Leaflet): muted so the status-coloured pins stand out. Only the tiles, not the pins. */
 .seebu-tiles {
-  filter: saturate(0.4) brightness(1.03);
+  filter: saturate(0.4) brightness(1.1);
 }
