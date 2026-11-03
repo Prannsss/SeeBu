@@ -429,83 +429,83 @@ export function ReportWizard() {
     el.style.height = `${el.scrollHeight + 4}px`; // + top/bottom 2px border
   }, [formData.location, currentStep]);
 
-  // ponytail: free OSM Nominatim reverse geocoding (1 req/s policy, fine for a button); swap to a keyed provider if traffic grows
-  const handleUseMyLocation = () => {
-    if (!navigator.geolocation) {
-      gooeyToast.error("Location Unavailable", { description: "Your browser doesn't support location access." });
-      return;
-    }
+  // Free OSM services (no API key): Nominatim + Photon via lib/locate (rate-limited, cached, with timeouts).
+  // ponytail: swap to a keyed provider if traffic grows past Nominatim's 1 req/s policy.
+  const locateRun = useRef(0);
+  const handleUseMyLocation = async () => {
+    const run = ++locateRun.current;
     setIsLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      async ({ coords }) => {
-        try {
-          const { latitude: lat, longitude: lon } = coords;
-          // Nominatim: boundary-accurate city/barangay. Photon: nearest *named* street, since in Cebu the
-          // closest OSM way is often an unnamed alley, which leaves Nominatim with no road at all.
-          const [res, photonStreet] = await Promise.all([
-            fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1&accept-language=en`),
-            fetch(`https://photon.komoot.io/reverse?lat=${lat}&lon=${lon}&osm_tag=highway&limit=1&radius=0.3&lang=en`)
-              .then(r => (r.ok ? r.json() : null))
-              .then(j => j?.features?.[0]?.properties?.name as string | undefined)
-              .catch(() => undefined),
-          ]);
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const data = await res.json();
-          const a = data.address ?? {};
-          const houseNumber = a.house_number?.includes('+') ? undefined : a.house_number; // skip Plus Codes like "8WJ5+QC2"
-          const road = a.road || photonStreet;
-          // Sitio/neighbourhood after the street, e.g. "Fourth Street, Baca"; never a sitio alone as the "street"
-          const address = road ? [[houseNumber, road].filter(Boolean).join(' '), a.neighbourhood].filter(Boolean).join(', ') : '';
+    try {
+      const { getBestPosition, reverseGeocode, matchPlace, LocateError } = await import('@/lib/locate');
 
-          // Only auto-select municipality/barangay on an exact (normalized) name match with our own list
-          const norm = (s?: string) =>
-            (s ?? '').toLowerCase().replace(/\b(city of|municipality of|barangay|brgy\.?|city)\b/g, '').replace(/[^a-z0-9]/g, '');
-          const pick = <T extends { name: string }>(list: T[] | undefined, candidates: (string | undefined)[]) =>
-            list?.find(item => candidates.some(c => c && norm(c) === norm(item.name)));
-
-          if (!locationData?.municipalities?.length) {
-            gooeyToast.error("Please Try Again", { description: "Service areas are still loading. Try again in a moment." });
-            return;
-          }
-          // No `county`: in PH it can hold the province ("Cebu"), which would falsely match "Cebu City"
-          const municipality = pick(locationData.municipalities, [a.city, a.town, a.municipality]);
-          // Only accept locations inside a municipality SeeBu serves (currently Cebu City)
-          if (!municipality) {
-            gooeyToast.error("Outside Service Area", {
-              description: `SeeBu currently covers ${locationData.municipalities.map(m => m.name).join(', ')} only. Your location appears to be elsewhere.`,
-            });
-            return;
-          }
-          const barangay =
-            pick(municipality.barangays, [a.suburb, a.village, a.quarter, a.neighbourhood, a.hamlet, a.city_district]);
-
-          setFormData(prev => ({
-            ...prev,
-            location: address || prev.location,
-            municipality: municipality.id,
-            barangay: barangay?.id ?? '',
-          }));
-          if (!address) {
-            gooeyToast.info("Street Not Found", { description: "We set your area, but couldn't find a street name nearby. Please type it in." });
-          } else if (!barangay) {
-            gooeyToast.info("Select Your Barangay", { description: "We filled in your address, but please choose your barangay." });
-          }
-        } catch {
-          gooeyToast.error("Couldn't Find Address", { description: "Please type your street address manually." });
-        } finally {
-          setIsLocating(false);
-        }
-      },
-      (err) => {
-        setIsLocating(false);
+      let fix;
+      try {
+        fix = await getBestPosition();
+      } catch (err) {
+        const code = err instanceof LocateError ? err.code : 'unavailable';
         gooeyToast.error("Location Unavailable", {
-          description: err.code === err.PERMISSION_DENIED
-            ? "Location permission was denied. Enable it in your browser settings or type the address."
-            : "Couldn't get your location. Please try again or type the address.",
+          description:
+            code === 'denied' ? "Location permission was denied. Enable it in your browser settings or type the address."
+            : code === 'unsupported' ? "Your browser doesn't support location access. Please type the address."
+            : code === 'insecure' ? "Location only works over a secure (https) connection. Please type the address."
+            : "Couldn't get your location. Move near a window or turn on GPS, then try again — or type the address.",
         });
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
-    );
+        return;
+      }
+
+      // Service areas load with the form; fetch them now if they haven't arrived yet.
+      const [geo, municipalities] = await Promise.all([
+        reverseGeocode(fix.lat, fix.lng),
+        queryClient.ensureQueryData({
+          queryKey: ['locations'],
+          queryFn: async () => ((await apiClient.locations.getAll()).data || []) as LocationData['municipalities'],
+          staleTime: 24 * 60 * 60 * 1000,
+        }).catch(() => [] as LocationData['municipalities']),
+      ]);
+      if (run !== locateRun.current) return; // a newer tap superseded this one
+
+      if (!geo) {
+        gooeyToast.error("Couldn't Find Address", { description: "The map service didn't respond. Please try again or type your street address." });
+        return;
+      }
+      if (!municipalities?.length) {
+        gooeyToast.error("Please Try Again", { description: "Service areas couldn't be loaded. Check your connection and try again." });
+        return;
+      }
+
+      // Only accept locations inside a municipality SeeBu serves (currently Cebu City)
+      const municipality = matchPlace(municipalities, geo.municipalityCandidates);
+      if (!municipality) {
+        gooeyToast.error("Outside Service Area", {
+          description: `SeeBu currently covers ${municipalities.map(m => m.name).join(', ')} only. Your location appears to be elsewhere.`,
+        });
+        return;
+      }
+      // A mapped barangay boundary is authoritative: if it isn't one of ours, don't guess a neighbour.
+      const barangay = geo.barangayBoundary
+        ? matchPlace(municipality.barangays, [geo.barangayBoundary])
+        : matchPlace(municipality.barangays, geo.barangayCandidates);
+
+      setFormData(prev => ({
+        ...prev,
+        location: geo.street || prev.location,
+        municipality: municipality.id,
+        barangay: barangay?.id ?? '',
+      }));
+
+      const roughly = fix.accuracy > 100 ? ` Your location is approximate (±${Math.round(fix.accuracy)} m), so please double-check it.` : '';
+      if (!geo.street) {
+        gooeyToast.info("Street Not Found", { description: `We set your area, but couldn't find a street name nearby. Please type it in.${roughly}` });
+      } else if (!barangay) {
+        gooeyToast.info("Select Your Barangay", { description: `We filled in your address, but please choose your barangay.${roughly}` });
+      } else if (roughly) {
+        gooeyToast.info("Check Your Address", { description: roughly.trim() });
+      }
+    } catch {
+      gooeyToast.error("Couldn't Find Address", { description: "Please type your street address manually." });
+    } finally {
+      if (run === locateRun.current) setIsLocating(false);
+    }
   };
 
   const updateFormData = (field: keyof FormData, value: string | boolean | File[]) => {

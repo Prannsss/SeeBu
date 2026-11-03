@@ -26,7 +26,7 @@ export type GeoAddress = {
   lng?: number | null;
 };
 
-const NOMINATIM = "https://nominatim.openstreetmap.org/search";
+const NOMINATIM_BASE = "https://nominatim.openstreetmap.org";
 const CACHE_KEY = "seebu-geocode-v1";
 const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const MISS_TTL_MS = 3 * 24 * 60 * 60 * 1000;
@@ -74,6 +74,40 @@ let lastRequestAt = 0;
 let chain: Promise<unknown> = Promise.resolve();
 const inflight = new Map<string, Promise<{ lat: number; lng: number } | null>>();
 
+/** fetch() that gives up after `ms` (AbortSignal.timeout isn't in every browser we support). */
+export async function fetchWithTimeout(url: string, ms: number, init?: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Every Nominatim request in the app goes through here: one at a time, at least 1.1s apart
+ * (Nominatim's usage policy), each with a timeout. Resolves to the parsed JSON, or null on
+ * any failure (network, timeout, 429/5xx).
+ */
+export function nominatimJson<T>(path: "search" | "reverse", params: Record<string, string>, timeoutMs = 8000): Promise<T | null> {
+  const run = chain.then(async () => {
+    const wait = lastRequestAt + REQUEST_GAP_MS - Date.now();
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    lastRequestAt = Date.now();
+    try {
+      const res = await fetchWithTimeout(`${NOMINATIM_BASE}/${path}?${new URLSearchParams(params)}`, timeoutMs, {
+        headers: { Accept: "application/json" },
+      });
+      return res.ok ? ((await res.json()) as T) : null;
+    } catch {
+      return null;
+    }
+  });
+  chain = run.catch(() => undefined);
+  return run;
+}
+
 function search(query: string): Promise<{ lat: number; lng: number } | null> {
   const key = query.toLowerCase();
   const hit = cached(key);
@@ -81,36 +115,25 @@ function search(query: string): Promise<{ lat: number; lng: number } | null> {
   const pending = inflight.get(key);
   if (pending) return pending;
 
-  const run = chain.then(async () => {
-    const wait = lastRequestAt + REQUEST_GAP_MS - Date.now();
-    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
-    lastRequestAt = Date.now();
-    const params = new URLSearchParams({
-      q: query,
-      format: "jsonv2",
-      limit: "1",
-      countrycodes: "ph",
-      viewbox: CEBU_VIEWBOX,
-      bounded: "1",
-      "accept-language": "en",
-    });
-    try {
-      const res = await fetch(`${NOMINATIM}?${params}`, { headers: { Accept: "application/json" } });
-      if (!res.ok) return null; // 429/5xx: don't cache, try again next visit
-      const rows = (await res.json()) as { lat: string; lon: string }[];
-      const row = rows?.[0];
-      if (!row) {
-        writeCache(key, { miss: true, t: Date.now() });
-        return null;
-      }
-      const point = { lat: Number(row.lat), lng: Number(row.lon) };
-      writeCache(key, { ...point, t: Date.now() });
-      return point;
-    } catch {
+  const run = nominatimJson<{ lat: string; lon: string }[]>("search", {
+    q: query,
+    format: "jsonv2",
+    limit: "1",
+    countrycodes: "ph",
+    viewbox: CEBU_VIEWBOX,
+    bounded: "1",
+    "accept-language": "en",
+  }).then((rows) => {
+    if (!rows) return null; // failed: don't cache, try again next visit
+    const row = rows[0];
+    if (!row) {
+      writeCache(key, { miss: true, t: Date.now() });
       return null;
     }
+    const point = { lat: Number(row.lat), lng: Number(row.lon) };
+    writeCache(key, { ...point, t: Date.now() });
+    return point;
   });
-  chain = run.catch(() => undefined);
   inflight.set(key, run);
   run.finally(() => inflight.delete(key));
   return run;
