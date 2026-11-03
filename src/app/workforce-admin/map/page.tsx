@@ -72,6 +72,10 @@ export default function WorkforceAdminMapPage() {
       ),
     [tasksPage, officerName]
   )
+  const unassignedIds = useMemo(
+    () => new Set((Array.isArray(tasksPage?.data) ? tasksPage.data : []).filter((t: any) => !t.assigned_to && t.status !== "Completed").map((t: any) => t.id as string)),
+    [tasksPage]
+  )
   const allCount = counts ? TABS.reduce((sum, t) => sum + (counts[t] ?? 0), 0) : undefined
 
   return (
@@ -91,7 +95,14 @@ export default function WorkforceAdminMapPage() {
       onPageChange={setPage}
       onRefresh={() => refetch()}
       isRefreshing={isFetching}
-      detailsLink={(item) => ({ href: "/workforce-admin/tasks", label: item.status === "Pending" ? "Assign in Tasks" : "Open in Tasks" })}
+      detailsLink={(item) => {
+        // The Tasks page opens this task's modal on arrival: officer selection if it's unassigned.
+        const assign = unassignedIds.has(item.id)
+        return {
+          href: `/workforce-admin/tasks?task=${encodeURIComponent(item.id)}&action=${assign ? "assign" : "view"}`,
+          label: assign ? "Assign in Tasks" : "Open in Tasks",
+        }
+      }}
       emptyText="No department tasks in this group."
       noun="tasks"
     />

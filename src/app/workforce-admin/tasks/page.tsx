@@ -152,7 +152,7 @@ export default function WorkforceAdminTasksPage() {
     }
   })
 
-  const tasksList: TaskItem[] = Array.isArray(tasksData) ? tasksData.map((t: any) => ({
+  const toTaskItem = (t: any): TaskItem => ({
     id: t.id,
     title: t.title,
     location: t.location || "N/A",
@@ -176,7 +176,8 @@ export default function WorkforceAdminTasksPage() {
       reporterPhotos: (t.related_report.report_photos || []).filter((p: any) => !p.is_completion_photo).map((p: any) => p.photo_url),
       completionPhotos: (t.related_report.report_photos || []).filter((p: any) => p.is_completion_photo).map((p: any) => p.photo_url),
     } : null,
-  })) : []
+  })
+  const tasksList: TaskItem[] = Array.isArray(tasksData) ? tasksData.map(toTaskItem) : []
 
   const tabLabel = (tab: TabKey) => (tabCounts?.[tab] !== undefined ? `${tab} (${tabCounts[tab]})` : tab)
 
@@ -220,6 +221,40 @@ export default function WorkforceAdminTasksPage() {
     setModalDelegateMode(delegate)
     setSelectedTask(task)
   }
+
+  // Deep link from the map: ?task=<id>&action=assign opens officer selection, action=view the
+  // linked report. The task usually comes from the map's already-loaded results (it may not be on
+  // this tab's first page); otherwise from this page once it loads.
+  const [deepLink, setDeepLink] = useState<{ id: string; assign: boolean } | null>(null)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const id = params.get("task")
+    if (!id) return
+    setDeepLink({ id, assign: params.get("action") === "assign" })
+    // Drop the params so a refresh or Back doesn't reopen the modal.
+    window.history.replaceState(window.history.state, "", window.location.pathname)
+  }, [])
+  useEffect(() => {
+    if (!deepLink) return
+    let raw: any
+    for (const [, data] of queryClient.getQueriesData<any>({ queryKey: ["workforce-admin-tasks"] })) {
+      raw = Array.isArray(data?.data) ? data.data.find((t: any) => t.id === deepLink.id) : undefined
+      if (raw) break
+    }
+    if (!raw) {
+      if (!tasksPage || isPlaceholderData) return // this page is still loading; it may have the task
+      gooeyToast.error("Task not found", { description: "It may have been completed or moved to another department." })
+      setDeepLink(null)
+      return
+    }
+    const task = toTaskItem(raw)
+    setDeepLink(null)
+    setActiveTab(tabOf(task))
+    setPage(1)
+    // Assign only applies while nobody holds the task; otherwise show its details.
+    openTask(task, deepLink.assign && tabOf(task) === "Pending")
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deepLink, tasksPage, isPlaceholderData])
 
   const renderTaskCard = (task: TaskItem) => {
     const isCompleted = task.status === "Completed"
