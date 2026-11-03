@@ -2,10 +2,10 @@
 
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Home, ClipboardList, User, ShieldCheck } from "lucide-react";
+import { Home, ClipboardList, User, ShieldCheck, Map as MapIcon } from "lucide-react";
 import Dock from "@/components/ui/dock";
 
-const ROUTES = ['/workforce', '/workforce/tasks', '/workforce/profile'];
+const ROUTES = ['/workforce', '/workforce/tasks', '/workforce/map', '/workforce/profile'];
 
 export default function WorkforceDock() {
   const router = useRouter();
@@ -18,6 +18,7 @@ export default function WorkforceDock() {
   const items = [
     { icon: <Home className={`w-5 h-5 ${pathname === '/workforce' ? 'text-white' : ''}`} />, label: "Home", onClick: () => router.push('/workforce'), current: pathname === '/workforce', className: pathname === '/workforce' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
     { icon: <ClipboardList className={`w-5 h-5 ${pathname === '/workforce/tasks' ? 'text-white' : ''}`} />, label: "Tasks", onClick: () => router.push('/workforce/tasks'), current: pathname === '/workforce/tasks', className: pathname === '/workforce/tasks' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
+    { icon: <MapIcon className={`w-5 h-5 ${pathname === '/workforce/map' ? 'text-white' : ''}`} />, label: "Map", onClick: () => router.push('/workforce/map'), current: pathname === '/workforce/map', className: pathname === '/workforce/map' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
     { icon: <User className={`w-5 h-5 ${pathname === '/workforce/profile' ? 'text-white' : ''}`} />, label: "Profile", onClick: () => router.push('/workforce/profile'), current: pathname === '/workforce/profile', className: pathname === '/workforce/profile' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
   ];
 

@@ -2,10 +2,10 @@
 
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Home, FileText, BarChart, UserPlus, User } from "lucide-react";
+import { Home, FileText, BarChart, UserPlus, User, Map as MapIcon } from "lucide-react";
 import Dock from "@/components/ui/dock";
 
-const ROUTES = ['/admin', '/admin/reports', '/admin/analytics', '/admin/add-admin', '/admin/profile'];
+const ROUTES = ['/admin', '/admin/reports', '/admin/map', '/admin/analytics', '/admin/add-admin', '/admin/profile'];
 
 export default function AdminDock() {
   const router = useRouter();
@@ -18,6 +18,7 @@ export default function AdminDock() {
   const items = [
     { icon: <Home className={`w-5 h-5 ${pathname === '/admin' ? 'text-white' : ''}`} />, label: "Home", onClick: () => router.push('/admin'), current: pathname === '/admin', className: pathname === '/admin' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
     { icon: <FileText className={`w-5 h-5 ${pathname === '/admin/reports' ? 'text-white' : ''}`} />, label: "Reports", onClick: () => router.push('/admin/reports'), current: pathname === '/admin/reports', className: pathname === '/admin/reports' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
+    { icon: <MapIcon className={`w-5 h-5 ${pathname === '/admin/map' ? 'text-white' : ''}`} />, label: "Map", onClick: () => router.push('/admin/map'), current: pathname === '/admin/map', className: pathname === '/admin/map' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
     { icon: <BarChart className={`w-5 h-5 ${pathname === '/admin/analytics' ? 'text-white' : ''}`} />, label: "Analytics", onClick: () => router.push('/admin/analytics'), current: pathname === '/admin/analytics', className: pathname === '/admin/analytics' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
     { icon: <UserPlus className={`w-5 h-5 ${pathname === '/admin/add-admin' ? 'text-white' : ''}`} />, label: "Add Admin", onClick: () => router.push('/admin/add-admin'), current: pathname === '/admin/add-admin', className: pathname === '/admin/add-admin' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
     { icon: <User className={`w-5 h-5 ${pathname === '/admin/profile' ? 'text-white' : ''}`} />, label: "Profile", onClick: () => router.push('/admin/profile'), current: pathname === '/admin/profile', className: pathname === '/admin/profile' ? '!bg-primary dark:!bg-primary !border-primary !text-white dark:!text-white' : '' },
