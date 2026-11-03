@@ -200,6 +200,62 @@ function ItemCard({
   );
 }
 
+/** A horizontally scrolling chip row with ‹ › buttons when the chips don't all fit. */
+function ScrollableChips({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState({ overflow: false, start: true, end: true });
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const update = () =>
+      setEdges({
+        overflow: el.scrollWidth > el.clientWidth + 1,
+        start: el.scrollLeft <= 1,
+        end: el.scrollLeft + el.clientWidth >= el.scrollWidth - 1,
+      });
+    update();
+    el.addEventListener("scroll", update, { passive: true });
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    Array.from(el.children).forEach((c) => ro.observe(c));
+    return () => {
+      el.removeEventListener("scroll", update);
+      ro.disconnect();
+    };
+  }, [children]);
+
+  const scroll = (dir: -1 | 1) => {
+    const el = ref.current;
+    if (el) el.scrollBy({ left: dir * Math.max(120, el.clientWidth * 0.7), behavior: "smooth" });
+  };
+
+  const arrow = (dir: -1 | 1) => {
+    const disabled = dir < 0 ? edges.start : edges.end;
+    return (
+      <button
+        type="button"
+        onClick={() => scroll(dir)}
+        disabled={disabled}
+        aria-label={dir < 0 ? "Scroll filters left" : "Scroll filters right"}
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition-opacity hover:bg-slate-50 hover:text-slate-900 disabled:pointer-events-none disabled:opacity-35 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+      >
+        {dir < 0 ? <ChevronLeft className="h-4 w-4" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
+      </button>
+    );
+  };
+
+  return (
+    <div className="flex items-center gap-1.5">
+      {edges.overflow && arrow(-1)}
+      <div ref={ref} className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto py-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Filter by status">
+        {children}
+      </div>
+      {edges.overflow && arrow(1)}
+    </div>
+  );
+}
+
 function DetailsModal({
   item,
   onClose,
@@ -520,7 +576,7 @@ export function IssuesMapView({
   );
 
   const filterChips = (
-    <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none]" role="tablist" aria-label="Filter by status">
+    <ScrollableChips>
       {filters.map((f) => {
         const active = f.value === activeFilter;
         return (
@@ -529,7 +585,11 @@ export function IssuesMapView({
             type="button"
             role="tab"
             aria-selected={active}
-            onClick={() => { onFilterChange(f.value); setSelectedId(null); }}
+            onClick={(e) => {
+              onFilterChange(f.value);
+              setSelectedId(null);
+              e.currentTarget.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+            }}
             className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
               active
                 ? "border-slate-900 bg-slate-900 text-white dark:border-white dark:bg-white dark:text-slate-900"
@@ -543,7 +603,7 @@ export function IssuesMapView({
           </button>
         );
       })}
-    </div>
+    </ScrollableChips>
   );
 
   const listBody = (
