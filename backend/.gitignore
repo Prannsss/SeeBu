@@ -37,3 +37,6 @@ Thumbs.db
 # Coverage directory used by tools like istanbul
 coverage/
 .nyc_output/
+
+# Compiled backend output (Render builds it on deploy)
+backend/dist/
