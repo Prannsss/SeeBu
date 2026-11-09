@@ -39,4 +39,4 @@ coverage/
 .nyc_output/
 
 # Compiled backend output (Render builds it on deploy)
-backend/dist/
+/dist/
