@@ -8,7 +8,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { GoogleLogin, CredentialResponse } from "@react-oauth/google";
+import type { CredentialResponse } from "@react-oauth/google";
+import { GoogleSignInButton } from "@/components/ui/google-sign-in-button";
 import FacebookLogin from "react-facebook-login/dist/facebook-login-render-props";
 import { Eye, EyeOff } from "lucide-react";
 import { gooeyToast } from "goey-toast";
@@ -323,25 +324,10 @@ export default function RegisterPage() {
             </div>
 
             <div className="mt-6 flex flex-col space-y-4">
-              <div className="relative w-full h-12">
-                <Button
-                  type="button"
-                  variant="outline"
-                  tabIndex={-1}
-                  className="w-full h-12 flex items-center justify-center gap-3 font-semibold text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 pointer-events-none"
-                >
-                  <Image src="/assets/google.svg" alt="Google" width={20} height={20} />
-                  Continue with Google
-                </Button>
-                <div className="absolute inset-0 overflow-hidden opacity-0 [&>div]:w-full [&>div]:h-full [&_iframe]:!w-full [&_iframe]:!h-full">
-                  <GoogleLogin
-                    onSuccess={handleGoogleSuccess}
-                    onError={() => gooeyToast.error('Google Login Failed', { description: 'Failed to connect to Google.' })}
-                    width="100%"
-                    size="large"
-                  />
-                </div>
-              </div>
+              <GoogleSignInButton
+                onSuccess={handleGoogleSuccess}
+                onError={() => gooeyToast.error('Google Login Failed', { description: 'Failed to connect to Google.' })}
+              />
               <FacebookLogin
                 appId={process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || ""}
                 callback={handleFacebookCallback}
