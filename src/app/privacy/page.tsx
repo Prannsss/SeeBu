@@ -24,7 +24,7 @@ export const metadata = {
 
 export default function PrivacyPolicyPage() {
   return (
-    <LegalLayout title="Privacy Policy" effectiveDate="November 3, 2026" sections={sections}>
+    <LegalLayout title="Privacy Policy" effectiveDate="November 9, 2026" sections={sections}>
       <p>
         This Privacy Policy explains how SeeBu (&quot;we,&quot; &quot;us,&quot; or &quot;our&quot;)
         collects, uses, discloses, and safeguards information when you use our website, mobile
@@ -79,11 +79,14 @@ export default function PrivacyPolicyPage() {
         each photo on your own device before it is uploaded: photos in which a face is detected
         cannot be submitted and must be retaken or replaced, and areas that appear to be vehicle
         license plates are automatically blurred. This screening runs in your browser, so photos
-        are not sent to a separate service for it. Uploaded photos are stored as submitted after
-        this screening and may be shown to administrators, workforce accounts, or through the
-        public tracking page. Screening is automated and is not a guarantee that every face or
-        license plate will be detected, particularly in low-quality, low-light, or heavily
-        obscured photos.
+        are not sent to a separate service for it. The same screening applies to the proof photos
+        workforce officers attach when they complete a task. After upload, our server resizes and
+        re-encodes each photo, which removes its metadata, including any GPS location stored in the
+        file. Photos are stored under long, randomly generated addresses: they are not listed
+        anywhere public, but anyone who has a photo&apos;s exact link can open it. Uploaded photos
+        may be shown to administrators, workforce accounts, or through the public tracking page.
+        Screening is automated and is not a guarantee that every face or license plate will be
+        detected, particularly in low-quality, low-light, or heavily obscured photos.
       </p>
 
       <h2 id="how-we-use">4. How We Use Information</h2>
@@ -102,8 +105,17 @@ export default function PrivacyPolicyPage() {
       <ul>
         <li><strong>With government administrators and workforce personnel</strong> responsible for reviewing, verifying, assigning, and resolving the specific reports you submit;</li>
         <li><strong>Publicly, in limited form,</strong> when a report&apos;s status is looked up using its tracking ID, which does not require login;</li>
-        <li><strong>With service providers</strong> who help us operate the Service (for example, hosting and email delivery), under obligations to protect your information and use it only for the purposes we specify;</li>
-        <li><strong>With map geocoding services,</strong> only when you use &quot;Use my location&quot;: your device&apos;s coordinates are sent directly from your browser to the OpenStreetMap Foundation&apos;s Nominatim service and to komoot&apos;s Photon service to convert them into a street address. No account or report details are sent with them. Their handling of these requests is governed by the <a href="https://osmfoundation.org/wiki/Privacy_Policy" target="_blank" rel="noopener noreferrer">OSMF Privacy Policy</a> and <a href="https://www.komoot.com/privacy" target="_blank" rel="noopener noreferrer">komoot&apos;s Privacy Policy</a>; and</li>
+        <li><strong>With service providers</strong> who help us operate the Service, under obligations to protect your information and use it only for the purposes we specify:
+          <ul>
+            <li><strong>Supabase</strong> hosts our database and photo storage, so it holds your account details, reports, and photos;</li>
+            <li><strong>Vercel</strong> hosts the website and <strong>Render</strong> hosts our server; both process your requests to the Service, including your IP address;</li>
+            <li><strong>Upstash</strong> briefly caches our server&apos;s responses, which can include account and report details, so pages load faster;</li>
+            <li><strong>Brevo</strong> sends our emails, so it receives your name, email address, and the content of messages such as verification codes and report status updates;</li>
+            <li><strong>Cloudflare</strong> runs the Turnstile security check on the report form, which receives your IP address and browser and device signals to tell people from automated bots; and</li>
+            <li><strong>Google or Facebook</strong>, only if you sign in with them (see <a href="#third-party-login">Section 6</a>);</li>
+          </ul>
+        </li>
+        <li><strong>With map services:</strong> when you use &quot;Use my location,&quot; your device&apos;s coordinates are sent directly from your browser to the OpenStreetMap Foundation&apos;s Nominatim service and to komoot&apos;s Photon service to convert them into a street address. No account or report details are sent with them. The map pages used by LGU staff send a report&apos;s street, barangay, and municipality (never names or contact details) from the staff member&apos;s browser to Nominatim to place the report&apos;s pin, unless the report already has saved coordinates, and load map images (tiles) from OpenStreetMap&apos;s tile servers. Their handling of these requests is governed by the <a href="https://osmfoundation.org/wiki/Privacy_Policy" target="_blank" rel="noopener noreferrer">OSMF Privacy Policy</a> and <a href="https://www.komoot.com/privacy" target="_blank" rel="noopener noreferrer">komoot&apos;s Privacy Policy</a>; and</li>
         <li><strong>When required by law,</strong> such as in response to a valid legal process, or to protect the rights, safety, or property of SeeBu, our users, or the public.</li>
       </ul>
 

@@ -66,9 +66,13 @@ function loadImageFromBlob(blob: Blob): Promise<HTMLImageElement> {
 
 /**
  * Scans a single image (File, Blob, or base64 data URL) for faces and license plates.
+ *
+ * By default a failed check (model can't load, image can't be read) counts as safe. With
+ * `failClosed`, it throws instead, so the caller can refuse the photo.
  */
 export async function scanImageForSensitiveData(
-  imageSource: File | Blob | string
+  imageSource: File | Blob | string,
+  { failClosed = false }: { failClosed?: boolean } = {}
 ): Promise<SensitiveDetectionResult> {
   if (typeof window === 'undefined') {
     return { safe: true, reason: null, hasPerson: false, hasPlateNumber: false };
@@ -104,12 +108,14 @@ export async function scanImageForSensitiveData(
         }
       }
     } catch (faceErr) {
-      // Model failed to load or inference error — fail open.
+      // Model failed to load or inference error — fail open unless the caller asked otherwise.
       console.warn('[SensitiveDataDetector] face-api detection failed:', faceErr);
+      if (failClosed) throw faceErr;
     }
 
     return { safe: true, reason: null, hasPerson: false, hasPlateNumber: false };
   } catch (err) {
+    if (failClosed) throw err;
     console.warn('[SensitiveDataDetector] Inspection error, defaulting to safe:', err);
     return { safe: true, reason: null, hasPerson: false, hasPlateNumber: false };
   }

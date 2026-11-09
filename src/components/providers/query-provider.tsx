@@ -50,7 +50,8 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
             retry: (n, e: any) => (e?.status >= 400 && e?.status < 500 ? false : n < 2),
           },
           mutations: {
-            // Non-idempotent POSTs must not be replayed; the SW queues offline submissions
+            // Non-idempotent POSTs must not be replayed. 'always' sends them even when offline so
+            // they fail right away with a network error instead of waiting for a connection.
             retry: 0,
             networkMode: 'always',
           },

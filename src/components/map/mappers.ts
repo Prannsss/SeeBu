@@ -23,7 +23,7 @@ export function reportToMapItem(r: any): MapItem {
     photos: photosOf(r.report_photos, false),
     completionPhotos: photosOf(r.report_photos, true),
     meta: r.status === "Rejected" && r.rejection_reason ? [{ label: "Rejection reason", value: r.rejection_reason }] : undefined,
-    // Picked up automatically if reports ever store coordinates.
+    // GPS coordinates saved by "Use my location"; null for typed addresses, which are geocoded instead.
     lat: num(r.latitude),
     lng: num(r.longitude),
   };

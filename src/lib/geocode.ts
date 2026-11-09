@@ -3,8 +3,10 @@
 /**
  * Forward geocoding of report addresses with OpenStreetMap Nominatim (free, no API key).
  *
- * Reports store a typed address (street, barangay, municipality), not coordinates, so the
- * map resolves each address to a point in the browser. Nominatim's usage policy allows at
+ * Reports can carry GPS coordinates from "Use my location" (migration 005); those are pinned
+ * directly. Geocoding is only the fallback for reports without them (typed addresses and older
+ * reports): the map resolves the address (street, barangay, municipality) to a point in the
+ * browser. Nominatim's usage policy allows at
  * most 1 request/second and asks clients to cache results, so:
  *  - every request goes through one module-wide priority queue spaced 1.1s apart,
  *  - results (including misses) are cached in localStorage for 30 days,

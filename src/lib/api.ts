@@ -133,11 +133,6 @@ export async function apiFetchClient<T = any>(
   return response.json();
 }
 
-/** True when a client fetch failed at the network level behind a controlling SW (BackgroundSync queues it). */
-export function isOfflineQueuedError(err: unknown): boolean {
-  return err instanceof Error && err.message.startsWith('API network error') && typeof navigator !== 'undefined' && !!navigator.serviceWorker?.controller;
-}
-
 // ============================================================================
 // Shared API object factory
 // Eliminates the duplication between `api` (server) and `apiClient` (browser).

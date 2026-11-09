@@ -1,5 +1,5 @@
 import { defaultCache } from "@serwist/next/worker";
-import { type PrecacheEntry, Serwist, CacheFirst, NetworkOnly, BackgroundSyncPlugin } from "serwist";
+import { type PrecacheEntry, Serwist, CacheFirst, NetworkOnly } from "serwist";
 
 declare global {
   interface WorkerGlobalScope {
@@ -7,38 +7,11 @@ declare global {
   }
 }
 
-declare const self: WorkerGlobalScope & typeof globalThis & {
-  clients: { matchAll(options?: { includeUncontrolled?: boolean }): Promise<{ postMessage(message: unknown): void }[]> };
-};
+declare const self: WorkerGlobalScope & typeof globalThis;
 
-const bgSyncPlugin = new BackgroundSyncPlugin("offline-mutations-queue", {
-  maxRetentionTime: 24 * 60, // Retry for 24 Hours
-  // The default replay treats any HTTP response as delivered. Keep 5xx/429 queued for the
-  // next sync and tell open tabs about other failures (GooeyToasterProvider shows a toast).
-  // Note: a 504 can arrive after the backend already created the report, so a retry may duplicate it.
-  onSync: async ({ queue }) => {
-    let entry;
-    while ((entry = await queue.shiftRequest())) {
-      let res: Response;
-      try {
-        res = await fetch(entry.request.clone());
-      } catch {
-        await queue.unshiftRequest(entry);
-        throw new Error("replay-network");
-      }
-      if (res.status >= 500 || res.status === 429) {
-        await queue.unshiftRequest(entry);
-        throw new Error("replay-retry");
-      }
-      if (!res.ok) {
-        const message = { type: "BG_SYNC_FAILED", url: entry.request.url, status: res.status };
-        const clients = await self.clients.matchAll({ includeUncontrolled: true });
-        clients.forEach((c) => c.postMessage(message));
-      }
-    }
-  },
-});
-
+// SeeBu does not work offline: the service worker only caches the app's static files so it
+// loads faster and can be installed. Every action, including completing a task, needs a
+// connection; nothing is queued for later replay.
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
   skipWaiting: true,
@@ -63,21 +36,6 @@ const serwist = new Serwist({
         plugins: [],
       }),
     },
-    // Only task completion is queued for background sync. The page still receives a network
-    // error for a queued request, so the UI shows a "queued offline" message
-    // (isOfflineQueuedError from '@/lib/api'); backend completeTask returns 409 when a replay
-    // hits an already-completed task. Report submission is not queued: its Turnstile token
-    // is single-use and expires after 5 minutes, so a later replay would be rejected.
-    {
-      matcher: ({ request, url }) =>
-        request.method === "POST" &&
-        url.origin === self.location.origin &&
-        /^\/api\/proxy\/tasks\/[^/]+\/complete$/.test(url.pathname),
-      handler: new NetworkOnly({
-        plugins: [bgSyncPlugin],
-      }),
-      method: "POST",
-    }
   ],
 });
 

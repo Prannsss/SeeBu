@@ -18,7 +18,8 @@ import { useUpdateTaskStatus, useCompleteTask } from "@/hooks/queries/useTasks";
 import { ReportMediaGallery } from "@/components/reports/report-media-gallery";
 import { useRealtimeReports } from "@/hooks/useRealtimeReports";
 import { compressToDataUrl } from "@/lib/image-compress";
-import { apiClient, isOfflineQueuedError } from "@/lib/api";
+import { scanImageForSensitiveData } from "@/lib/sensitiveDataDetector";
+import { apiClient } from "@/lib/api";
 import { statusBadgeClass, urgencyBadgeClass } from "@/lib/status-styles";
 
 type LinkedReport = {
@@ -174,14 +175,40 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
       return;
     }
 
-    // Compress one at a time: keeps memory low on phones and the request under the upload limit.
+    // Screen each photo on the device like the report form does: a photo with a face is refused,
+    // license plates are blurred, then the result is compressed. One at a time keeps memory low
+    // on phones and the request under the upload limit. If the check can't run, the photo is
+    // refused (fail closed): proof photos are shown on the public Track Report page.
     const run = ++proofRunRef.current;
     setIsProcessingPhotos(true);
     const photoUrls: string[] = [];
     const names: string[] = [];
+    let withFaces = 0;
+    let unchecked = 0;
+    let redactPlatesInFile: ((file: File) => Promise<File>) | null = null;
+    try {
+      ({ redactPlatesInFile } = await import("@/lib/plateRedactor"));
+    } catch {
+      redactPlatesInFile = null;
+    }
     for (const file of files) {
+      if (!redactPlatesInFile) {
+        unchecked++;
+        continue;
+      }
       try {
-        photoUrls.push(await compressToDataUrl(file));
+        const scan = await scanImageForSensitiveData(file, { failClosed: true });
+        if (!scan.safe) {
+          withFaces++;
+          continue;
+        }
+      } catch {
+        unchecked++;
+        continue;
+      }
+      try {
+        const redacted = await redactPlatesInFile(file);
+        photoUrls.push(await compressToDataUrl(redacted));
         names.push(file.name);
       } catch (err: any) {
         gooeyToast.error(`Could not use ${file.name}`, { description: err?.message || "Failed to process image." });
@@ -189,6 +216,18 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
     }
     event.target.value = "";
     if (run !== proofRunRef.current) return;
+    if (withFaces > 0) {
+      gooeyToast.error("Sensitive Data Detected", {
+        description: withFaces === 1
+          ? "We detected a person in this photo. Please retake it without people in frame."
+          : `We detected a person in ${withFaces} photos. Please retake them without people in frame.`,
+      });
+    }
+    if (unchecked > 0) {
+      gooeyToast.error("Couldn't check photos", {
+        description: `We couldn't check ${unchecked === 1 ? "a photo" : `${unchecked} photos`} for faces and plates, so ${unchecked === 1 ? "it wasn't" : "they weren't"} added. Please try again.`,
+      });
+    }
     setCompletionPhotoUrls(photoUrls);
     setProofFileNames(names);
     setIsProcessingPhotos(false);
@@ -252,9 +291,9 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
         gooeyToast.success("Task Completed!", { description: "Great work! Proof submitted successfully." });
       },
       onError: (err: any) => {
-        if (isOfflineQueuedError(err)) {
-          resetCompletionModal();
-          gooeyToast.info("You are offline", { description: "Your proof will upload automatically when you reconnect." });
+        // Keep the modal and the selected photos so the officer can retry once back online.
+        if (String(err?.message || "").startsWith("API network error") || !navigator.onLine) {
+          gooeyToast.error("You're offline", { description: "You're offline. Connect to the internet and try again." });
           return;
         }
         gooeyToast.error("Error", { description: err?.message?.trim() || "Failed to submit completion proof." });
@@ -460,11 +499,11 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
                   className="block w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-slate-800 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 />
                 {isProcessingPhotos ? (
-                  <p className="text-xs text-slate-600" role="status">Preparing photos…</p>
+                  <p className="text-xs text-slate-600" role="status">Checking photos for faces and plates…</p>
                 ) : proofFileNames.length > 0 ? (
                   <p className="text-xs text-slate-600">Selected: {proofFileNames.length} image(s)</p>
                 ) : (
-                  <p className="text-xs text-slate-600">Choose up to 5 images to submit as completion proof.</p>
+                  <p className="text-xs text-slate-600">Choose up to 5 images to submit as completion proof. Keep people out of the frame: photos with faces can&apos;t be used, and license plates are blurred.</p>
                 )}
                 {completionPhotoUrls.length > 0 ? (
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
@@ -491,7 +530,7 @@ export function WorkforceTasksWidget({ userId }: { userId: string }) {
                 onClick={handleConfirmComplete}
                 disabled={isProcessingPhotos || isCompletingTask || completionPhotoUrls.length === 0}
               >
-                {isProcessingPhotos ? "Preparing photos…" : isCompletingTask ? "Submitting…" : "Submit Proof"}
+                {isProcessingPhotos ? "Checking photos…" : isCompletingTask ? "Submitting…" : "Submit Proof"}
               </Button>
             </div>
           </DialogContent>
