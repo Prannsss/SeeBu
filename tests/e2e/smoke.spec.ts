@@ -6,7 +6,7 @@ test.describe('public pages', () => {
   for (const path of PUBLIC_PAGES) {
     test(`${path} loads without errors`, async ({ page }) => {
       const errors: string[] = [];
-      page.on('pageerror', (e) => errors.push(e.message));
+      page.on('pageerror', (e) => { errors.push(e.message); console.log(`[pageerror ${path}]`, e.message.slice(0, 300)); });
       const res = await page.goto(path, { waitUntil: 'domcontentloaded' });
       expect(res?.status()).toBeLessThan(400);
       await expect(page.locator('main, body').first()).toBeVisible();
@@ -27,13 +27,17 @@ test('security headers are sent', async ({ request, baseURL }) => {
   if (baseURL?.startsWith('https://')) expect(h['strict-transport-security']).toBeTruthy();
 });
 
-test('illustrations start as a light still image', async ({ page }) => {
-  const heavy: string[] = [];
-  page.on('request', (r) => { if (/\/gifs\/\w+\.webp$/.test(new URL(r.url()).pathname)) heavy.push(r.url()); });
-  await page.goto('/', { waitUntil: 'domcontentloaded' });
-  await expect(page.locator('img[src*="build-poster.webp"]')).toBeVisible();
-  // The animation may only start downloading after the page has finished loading.
-  expect(heavy).toEqual([]);
+test('illustrations load a light still first and the animation only after the page has loaded', async ({ page }) => {
+  await page.goto('/', { waitUntil: 'networkidle' });
+  const t = await page.evaluate(() => {
+    const nav = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
+    const res = performance.getEntriesByType('resource').map((e) => [new URL(e.name).pathname, e.startTime] as const);
+    const at = (path: string) => res.find(([p]) => p === path)?.[1];
+    return { load: nav.loadEventStart, still: at('/gifs/build-poster.webp'), animation: at('/gifs/build.webp') };
+  });
+  expect(t.still, 'the still image is requested').toBeDefined();
+  // The 3.7 MB animation must never compete with the first paint.
+  if (t.animation !== undefined) expect(t.animation).toBeGreaterThanOrEqual(t.load);
 });
 
 for (const path of ['/auth/login', '/auth/register']) {
