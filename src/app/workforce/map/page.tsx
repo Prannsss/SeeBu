@@ -65,7 +65,7 @@ export default function WorkforceMapPage() {
         <>
           We couldn&apos;t load your profile.{" "}
           {/* oxlint-disable-next-line nextjs/no-html-link-for-pages -- a full page load drops the expired session's cached state */}
-          <a href="/auth/login" className="font-semibold text-primary underline">Sign in again</a>
+          <a href="/auth/login" className="font-semibold text-primary-ink underline">Sign in again</a>
         </>
       ) : undefined}
       filters={[{ value: "All", label: "All", count: allCount }, ...TABS.map((t) => ({ ...t, count: counts?.[t.value] }))]}

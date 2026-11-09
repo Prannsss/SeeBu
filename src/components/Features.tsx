@@ -77,7 +77,7 @@ export function Features() {
     >
       <div className="max-w-7xl mx-auto px-6">
         <div ref={headerRef} className="text-center mb-16">
-          <span className="text-primary font-bold tracking-widest text-xs uppercase mb-2 block">
+          <span className="text-primary-ink font-bold tracking-widest text-xs uppercase mb-2 block">
             Key Features
           </span>
           <h2 className="text-3xl lg:text-4xl font-black text-text-main dark:text-white">
@@ -93,7 +93,7 @@ export function Features() {
             ref={(el) => { cardsRef.current[0] = el; }}
             className="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-soft hover:shadow-card transition-all duration-300 border border-transparent hover:border-blue-50 dark:hover:border-gray-700 group hover:-translate-y-1"
           >
-            <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-primary mb-6">
+            <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-primary-ink mb-6">
               <span className="material-symbols-outlined transition-all duration-300 group-hover:scale-125 group-hover:rotate-12">
                 timeline
               </span>

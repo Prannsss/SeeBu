@@ -4,6 +4,9 @@
 
 @layer base {
   :root {
+    /* Brand blue for small text: #13b6ec only reaches 2.3:1 on the light background (WCAG needs 4.5:1).
+       Dark mode keeps the bright brand blue, which already has enough contrast there. */
+    --primary-ink: #077aa3;
     --background: 204 45% 97%;
     --foreground: 222 47% 11%;
     --card: 0 0% 100%;
@@ -573,4 +576,17 @@
 /* Map tiles (Leaflet): muted so the status-coloured pins stand out. Only the tiles, not the pins. */
 .seebu-tiles {
   filter: saturate(0.75) contrast(0.85) brightness(1.08);
+}
+
+.dark {
+  --primary-ink: #13b6ec;
+}
+
+/* Reserve one icon-width while the icon font loads, so icon names ("campaign", "explore")
+   never show as wide text and push the layout around (that was the home page's layout shift). */
+.material-symbols-outlined {
+  display: inline-block;
+  width: 1em;
+  overflow: hidden;
+  flex-shrink: 0;
 }

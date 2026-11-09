@@ -8,6 +8,7 @@ import { useState, useRef } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { gooeyToast } from "goey-toast";
 import { useRouter } from "next/navigation";
+import { AnimatedIllustration } from "@/components/ui/animated-illustration";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'development' ? "http://localhost:5000" : "https://seebu.onrender.com");
 
@@ -185,14 +186,7 @@ export default function ForgotPasswordPage() {
             Don&apos;t worry! Resetting your password is easy. Just follow the steps and you&apos;ll be back making a difference in no time.
           </p>
           <div className="rounded-2xl overflow-hidden">
-            <Image
-              src="/gifs/verify.webp"
-              alt="Password reset process"
-              width={800}
-              height={800}
-              unoptimized
-              className="w-full h-auto"
-            />
+            <AnimatedIllustration name="verify" alt="Password reset process" width={800} height={800} className="w-full h-auto" />
           </div>
         </div>
       </div>
@@ -384,7 +378,7 @@ export default function ForgotPasswordPage() {
             <div className="mt-6 pt-6 border-t border-gray-300 dark:border-gray-700 text-center">
               <p className="text-sm text-text-muted dark:text-gray-400">
                 Remember your password?{" "}
-                <Link href="/auth/login" className="text-primary font-bold hover:underline">
+                <Link href="/auth/login" className="text-primary-ink font-bold hover:underline">
                   Log in
                 </Link>
               </p>

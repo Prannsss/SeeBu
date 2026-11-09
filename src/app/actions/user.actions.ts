@@ -148,7 +148,7 @@ export async function updateUserProfile(
       return { 
         success: false, 
         error: "Validation failed", 
-        issues: validatedData.error.errors 
+        issues: validatedData.error.issues
       };
     }
 

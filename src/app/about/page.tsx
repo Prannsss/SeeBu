@@ -36,7 +36,7 @@ export default function AboutPage() {
       <main className="pt-32 pb-20">
         <div className="max-w-5xl mx-auto px-6 space-y-16">
           <header className="text-center">
-            <span className="inline-flex items-center gap-2 text-primary font-bold tracking-widest text-xs uppercase mb-3 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20">
+            <span className="inline-flex items-center gap-2 text-primary-ink font-bold tracking-widest text-xs uppercase mb-3 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20">
               <span className="material-symbols-outlined text-base" aria-hidden="true">info</span>
               About Us
             </span>
@@ -74,7 +74,7 @@ export default function AboutPage() {
               {STEPS.map(({ icon, title, text }, i) => (
                 <li key={title} className={`${card} p-5`}>
                   <div className="flex items-center gap-2">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary-ink">
                       <span className="material-symbols-outlined text-xl" aria-hidden="true">{icon}</span>
                     </span>
                     <span className="text-xs font-bold uppercase tracking-wider text-text-muted dark:text-gray-400">Step {i + 1}</span>
@@ -94,7 +94,7 @@ export default function AboutPage() {
             <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {ROLES.map(({ icon, title, text }) => (
                 <li key={title} className={`${card} p-5 flex gap-4`}>
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary-ink">
                     <span className="material-symbols-outlined" aria-hidden="true">{icon}</span>
                   </span>
                   <div>
@@ -109,16 +109,16 @@ export default function AboutPage() {
           <section aria-labelledby="principles" className="grid gap-6 md:grid-cols-3">
             <h2 id="principles" className="sr-only">Our principles</h2>
             <div className={`${card} p-6`}>
-              <span className="material-symbols-outlined text-3xl text-primary" aria-hidden="true">shield_person</span>
+              <span className="material-symbols-outlined text-3xl text-primary-ink" aria-hidden="true">shield_person</span>
               <h3 className="mt-3 text-lg font-bold text-text-main dark:text-white">Privacy by design</h3>
               <p className="mt-2 text-sm text-text-muted dark:text-gray-400 leading-relaxed">
                 Photos are screened on your own device before upload: pictures showing a person&apos;s face must be
                 retaken, and license plates are blurred automatically. We follow the Data Privacy Act of 2012
-                (RA 10173) — see our <Link href="/privacy" className="font-semibold text-primary underline underline-offset-2">Privacy Policy</Link>.
+                (RA 10173) — see our <Link href="/privacy" className="font-semibold text-primary-ink underline underline-offset-2">Privacy Policy</Link>.
               </p>
             </div>
             <div className={`${card} p-6`}>
-              <span className="material-symbols-outlined text-3xl text-primary" aria-hidden="true">install_mobile</span>
+              <span className="material-symbols-outlined text-3xl text-primary-ink" aria-hidden="true">install_mobile</span>
               <h3 className="mt-3 text-lg font-bold text-text-main dark:text-white">Works like an app</h3>
               <p className="mt-2 text-sm text-text-muted dark:text-gray-400 leading-relaxed">
                 SeeBu is a Progressive Web App: use it right in your browser or install it to your home screen. If
@@ -126,7 +126,7 @@ export default function AboutPage() {
               </p>
             </div>
             <div className={`${card} p-6`}>
-              <span className="material-symbols-outlined text-3xl text-primary" aria-hidden="true">volunteer_activism</span>
+              <span className="material-symbols-outlined text-3xl text-primary-ink" aria-hidden="true">volunteer_activism</span>
               <h3 className="mt-3 text-lg font-bold text-text-main dark:text-white">Non-profit, for non-emergencies</h3>
               <p className="mt-2 text-sm text-text-muted dark:text-gray-400 leading-relaxed">
                 SeeBu is free for residents and handles everyday community concerns. For fires, crimes, accidents,
@@ -137,7 +137,7 @@ export default function AboutPage() {
 
           <section aria-labelledby="team" className={`${card} p-6 lg:p-10`}>
             <div className="flex items-center gap-3">
-              <span className="material-symbols-outlined text-3xl text-primary" aria-hidden="true">school</span>
+              <span className="material-symbols-outlined text-3xl text-primary-ink" aria-hidden="true">school</span>
               <h2 id="team" className={sectionTitle}>The team behind SeeBu</h2>
             </div>
             <p className="mt-4 text-text-muted dark:text-gray-400 leading-relaxed">
@@ -184,7 +184,7 @@ export default function AboutPage() {
               </Link>
             </div>
             <p className="mt-4 text-sm text-text-muted dark:text-gray-400">
-              Questions? Read the <Link href="/faq" className="font-semibold text-primary underline underline-offset-2">FAQs</Link>.
+              Questions? Read the <Link href="/faq" className="font-semibold text-primary-ink underline underline-offset-2">FAQs</Link>.
             </p>
           </section>
         </div>

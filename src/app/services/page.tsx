@@ -179,7 +179,7 @@ export default function ServicesPage() {
         {/* Services Grid Section */}
         <div className="max-w-7xl mx-auto px-6">
           <div ref={headerRef} className="text-center mb-14">
-            <span className="inline-flex items-center gap-2 text-primary font-bold tracking-widest text-xs uppercase mb-3 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20">
+            <span className="inline-flex items-center gap-2 text-primary-ink font-bold tracking-widest text-xs uppercase mb-3 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20">
               <span className="material-symbols-outlined text-base">explore</span>
               Civic Services
             </span>
@@ -223,7 +223,7 @@ export default function ServicesPage() {
                 <div className="px-7 pb-7">
                   <Link
                     href={service.href}
-                    className="flex items-center justify-center gap-2 w-full h-11 rounded-lg bg-primary/10 hover:bg-primary text-primary hover:text-white text-sm font-bold transition-all duration-300 group-hover:bg-primary group-hover:text-white"
+                    className="flex items-center justify-center gap-2 w-full h-11 rounded-lg bg-primary/10 hover:bg-primary text-primary-ink hover:text-white text-sm font-bold transition-all duration-300 group-hover:bg-primary group-hover:text-white"
                   >
                     {service.cta}
                     <span className="material-symbols-outlined text-base">arrow_forward</span>

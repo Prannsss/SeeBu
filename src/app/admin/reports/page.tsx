@@ -364,7 +364,7 @@ export default function AdminReportsPage() {
       <div className="container mx-auto max-w-5xl px-4 py-10">
         <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <FileWarning className="h-7 w-7 text-primary" aria-hidden="true" />
+            <FileWarning className="h-7 w-7 text-primary-ink" aria-hidden="true" />
             <div>
               <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">Reports</h1>
               <p className="text-slate-600">Prioritize reports by urgency and location impact.</p>
@@ -424,7 +424,7 @@ export default function AdminReportsPage() {
                 <div className="text-center py-10 col-span-full text-slate-600 bg-slate-50 rounded-md border border-dashed border-slate-300" role="alert">
                   We couldn&apos;t load your profile. Your session may have expired.{" "}
                   {/* oxlint-disable-next-line nextjs/no-html-link-for-pages -- a full page load drops the expired session's cached state */}
-                  <a href="/auth/login" className="font-semibold text-primary underline">Sign in again</a>
+                  <a href="/auth/login" className="font-semibold text-primary-ink underline">Sign in again</a>
                 </div>
               ) : reportsList.length === 0 ? (
                 <div className="flex flex-col items-center text-center py-10 px-4 col-span-full bg-slate-50 dark:bg-slate-900 rounded-md border border-dashed border-slate-300 dark:border-slate-800">
@@ -474,7 +474,7 @@ export default function AdminReportsPage() {
 
                         {/* Location & Date */}
                         <div className="mt-1 flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-400 flex-wrap">
-                          <MapPin className="h-3.5 w-3.5 text-primary shrink-0" aria-hidden="true" />
+                          <MapPin className="h-3.5 w-3.5 text-primary-ink shrink-0" aria-hidden="true" />
                           <span className="font-medium text-slate-700 dark:text-slate-300">{item.barangay}</span>
                           {item.municipality && item.municipality !== "Unknown" && (
                             <span>, {item.municipality}</span>

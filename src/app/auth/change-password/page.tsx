@@ -7,6 +7,7 @@ import { gooeyToast } from "goey-toast";
 import { Button } from "@/components/ui/button";
 import { PasswordChecklist } from "@/components/ui/password-checklist";
 import { apiClient } from "@/lib/api";
+import { AnimatedIllustration } from "@/components/ui/animated-illustration";
 
 // Same rules as <PasswordChecklist /> and the backend.
 const meetsRules = (pw: string) =>
@@ -66,7 +67,7 @@ export default function ChangePasswordPage() {
             You&apos;re almost ready! Set your own password and you&apos;ll be on your way to your dashboard.
           </p>
           <div className="rounded-2xl overflow-hidden">
-            <Image src="/gifs/verify.webp" alt="Setting up your account" width={800} height={800} unoptimized className="w-full h-auto" />
+            <AnimatedIllustration name="verify" alt="Setting up your account" width={800} height={800} className="w-full h-auto" />
           </div>
         </div>
       </div>
@@ -162,7 +163,7 @@ export default function ChangePasswordPage() {
           <div className="pt-6 border-t border-gray-300 dark:border-gray-700 text-center">
             <p className="text-sm text-text-muted dark:text-gray-400">
               Not you?{" "}
-              <button type="button" onClick={signOut} className="text-primary font-bold hover:underline">
+              <button type="button" onClick={signOut} className="text-primary-ink font-bold hover:underline">
                 Sign out
               </button>
             </p>

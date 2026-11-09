@@ -20,6 +20,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { apiClient, type InvitationDetails } from "@/lib/api";
+import { AnimatedIllustration } from "@/components/ui/animated-illustration";
 
 const ROLE_BLURB: Record<string, string> = {
   superadmin:
@@ -130,7 +131,7 @@ export default function InvitationPage() {
             Join the team helping Cebu resolve community concerns faster — from the first report to the finished fix.
           </p>
           <div className="rounded-2xl overflow-hidden">
-            <Image src="/gifs/auth.webp" alt="SeeBu in action" width={800} height={600} unoptimized className="w-full h-auto" />
+            <AnimatedIllustration name="auth" alt="SeeBu in action" width={800} height={800} className="w-full h-auto" />
           </div>
         </div>
       </div>
@@ -156,7 +157,7 @@ export default function InvitationPage() {
           {view.kind === "invite" && (
             <div className="space-y-6 sm:space-y-8">
               <div className="text-center lg:text-left">
-                <span className="inline-flex items-center gap-2 text-primary font-bold tracking-widest text-xs uppercase mb-3 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20">
+                <span className="inline-flex items-center gap-2 text-primary-ink font-bold tracking-widest text-xs uppercase mb-3 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20">
                   <span className="material-symbols-outlined text-base" aria-hidden="true">mail</span>
                   Invitation
                 </span>
@@ -237,8 +238,8 @@ export default function InvitationPage() {
 
               <p className="text-xs text-text-muted dark:text-gray-400 text-center lg:text-left">
                 By accepting, you agree to SeeBu&apos;s{" "}
-                <Link href="/terms" target="_blank" className="text-primary underline">Terms of Service</Link> and{" "}
-                <Link href="/privacy" target="_blank" className="text-primary underline">Privacy Policy</Link>.
+                <Link href="/terms" target="_blank" className="text-primary-ink underline">Terms of Service</Link> and{" "}
+                <Link href="/privacy" target="_blank" className="text-primary-ink underline">Privacy Policy</Link>.
               </p>
             </div>
           )}
@@ -268,7 +269,7 @@ export default function InvitationPage() {
                   Thank you for letting us know. We&apos;ve told {view.inviterName}, and no account was activated. You can close this page.
                 </p>
               </div>
-              <Link href="/" className="inline-block text-primary font-bold hover:underline">Go to the SeeBu home page</Link>
+              <Link href="/" className="inline-block text-primary-ink font-bold hover:underline">Go to the SeeBu home page</Link>
             </div>
           )}
 
@@ -290,7 +291,7 @@ export default function InvitationPage() {
                   <Link href={loginHref(view.email)}>Sign In</Link>
                 </Button>
               ) : (
-                <Link href="/" className="inline-block text-primary font-bold hover:underline">Go to the SeeBu home page</Link>
+                <Link href="/" className="inline-block text-primary-ink font-bold hover:underline">Go to the SeeBu home page</Link>
               )}
             </div>
           )}

@@ -32,7 +32,7 @@ export function ReportPrivacyAgreementModal({
     <Dialog open={isOpen} onOpenChange={(open) => !open && !isSubmitting && onClose()}>
       <DialogContent className="sm:max-w-md p-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-xl">
         <DialogHeader className="text-left space-y-2">
-          <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-1">
+          <div className="w-12 h-12 rounded-full bg-primary/10 text-primary-ink flex items-center justify-center mb-1">
             <ShieldCheck className="w-6 h-6" />
           </div>
           <DialogTitle className="text-xl font-bold text-slate-900">
@@ -49,7 +49,7 @@ export function ReportPrivacyAgreementModal({
               By submitting this report, you confirm that your provided information and attached photos are accurate and free of identifiable persons, vehicle license plates, or confidential personal data.
             </p>
             <div className="flex items-center gap-2 text-xs text-slate-700 pt-1 border-t border-slate-200 dark:border-slate-700">
-              <Lock className="w-3.5 h-3.5 text-primary shrink-0" />
+              <Lock className="w-3.5 h-3.5 text-primary-ink shrink-0" />
               <span>Information is securely shared only with authorized local response units.</span>
             </div>
           </div>
@@ -60,7 +60,7 @@ export function ReportPrivacyAgreementModal({
               checked={agreed}
               onChange={(e) => setAgreed(e.target.checked)}
               disabled={isSubmitting}
-              className="mt-0.5 w-4 h-4 text-primary rounded border-slate-500 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              className="mt-0.5 w-4 h-4 text-primary-ink rounded border-slate-500 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             />
             <span className="text-sm text-slate-700">
               I understand and agree to the privacy terms and confirm this submission is accurate.

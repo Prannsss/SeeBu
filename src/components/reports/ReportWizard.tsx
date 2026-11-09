@@ -14,6 +14,7 @@ import { scanImageForSensitiveData, type SensitiveDetectionResult } from '@/lib/
 import { apiClient, apiFetchClient } from '@/lib/api';
 import { TurnstileWidget, type TurnstileHandle } from '@/components/ui/turnstile-widget';
 import { compressToDataUrl } from '@/lib/image-compress';
+import { AnimatedIllustration } from "@/components/ui/animated-illustration";
 
 const useAuth = () => {
   const { data: profileData } = useCurrentUser();
@@ -965,9 +966,9 @@ export function ReportWizard() {
                         }`}
                       >
                         {selected && (
-                          <Check className="absolute top-2 right-2 w-5 h-5 text-primary" aria-hidden="true" />
+                          <Check className="absolute top-2 right-2 w-5 h-5 text-primary-ink" aria-hidden="true" />
                         )}
-                        <span className="material-symbols-outlined text-4xl mb-2 text-primary" aria-hidden="true">
+                        <span className="material-symbols-outlined text-4xl mb-2 text-primary-ink" aria-hidden="true">
                           {type.icon}
                         </span>
                         <div className="text-sm font-medium text-slate-900">
@@ -1074,7 +1075,7 @@ export function ReportWizard() {
                       disabled={isLocating}
                       aria-label="Use my location"
                       title="Use my location"
-                      className="absolute right-2 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full text-primary hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-wait"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full text-primary-ink hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-wait"
                     >
                       {isLocating
                         ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
@@ -1279,7 +1280,7 @@ export function ReportWizard() {
                         type="checkbox"
                         checked={formData.anonymous}
                         onChange={(e) => updateFormData('anonymous', e.target.checked)}
-                        className="mt-1 w-4 h-4 text-primary rounded border-slate-500 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                        className="mt-1 w-4 h-4 text-primary-ink rounded border-slate-500 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                       />
                       <div className="flex-1">
                         <div className="font-medium text-slate-900">
@@ -1321,7 +1322,7 @@ export function ReportWizard() {
                           <label htmlFor="reporterEmail">Email Address *</label>
                           <span className="material-symbols-outlined input-icon">mail</span>
                         </div>
-                        <p className="text-xs text-primary flex items-center gap-1 mt-1.5 ml-1">
+                        <p className="text-xs text-primary-ink flex items-center gap-1 mt-1.5 ml-1">
                           <span className="material-symbols-outlined text-[14px]" aria-hidden="true">info</span>
                           We will send you the tracking ID using your email.
                         </p>
@@ -1361,7 +1362,7 @@ export function ReportWizard() {
                           <label htmlFor="reporterEmail">Email Address *</label>
                           <span className="material-symbols-outlined input-icon">mail</span>
                         </div>
-                        <p className="text-xs text-primary flex items-center gap-1 mt-1.5 ml-1">
+                        <p className="text-xs text-primary-ink flex items-center gap-1 mt-1.5 ml-1">
                           <span className="material-symbols-outlined text-[14px]" aria-hidden="true">info</span>
                           We will send you the tracking ID using your email.
                         </p>
@@ -1486,15 +1487,7 @@ export function ReportWizard() {
       {/* Right Side - Image (Hidden on mobile) */}
       <div className="hidden lg:flex lg:w-1/2 bg-white dark:from-gray-900 dark:to-gray-800 items-center justify-center p-12">
         <div className="max-w-xl">
-          <Image
-            src="/gifs/info.webp"
-            alt="Report Issue Illustration"
-            width={600}
-            height={600}
-            unoptimized
-            loading="lazy"
-            className="w-full h-auto"
-          />
+          <AnimatedIllustration name="info" alt="Report Issue Illustration" width={600} height={600} className="w-full h-auto" />
         </div>
       </div>
     </div>
@@ -1588,7 +1581,7 @@ export function ReportWizard() {
               Your report has been received. Use the tracking number below to monitor its status.
             </p>
             {submittedEmail && (
-              <p className="text-xs text-primary flex items-center justify-center gap-1 pt-1">
+              <p className="text-xs text-primary-ink flex items-center justify-center gap-1 pt-1">
                 <span className="material-symbols-outlined text-[14px]" aria-hidden="true">mail</span>
                 Tracking ID sent to <strong className="break-all ml-0.5">{submittedEmail}</strong>
               </p>
@@ -1601,7 +1594,7 @@ export function ReportWizard() {
               <Tag size={12} />
               Tracking Number
             </div>
-            <div className="text-2xl sm:text-3xl font-black text-primary tracking-widest break-all text-center w-full">{trackingNumber}</div>
+            <div className="text-2xl sm:text-3xl font-black text-primary-ink tracking-widest break-all text-center w-full">{trackingNumber}</div>
             <button
               onClick={handleCopyTracking}
               className={`flex items-center gap-1.5 text-xs text-slate-600 hover:text-primary transition-colors mt-1 rounded ${FOCUS_RING}`}

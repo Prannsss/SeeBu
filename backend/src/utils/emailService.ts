@@ -156,6 +156,28 @@ export const sendVerificationEmail = async (toEmail: string, toName: string, cod
   });
 };
 
+/**
+ * Sent when someone tries to register with an email that already has an account. The sign-up
+ * response is the same as a new registration (so the form can't be used to find out who has an
+ * account); the real owner learns about it here instead.
+ */
+export const sendAccountExistsEmail = async (toEmail: string) => {
+  return sendSmtpEmail({
+    to: toEmail,
+    subject: 'You already have a SeeBu account',
+    text: `Hi,\n\nSomeone (hopefully you) tried to create a SeeBu account with this email, but you already have one.\n\nSign in: ${FRONTEND_URL}/auth/login\nForgot your password? Reset it: ${FRONTEND_URL}/auth/forgot-pw\n\nIf this wasn't you, you can ignore this email — nothing was changed.\n\n— The SeeBu Team`,
+    html: layout({
+      preheader: 'Someone tried to sign up with this email. You can sign in instead.',
+      heading: 'You already have an account',
+      body:
+        p('Someone (hopefully you) tried to create a SeeBu account with this email address, but an account already exists.') +
+        button(`${FRONTEND_URL}/auth/login`, 'Sign in') +
+        p(`Forgot your password? <a href="${FRONTEND_URL}/auth/forgot-pw">Reset it here</a>.`) +
+        muted('If this wasn’t you, you can ignore this email — nothing was changed.'),
+    }),
+  });
+};
+
 export const sendPasswordResetEmail = async (toEmail: string, toName: string, code: string) => {
   const safeName = escapeHtml(toName);
   return sendSmtpEmail({

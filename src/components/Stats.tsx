@@ -48,7 +48,7 @@ export function Stats() {
               className={`bg-blue-50 dark:bg-blue-900/20 rounded-3xl overflow-hidden shadow-xl border border-blue-100 dark:border-blue-800 fade-in-section ${citizensVisible ? 'is-visible' : ''}`}
             >
               <div className="p-10 lg:p-12 flex flex-col justify-center h-full">
-                <div className="inline-flex items-center gap-2 text-primary font-bold uppercase tracking-wider text-xs mb-4">
+                <div className="inline-flex items-center gap-2 text-primary-ink font-bold uppercase tracking-wider text-xs mb-4">
                   <span className="material-symbols-outlined text-lg">groups</span>
                   For Citizens
                 </div>
@@ -89,15 +89,15 @@ export function Stats() {
                 </p>
                 <ul className="space-y-4">
                   <li className="flex items-start gap-3">
-                    <span className="material-symbols-outlined text-primary shrink-0">check_circle</span>
+                    <span className="material-symbols-outlined text-primary-ink shrink-0">check_circle</span>
                     <span className="text-text-main dark:text-white font-medium">Centralized dashboard</span>
                   </li>
                   <li className="flex items-start gap-3">
-                    <span className="material-symbols-outlined text-primary shrink-0">check_circle</span>
+                    <span className="material-symbols-outlined text-primary-ink shrink-0">check_circle</span>
                     <span className="text-text-main dark:text-white font-medium">Automated workflows</span>
                   </li>
                   <li className="flex items-start gap-3">
-                    <span className="material-symbols-outlined text-primary shrink-0">check_circle</span>
+                    <span className="material-symbols-outlined text-primary-ink shrink-0">check_circle</span>
                     <span className="text-text-main dark:text-white font-medium">Heatmaps & Analytics</span>
                   </li>
                 </ul>

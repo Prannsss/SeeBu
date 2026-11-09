@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 const CONTACT_EMAIL = "vfrancelaurence@gmail.com"
 const ISSUES_URL = "https://github.com/Prannsss/SeeBu/issues/new"
 
-const link = "font-semibold text-primary underline underline-offset-2 hover:text-primary-dark"
+const link = "font-semibold text-primary-ink underline underline-offset-2 hover:text-primary-dark"
 
 const SECTIONS: { title: string; icon: string; faqs: { q: string; a: ReactNode }[] }[] = [
   {
@@ -176,7 +176,7 @@ export default function FaqPage() {
       <main className="pt-32 pb-20">
         <div className="max-w-3xl mx-auto px-6">
           <header className="text-center mb-12">
-            <span className="inline-flex items-center gap-2 text-primary font-bold tracking-widest text-xs uppercase mb-3 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20">
+            <span className="inline-flex items-center gap-2 text-primary-ink font-bold tracking-widest text-xs uppercase mb-3 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20">
               <span className="material-symbols-outlined text-base" aria-hidden="true">help</span>
               Help
             </span>
@@ -192,7 +192,7 @@ export default function FaqPage() {
             {SECTIONS.map((section) => (
               <section key={section.title} aria-labelledby={`faq-${section.icon}`}>
                 <h2 id={`faq-${section.icon}`} className="flex items-center gap-2 text-xl font-bold text-text-main dark:text-white mb-4">
-                  <span className="material-symbols-outlined text-primary" aria-hidden="true">{section.icon}</span>
+                  <span className="material-symbols-outlined text-primary-ink" aria-hidden="true">{section.icon}</span>
                   {section.title}
                 </h2>
                 <div className="space-y-3">

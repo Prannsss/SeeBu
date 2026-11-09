@@ -105,7 +105,7 @@ export function Navbar({ items = [] }: NavbarProps) {
             <div className="hidden md:flex items-center gap-3">
               <Link 
                 href="/auth/login"
-                className="px-5 py-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+                className="px-5 py-2 text-sm font-medium text-primary-ink hover:text-primary/80 transition-colors"
               >
                 Login
               </Link>

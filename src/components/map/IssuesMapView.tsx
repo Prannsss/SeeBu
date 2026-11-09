@@ -229,7 +229,7 @@ function ItemCard({
             <span className="font-mono text-[10px] font-semibold text-slate-500">{item.id}</span>
           </div>
           <div className="mt-2 flex items-center gap-1 pl-[18px] text-xs text-slate-600 dark:text-slate-400">
-            <MapPin className="h-3 w-3 shrink-0 text-primary" aria-hidden="true" />
+            <MapPin className="h-3 w-3 shrink-0 text-primary-ink" aria-hidden="true" />
             <span className="truncate">{locationLine(item)}</span>
           </div>
         </button>

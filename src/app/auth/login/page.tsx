@@ -13,6 +13,7 @@ import { GoogleSignInButton } from "@/components/ui/google-sign-in-button";
 import FacebookLogin from "react-facebook-login/dist/facebook-login-render-props";
 import { useQueryClient } from "@tanstack/react-query";
 import { clearClientCaches } from "@/lib/client-cache";
+import { AnimatedIllustration } from "@/components/ui/animated-illustration";
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -189,14 +190,7 @@ export default function LoginPage() {
           
           {/* GIF */}
           <div className="rounded-2xl overflow-hidden">
-            <Image 
-              src="/gifs/auth.webp" 
-              alt="SeeBu in action" 
-              width={800}
-              height={600}
-              unoptimized
-              className="w-full h-auto"
-            />
+            <AnimatedIllustration name="auth" alt="SeeBu in action" width={800} height={800} className="w-full h-auto" />
           </div>
         </div>
       </div>
@@ -251,7 +245,7 @@ export default function LoginPage() {
               </div>
 
               <div className="flex justify-end -mt-2">
-                <Link href="/auth/forgot-pw" className="text-xs text-primary hover:text-primary-dark hover:underline">Forgot password?</Link>
+                <Link href="/auth/forgot-pw" className="text-xs text-primary-ink hover:text-primary-dark hover:underline">Forgot password?</Link>
               </div>
 
               <Button
@@ -294,7 +288,7 @@ export default function LoginPage() {
             
             <div className="mt-8 pt-6 border-t border-gray-300 dark:border-gray-700 text-center">
               <p className="text-sm text-text-muted dark:text-gray-400">
-                Don't have an account? <Link href="/auth/register" className="text-primary font-bold hover:underline">Sign up now</Link>
+                Don't have an account? <Link href="/auth/register" className="text-primary-ink font-bold hover:underline">Sign up now</Link>
               </p>
             </div>
           </div>

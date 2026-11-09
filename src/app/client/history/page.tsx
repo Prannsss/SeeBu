@@ -294,7 +294,7 @@ export default function ClientHistoryPage() {
                         </div>
 
                         <div className="mt-1.5 flex items-start gap-1.5 text-sm text-slate-700 dark:text-slate-300">
-                          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary-ink" aria-hidden="true" />
                           <span className="min-w-0">
                             {item.barangay}
                             {item.municipality !== "Unknown Municipality" && <span className="text-slate-600 dark:text-slate-400">, {item.municipality}</span>}

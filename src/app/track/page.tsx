@@ -179,7 +179,7 @@ export default function TrackPage() {
       <div className="flex-1 flex flex-col items-center p-6 w-full max-w-2xl mx-auto pt-24 pb-12">
         <div className="bg-white dark:bg-gray-900 shadow-xl rounded-3xl p-8 w-full border border-gray-100 dark:border-gray-800 text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="w-20 h-20 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Search className="w-10 h-10 text-primary" aria-hidden="true" />
+            <Search className="w-10 h-10 text-primary-ink" aria-hidden="true" />
           </div>
 
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 dark:text-white mb-2">

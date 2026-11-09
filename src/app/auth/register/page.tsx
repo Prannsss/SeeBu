@@ -15,6 +15,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { gooeyToast } from "goey-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { clearClientCaches } from "@/lib/client-cache";
+import { AnimatedIllustration } from "@/components/ui/animated-illustration";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -191,14 +192,7 @@ export default function RegisterPage() {
           
           {/* GIF */}
           <div className="rounded-2xl overflow-hidden">
-            <Image 
-              src="/gifs/auth.webp" 
-              alt="SeeBu in action" 
-              width={800}
-              height={800}
-              unoptimized
-              className="w-full h-auto"
-            />
+            <AnimatedIllustration name="auth" alt="SeeBu in action" width={800} height={800} className="w-full h-auto" />
           </div>
         </div>
       </div>
@@ -305,7 +299,7 @@ export default function RegisterPage() {
               <div className="flex items-start space-x-2 pt-2">
                 <Checkbox id="terms" checked={agreed} onCheckedChange={(v) => setAgreed(v === true)} />
                 <label htmlFor="terms" className="text-xs leading-relaxed peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-text-muted dark:text-gray-400">
-                  I agree to SeeBu's <Link href="/terms" target="_blank" className="text-primary underline hover:text-primary-dark">Terms of Service</Link> and <Link href="/privacy" target="_blank" className="text-primary underline hover:text-primary-dark">Privacy Policy</Link>.
+                  I agree to SeeBu's <Link href="/terms" target="_blank" className="text-primary-ink underline hover:text-primary-dark">Terms of Service</Link> and <Link href="/privacy" target="_blank" className="text-primary-ink underline hover:text-primary-dark">Privacy Policy</Link>.
                 </label>
               </div>
               <Button
@@ -348,7 +342,7 @@ export default function RegisterPage() {
 
             <div className="mt-6 pt-6 border-t border-gray-300 dark:border-gray-700 text-center">
               <p className="text-sm text-text-muted dark:text-gray-400">
-                Already have an account? <Link href="/auth/login" className="text-primary font-bold hover:underline">Log in</Link>
+                Already have an account? <Link href="/auth/login" className="text-primary-ink font-bold hover:underline">Log in</Link>
               </p>
             </div>
           </div>

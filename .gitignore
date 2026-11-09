@@ -66,3 +66,6 @@ next-env.d.ts
 .claude/
 
 PROJECT_TASKS.md
+# Playwright
+/test-results/
+/playwright-report/

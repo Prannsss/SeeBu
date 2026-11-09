@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { supabase } from '../config/db';
 import { serverErrorMessage } from '../utils/errorResponse';
 import { EXPOSE_VERIFICATION_CODE } from '../config/devFlags';
-import { sendWelcomeEmail, sendVerificationEmail, sendPasswordResetEmail, sendPasswordChangedEmail } from '../utils/emailService';
+import { sendWelcomeEmail, sendVerificationEmail, sendPasswordResetEmail, sendPasswordChangedEmail, sendAccountExistsEmail } from '../utils/emailService';
 import { HOME_PATH, ROLE_LABEL, passwordProblems } from '../utils/staffInvites';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -12,6 +12,9 @@ import { findAccountsByEmail, emailExists } from '../utils/accounts';
 import { authStatusKey, cacheDel, cacheDelPrefix } from '../utils/cache';
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
+// Same lifetime as the front end's session cookie (src/app/api/session/route.ts), so a copied
+// token stops working when the session would have ended anyway.
+const SESSION_TTL = '24h';
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID as string;
 const FACEBOOK_APP_ID = process.env.FACEBOOK_APP_ID as string;
 const FACEBOOK_APP_SECRET = process.env.FACEBOOK_APP_SECRET as string;
@@ -90,7 +93,13 @@ export const authController = {
       }
 
       if (await emailExists(email)) {
-        return res.status(409).json({ error: 'An account with this email already exists.' });
+        // Answer exactly like a new sign-up so this form can't be used to check who has an
+        // account; the owner gets an email telling them to sign in or reset their password.
+        sendAccountExistsEmail(email).catch((e) => console.error('[registerClient] account-exists email failed:', e));
+        return res.status(201).json({
+          message: 'Registration successful. Please verify your email.',
+          data: { email, email_verified: false, email_sent: true },
+        });
       }
 
       const salt = await bcrypt.genSalt(10);
@@ -167,14 +176,14 @@ export const authController = {
         if (!existingClient) {
           return res.status(401).json({ error: "Invalid. This account doesn't have an account. Sign up first" });
         }
-        const token = jwt.sign({ id: existingClient.id, role: 'client' }, JWT_SECRET, { expiresIn: '7d' });
+        const token = jwt.sign({ id: existingClient.id, role: 'client' }, JWT_SECRET, { expiresIn: SESSION_TTL });
         const { password_hash, ...safeUser } = existingClient;
         return res.status(200).json({ message: 'Login successful', user: { ...safeUser, role: 'client' }, token });
       }
 
       // If action is register (or fallback)
       if (existingClient) {
-        const token = jwt.sign({ id: existingClient.id, role: 'client' }, JWT_SECRET, { expiresIn: '7d' });
+        const token = jwt.sign({ id: existingClient.id, role: 'client' }, JWT_SECRET, { expiresIn: SESSION_TTL });
         const { password_hash, ...safeUser } = existingClient;
         return res.status(200).json({ message: 'Login successful', user: { ...safeUser, role: 'client' }, token });
       }
@@ -204,7 +213,7 @@ export const authController = {
       // OAuth emails are already verified by the provider — welcome only, no OTP.
       sendWelcomeEmail(email, full_name || 'Google User').catch((e) => console.error('[googleOAuth] welcome email failed:', e));
 
-      const token = jwt.sign({ id: newClient.id, role: 'client' }, JWT_SECRET, { expiresIn: '7d' });
+      const token = jwt.sign({ id: newClient.id, role: 'client' }, JWT_SECRET, { expiresIn: SESSION_TTL });
       const { password_hash, ...safeNewUser } = newClient;
       return res.status(201).json({
         message: 'Registration successful via Google',
@@ -237,13 +246,13 @@ export const authController = {
         if (!existingClient) {
           return res.status(401).json({ error: "Invalid. This account doesn't have an account. Sign up first" });
         }
-        const token = jwt.sign({ id: existingClient.id, role: 'client' }, JWT_SECRET, { expiresIn: '7d' });
+        const token = jwt.sign({ id: existingClient.id, role: 'client' }, JWT_SECRET, { expiresIn: SESSION_TTL });
         const { password_hash, ...safeUser } = existingClient;
         return res.status(200).json({ message: 'Login successful', user: { ...safeUser, role: 'client' }, token });
       }
 
       if (existingClient) {
-        const token = jwt.sign({ id: existingClient.id, role: 'client' }, JWT_SECRET, { expiresIn: '7d' });
+        const token = jwt.sign({ id: existingClient.id, role: 'client' }, JWT_SECRET, { expiresIn: SESSION_TTL });
         const { password_hash, ...safeUser } = existingClient;
         return res.status(200).json({ message: 'Login successful', user: { ...safeUser, role: 'client' }, token });
       }
@@ -273,7 +282,7 @@ export const authController = {
       // OAuth emails are already verified by the provider — welcome only, no OTP.
       sendWelcomeEmail(email, full_name || 'Facebook User').catch((e) => console.error('[facebookOAuth] welcome email failed:', e));
 
-      const token = jwt.sign({ id: newClient.id, role: 'client' }, JWT_SECRET, { expiresIn: '7d' });
+      const token = jwt.sign({ id: newClient.id, role: 'client' }, JWT_SECRET, { expiresIn: SESSION_TTL });
       const { password_hash, ...safeNewUser } = newClient;
       return res.status(201).json({
         message: 'Registration successful via Facebook',
@@ -329,7 +338,7 @@ export const authController = {
       safeUser.role = userRole;
       safeUser.must_change_password = user.status === 'Pending Setup';
 
-      const token = jwt.sign({ id: user.id, role: userRole }, JWT_SECRET, { expiresIn: '7d' });
+      const token = jwt.sign({ id: user.id, role: userRole }, JWT_SECRET, { expiresIn: SESSION_TTL });
       return res.status(200).json({ message: 'Login successful', token, user: safeUser });
     } catch (err: any) {
       console.error('[login]', err);
@@ -821,7 +830,8 @@ export const authController = {
       }
 
       if (!user) {
-        return res.status(404).json({ error: 'User not found' });
+        // Same answer as for a real account, so this endpoint can't be used to check emails.
+        return res.status(200).json({ message: 'Verification code sent to your email' });
       }
 
       const verificationCode = await issueVerificationToken(email, 'email_verify');

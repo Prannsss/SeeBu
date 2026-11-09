@@ -15,6 +15,8 @@ export default {
         // Bright brand palette (user preference: prominent over strict AA on solid fills).
         primary: { DEFAULT: "#13b6ec", foreground: "#ffffff", light: "#13b6ec" },
         "primary-dark": "#0e8db9",
+        // Text-only shade of the brand blue that passes WCAG contrast (see --primary-ink in globals.css).
+        "primary-ink": "var(--primary-ink)",
         secondary: { DEFAULT: "#2ecc71", foreground: "#ffffff", light: "#2ecc71" },
         "secondary-dark": "#27ae60",
         "background-light": "#f8fbfc",

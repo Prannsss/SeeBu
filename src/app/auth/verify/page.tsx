@@ -7,6 +7,7 @@ import { Mail } from "lucide-react";
 import Image from "next/image";
 import { useState, useEffect } from "react";
 import { gooeyToast } from "goey-toast";
+import { AnimatedIllustration } from "@/components/ui/animated-illustration";
 
 export default function VerifyPage() {
   const [code, setCode] = useState("");
@@ -137,14 +138,7 @@ export default function VerifyPage() {
           
           {/* GIF */}
           <div className="rounded-2xl overflow-hidden">
-            <Image 
-              src="/gifs/verify.webp" 
-              alt="Verification process" 
-              width={800}
-              height={800}
-              unoptimized
-              className="w-full h-auto"
-            />
+            <AnimatedIllustration name="verify" alt="Verification process" width={800} height={800} className="w-full h-auto" />
           </div>
         </div>
       </div>
@@ -157,7 +151,7 @@ export default function VerifyPage() {
               <Image src="/assets/logo-128.png" alt="SeeBu Logo" width={60} height={60} />
             </div>
             <div className="flex justify-center lg:justify-start mb-6">
-              <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center text-primary animate-pulse">
+              <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center text-primary-ink animate-pulse">
                 <Mail className="h-8 w-8" />
               </div>
             </div>

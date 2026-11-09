@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import Image from "next/image";
 import Link from "next/link";
+import { AnimatedIllustration } from "@/components/ui/animated-illustration";
 
 export function Hero() {
   const containerRef = useRef<HTMLElement>(null);
@@ -132,15 +132,7 @@ export function Hero() {
             <div className="absolute bottom-16 left-1/3 w-3 h-3 bg-primary/30 rounded-full"></div>
             <div className="absolute top-12 left-1/4 w-2 h-2 bg-primary/40 rounded-full"></div>
           </div>
-          <Image
-            src="/gifs/build.webp"
-            alt="Cebu City Civic Development Illustration"
-            width={800}
-            height={800}
-            unoptimized
-            priority
-            className="w-full h-full object-contain relative z-10"
-          />
+          <AnimatedIllustration name="build" alt="Cebu City Civic Development Illustration" width={800} height={800} className="w-full h-full object-contain relative z-10" priority />
         </div>
       </div>
     </section>
