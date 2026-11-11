@@ -23,7 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useQuery } from '@tanstack/react-query'
 import { gooeyToast } from "goey-toast"
 import { useCurrentUser } from "@/hooks/queries/useCurrentUser"
@@ -32,12 +32,15 @@ import { ReportMediaGallery } from "@/components/reports/report-media-gallery"
 import { ListSkeleton } from "@/components/ui/list-skeleton"
 import { StickyTabsBar, scrollToStickyTabs } from "@/components/ui/sticky-tabs-bar"
 import { statusBadgeClass, urgencyBadgeClass } from "@/lib/status-styles"
+import { ReportTypeFilter } from "@/components/reports/report-type-filter"
+import { REPORT_TYPES, reportTypeLabel, reportTypeOf, type ReportTypeFilterValue, type ReportTypeValue } from "@/lib/report-types"
 import Link from "next/link"
 
 export default function ClientHistoryPage() {
   const [activeTab, setActiveTab] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [urgencyFilter, setUrgencyFilter] = useState("All");
+  const [typeFilter, setTypeFilter] = useState<ReportTypeFilterValue>("all");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [selectedReport, setSelectedReport] = useState<any | null>(null);
   const [isMounted, setIsMounted] = useState(false);
@@ -81,7 +84,8 @@ export default function ClientHistoryPage() {
   const reportsList = Array.isArray(rawReportData) ? rawReportData.map((r: any) => ({
     id: r.id,
     title: r.title || "Untitled Report",
-    issueType: r.issue_type || "Civic Concern",
+    issueType: reportTypeOf(r.issue_type).value,
+    typeLabel: reportTypeLabel(r.issue_type, r.other_type_specification),
     description: r.description || "",
     municipality: r.municipalities?.name || "Unknown Municipality",
     barangay: r.barangays?.name || "Unknown Barangay",
@@ -97,46 +101,55 @@ export default function ClientHistoryPage() {
     completionPhotos: (r.report_photos || []).filter((p: any) => p.is_completion_photo).map((p: any) => p.photo_url)
   })) : [];
 
-  // Filter items based on activeTab, search query, and urgency
-  const filteredItems = reportsList.filter((item: any) => {
-    // Tab filter
-    if (activeTab === "in_review") {
-      if (item.status !== "In Review" && item.status !== "Pending") return false;
-    } else if (activeTab === "action_taken") {
-      if (item.status !== "Action Taken" && item.status !== "Delegated" && item.status !== "In Progress") return false;
-    } else if (activeTab === "resolved") {
-      if (item.status !== "Resolved" && item.status !== "Completed") return false;
-    } else if (activeTab === "rejected") {
-      if (item.status !== "Rejected") return false;
-    }
+  const STATUS_GROUPS: Record<string, string[]> = {
+    in_review: ["In Review", "Pending"],
+    action_taken: ["Action Taken", "Delegated", "In Progress"],
+    resolved: ["Resolved", "Completed"],
+    rejected: ["Rejected"],
+  };
 
-    // Urgency filter
-    if (urgencyFilter !== "All" && (item.urgency || "").toLowerCase() !== urgencyFilter.toLowerCase()) {
-      return false;
-    }
+  // Each count ignores its own filter, so tab and type badges show what picking them would list.
+  const matches = (item: any, skip: { tab?: boolean; type?: boolean } = {}) => {
+    if (!skip.tab && activeTab !== "all" && !STATUS_GROUPS[activeTab]?.includes(item.status)) return false;
+    if (!skip.type && typeFilter !== "all" && item.issueType !== typeFilter) return false;
+    if (urgencyFilter !== "All" && (item.urgency || "").toLowerCase() !== urgencyFilter.toLowerCase()) return false;
 
-    // Search query
-    if (searchTerm.trim()) {
-      const q = searchTerm.toLowerCase();
-      const matchId = (item.id || "").toLowerCase().includes(q);
-      const matchTitle = (item.title || "").toLowerCase().includes(q);
-      const matchDesc = (item.description || "").toLowerCase().includes(q);
-      const matchBarangay = (item.barangay || "").toLowerCase().includes(q);
-      const matchMunicipality = (item.municipality || "").toLowerCase().includes(q);
-      if (!matchId && !matchTitle && !matchDesc && !matchBarangay && !matchMunicipality) {
-        return false;
-      }
+    const q = searchTerm.trim().toLowerCase();
+    if (q) {
+      const fields = [item.id, item.title, item.description, item.barangay, item.municipality, item.typeLabel];
+      if (!fields.some((field) => (field || "").toLowerCase().includes(q))) return false;
     }
-
     return true;
-  });
+  };
 
-  // Count tallies for tabs
-  const countAll = reportsList.length;
-  const countInReview = reportsList.filter((r: any) => r.status === "In Review" || r.status === "Pending").length;
-  const countActionTaken = reportsList.filter((r: any) => r.status === "Action Taken" || r.status === "Delegated" || r.status === "In Progress").length;
-  const countResolved = reportsList.filter((r: any) => r.status === "Resolved" || r.status === "Completed").length;
-  const countRejected = reportsList.filter((r: any) => r.status === "Rejected").length;
+  const filteredItems = reportsList.filter((item: any) => matches(item));
+
+  // Tab badges follow the type, urgency and search filters.
+  const tabPool = reportsList.filter((item: any) => matches(item, { tab: true }));
+  const countAll = tabPool.length;
+  const countIn = (tab: string) => tabPool.filter((r: any) => STATUS_GROUPS[tab].includes(r.status)).length;
+  const countInReview = countIn("in_review");
+  const countActionTaken = countIn("action_taken");
+  const countResolved = countIn("resolved");
+  const countRejected = countIn("rejected");
+
+  // Only offer the types this person has reported; one type alone isn't worth a filter.
+  const reportedTypes = useMemo(
+    () => REPORT_TYPES.filter((t) => Array.isArray(rawReportData) && rawReportData.some((r: any) => reportTypeOf(r.issue_type).value === t.value)),
+    [rawReportData]
+  );
+  const typeCounts: Partial<Record<ReportTypeValue, number>> = {};
+  for (const item of reportsList) {
+    if (matches(item, { type: true })) typeCounts[item.issueType as ReportTypeValue] = (typeCounts[item.issueType as ReportTypeValue] ?? 0) + 1;
+  }
+
+  // Never leave a type filter on once its chip row is hidden.
+  useEffect(() => {
+    if (typeFilter !== "all" && (reportedTypes.length < 2 || !reportedTypes.some((t) => t.value === typeFilter))) setTypeFilter("all");
+  }, [reportedTypes, typeFilter]);
+
+  const hasFilters = typeFilter !== "all" || urgencyFilter !== "All" || searchTerm.trim() !== "";
+  const clearFilters = () => { setTypeFilter("all"); setUrgencyFilter("All"); setSearchTerm(""); };
 
   return (
     <div className="min-h-screen bg-white pb-32 dark:bg-slate-950 dark:text-slate-100">
@@ -165,33 +178,47 @@ export default function ClientHistoryPage() {
         </div>
 
         {/* Filter & Search Bar */}
-        <div className="mb-6 flex gap-2 sm:gap-3 items-center bg-slate-50 dark:bg-slate-900/60 p-3 rounded-md border border-slate-200/80 dark:border-slate-800">
-          <div className="relative flex-1 min-w-0">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-600" aria-hidden="true" />
-            <Input
-              type="search"
-              aria-label="Search your reports"
-              placeholder="Search reports by title, ID, or location..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9 h-9 bg-white dark:bg-slate-900 border-slate-200 rounded-md text-sm"
-            />
+        <div className="mb-6 space-y-3 bg-slate-50 dark:bg-slate-900/60 p-3 rounded-md border border-slate-200/80 dark:border-slate-800">
+          <div className="flex gap-2 sm:gap-3 items-center">
+            <div className="relative flex-1 min-w-0">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-600" aria-hidden="true" />
+              <Input
+                type="search"
+                aria-label="Search your reports"
+                placeholder="Search reports by title, ID, or location..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9 h-9 bg-white dark:bg-slate-900 border-slate-200 rounded-md text-sm"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <Filter className="hidden sm:block h-4 w-4 text-slate-600 shrink-0" aria-hidden="true" />
+              <Select value={urgencyFilter} onValueChange={setUrgencyFilter}>
+                <SelectTrigger aria-label="Filter by urgency" className="w-[120px] sm:w-[140px] h-9 bg-white dark:bg-slate-900 border-slate-200 rounded-md text-xs sm:text-sm">
+                  <SelectValue placeholder="Urgency" />
+                </SelectTrigger>
+                <SelectContent className="bg-white dark:bg-slate-900 z-50 rounded-md">
+                  <SelectItem value="All">All Urgency</SelectItem>
+                  <SelectItem value="Low">Low</SelectItem>
+                  <SelectItem value="Medium">Medium</SelectItem>
+                  <SelectItem value="High">High</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            <Filter className="hidden sm:block h-4 w-4 text-slate-600 shrink-0" aria-hidden="true" />
-            <Select value={urgencyFilter} onValueChange={setUrgencyFilter}>
-              <SelectTrigger aria-label="Filter by urgency" className="w-[120px] sm:w-[140px] h-9 bg-white dark:bg-slate-900 border-slate-200 rounded-md text-xs sm:text-sm">
-                <SelectValue placeholder="Urgency" />
-              </SelectTrigger>
-              <SelectContent className="bg-white dark:bg-slate-900 z-50 rounded-md">
-                <SelectItem value="All">All Urgency</SelectItem>
-                <SelectItem value="Low">Low</SelectItem>
-                <SelectItem value="Medium">Medium</SelectItem>
-                <SelectItem value="High">High</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {reportedTypes.length > 1 && (
+            <div className="border-t border-slate-200/80 pt-3 dark:border-slate-800">
+              <ReportTypeFilter
+                value={typeFilter}
+                onChange={setTypeFilter}
+                counts={typeCounts}
+                types={reportedTypes}
+                className="-mx-3 px-3 scroll-px-3 sm:mx-0 sm:px-0.5"
+              />
+            </div>
+          )}
         </div>
 
         {/* Navigation Tabs */}
@@ -253,8 +280,13 @@ export default function ClientHistoryPage() {
               ) : filteredItems.length === 0 ? (
                 <div className="flex flex-col items-center text-center py-12 px-4 col-span-full bg-slate-50 dark:bg-slate-900 rounded-md border border-dashed border-slate-300 dark:border-slate-800">
                   <FileText className="h-10 w-10 text-slate-600 mb-3" aria-hidden="true" />
-                  <p className="text-base font-semibold text-slate-900">{countAll === 0 ? "You haven't submitted any reports yet" : "No reports match this filter"}</p>
-                  <p className="text-sm text-slate-600 mt-1">{countAll === 0 ? "Reports you submit will appear here with their tracking IDs." : "Try another tab, urgency, or search term."}</p>
+                  <p className="text-base font-semibold text-slate-900">{reportsList.length === 0 ? "You haven't submitted any reports yet" : "No reports match this filter"}</p>
+                  <p className="text-sm text-slate-600 mt-1">{reportsList.length === 0 ? "Reports you submit will appear here with their tracking IDs." : "Try another tab, report type, urgency, or search term."}</p>
+                  {reportsList.length > 0 && hasFilters && (
+                    <Button type="button" variant="outline" size="sm" className="mt-4 rounded-md" onClick={clearFilters}>
+                      Clear filters
+                    </Button>
+                  )}
                 </div>
               ) : (
                 filteredItems.map((item: any) => {
@@ -285,7 +317,15 @@ export default function ClientHistoryPage() {
                         </h3>
 
                         <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-600 dark:text-slate-400">
-                          <span className="capitalize">{item.issueType.replace(/_/g, ' ')}</span>
+                          {(() => {
+                            const TypeIcon = reportTypeOf(item.issueType).icon;
+                            return (
+                              <span className="inline-flex min-w-0 items-center gap-1">
+                                <TypeIcon className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden="true" />
+                                <span className="truncate">{item.typeLabel}</span>
+                              </span>
+                            );
+                          })()}
                           <span aria-hidden="true">·</span>
                           <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-px text-[11px] font-semibold capitalize ${urgencyBadgeClass(item.urgency)}`}>
                             <AlertCircle className="h-3 w-3" aria-hidden="true" />
@@ -407,9 +447,9 @@ export default function ClientHistoryPage() {
 
                       <div className="text-sm grid gap-2 text-slate-600">
                         <div className="flex justify-between border-b pb-2 gap-4">
-                          <span className="text-slate-600">Category:</span>
-                          <span className="font-medium text-slate-700 dark:text-slate-300 text-right capitalize">
-                            {selectedReport.issueType?.replace(/_/g, ' ')}
+                          <span className="text-slate-600">Report type:</span>
+                          <span className="font-medium text-slate-700 dark:text-slate-300 text-right">
+                            {selectedReport.typeLabel}
                           </span>
                         </div>
                         <div className="flex justify-between border-b pb-2 gap-4">

@@ -268,17 +268,20 @@ function buildApiObject(fetcher: ApiFetcher) {
 
     // Reports
     reports: {
-      // page/page_size return one page plus `pagination`; count_statuses adds per-status `counts`.
-      getAll: (params?: { municipality_id?: string; status?: string; urgency?: string; reporter_id?: string; reporter_email?: string; page?: number; page_size?: number; count_statuses?: string[] }) => {
+      // page/page_size return one page plus `pagination`; count_statuses adds per-status `counts`;
+      // count_issue_types adds per-type `type_counts`.
+      getAll: (params?: { municipality_id?: string; status?: string; urgency?: string; issue_type?: string; reporter_id?: string; reporter_email?: string; page?: number; page_size?: number; count_statuses?: string[]; count_issue_types?: boolean }) => {
         const query = buildQuery({
           municipality_id: params?.municipality_id,
           status: params?.status,
           urgency: params?.urgency,
+          issue_type: params?.issue_type,
           reporter_id: params?.reporter_id,
           reporter_email: params?.reporter_email,
           page: params?.page?.toString(),
           page_size: params?.page_size?.toString(),
           count_statuses: params?.count_statuses?.join(","),
+          count_issue_types: params?.count_issue_types ? "true" : undefined,
         });
         return fetcher(`/api/v1/reports${query ? `?${query}` : ""}`);
       },

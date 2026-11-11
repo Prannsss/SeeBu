@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { IdPill } from "@/components/ui/id-pill";
 import { ReportMediaGallery } from "@/components/reports/report-media-gallery";
 import { statusBadgeClass, urgencyBadgeClass } from "@/lib/status-styles";
+import { reportTypeLabel, reportTypeOf } from "@/lib/report-types";
 import { formatPhDate } from "@/lib/ph-date";
 import { PRIORITY, geocodeArea, geocodeStreet, offsetDuplicate, precisionLabel, type GeoPoint, type GeoToken } from "@/lib/geocode";
 import { TONE_STYLES, type MapFilter, type MapItem, type MapTone, type PinnedItem } from "./types";
@@ -221,11 +222,7 @@ function ItemCard({
                 {item.urgency}
               </span>
             )}
-            {item.issueType && (
-              <span className="rounded-full border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium capitalize text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                {item.issueType.replace(/_/g, " ")}
-              </span>
-            )}
+            {item.issueType && <TypePill issueType={item.issueType} size="sm" />}
             <span className="font-mono text-[10px] font-semibold text-slate-500">{item.id}</span>
           </div>
           <div className="mt-2 flex items-center gap-1 pl-[18px] text-xs text-slate-600 dark:text-slate-400">
@@ -309,6 +306,20 @@ function ScrollableChips({ children }: { children: ReactNode }) {
   );
 }
 
+function TypePill({ issueType, size = "md" }: { issueType: string; size?: "sm" | "md" }) {
+  const Icon = reportTypeOf(issueType).icon;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border border-slate-200 font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 ${
+        size === "sm" ? "bg-slate-50 px-1.5 py-0.5 text-[10px]" : "bg-slate-100 px-2 py-0.5 text-xs"
+      }`}
+    >
+      <Icon className={size === "sm" ? "h-2.5 w-2.5" : "h-3 w-3"} aria-hidden="true" />
+      {reportTypeLabel(issueType)}
+    </span>
+  );
+}
+
 function DetailsModal({
   item,
   onClose,
@@ -359,9 +370,7 @@ function DetailsModal({
                 {item.urgency && (
                   <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold capitalize ${urgencyBadgeClass(item.urgency)}`}>{item.urgency} urgency</span>
                 )}
-                {item.issueType && (
-                  <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs font-medium capitalize text-slate-700">{item.issueType.replace(/_/g, " ")}</span>
-                )}
+                {item.issueType && <TypePill issueType={item.issueType} />}
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
@@ -574,7 +583,7 @@ export function IssuesMapView({
     const q = query.trim().toLowerCase();
     if (!q) return items;
     return items.filter((i) =>
-      [i.id, i.reportId, i.title, i.street, i.barangay, i.municipality, i.landmark, i.issueType]
+      [i.id, i.reportId, i.title, i.street, i.barangay, i.municipality, i.landmark, i.issueType && reportTypeLabel(i.issueType)]
         .some((v) => v && v.toLowerCase().includes(q))
     );
   }, [items, query]);

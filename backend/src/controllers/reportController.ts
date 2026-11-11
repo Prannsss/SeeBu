@@ -8,6 +8,7 @@ import { sendReportTrackingEmail } from '../utils/emailService';
 import { notifyReportStatusChange } from '../utils/reportNotifications';
 import { parsePagination, paginationMeta, parseList } from '../utils/pagination';
 import { verifyTurnstile } from '../utils/turnstile';
+import { REPORT_TYPES, parseReportType, filterByReportType } from '../utils/reportTypes';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { z } from 'zod';
@@ -282,8 +283,12 @@ export const reportController = {
   // READ REPORTS
   async getReports(req: Request, res: Response) {
     try {
-      const { municipality_id, status, urgency, reporter_id, reporter_email, updated_after, count_statuses } = req.query;
+      const { municipality_id, status, urgency, reporter_id, reporter_email, updated_after, count_statuses, count_issue_types } = req.query;
       const reporterIdParam = reporter_id ? String(reporter_id).trim() : '';
+      const issueType = parseReportType(req.query.issue_type);
+      if (issueType === null) {
+        return res.status(400).json({ error: `issue_type must be one of: ${REPORT_TYPES.join(', ')}` });
+      }
 
       // completed_by references workforce_officers, so the completer and their department are
       // embedded here instead of being looked up with extra queries after the list loads.
@@ -297,7 +302,7 @@ export const reportController = {
       // Reporters see their own timeline in their history (small lists, so the extra join is cheap).
       const reporterSelect = `${baseSelect}, report_timeline(status, notes, created_at)`;
 
-      const applyBaseFilters = (query: any, options?: { ignoreStatus?: boolean }) => {
+      const applyBaseFilters = (query: any, options?: { ignoreStatus?: boolean; ignoreIssueType?: boolean }) => {
         let q = query;
         
         // Cache Incremental Sync Hook (Stale-While-Revalidate Delta API)
@@ -320,6 +325,9 @@ export const reportController = {
         // Case-insensitive exact match (no wildcards) — stored values vary in casing.
         if (urgency) {
           q = q.ilike('urgency', String(urgency));
+        }
+        if (issueType && !options?.ignoreIssueType) {
+          q = filterByReportType(q, issueType);
         }
         return q;
       };
@@ -407,7 +415,7 @@ export const reportController = {
         data = await runQuery();
       }
 
-      // Per-status totals for tab badges, under the same scope/urgency filters as the list.
+      // Per-status totals for tab badges, under the same scope/urgency/type filters as the list.
       let counts: Record<string, number> | undefined;
       const countStatuses = isReporterScoped ? [] : parseList(count_statuses);
       if (countStatuses.length) {
@@ -420,6 +428,23 @@ export const reportController = {
           return [countStatus, count ?? 0] as const;
         }));
         counts = Object.fromEntries(entries);
+      }
+
+      // Per-type totals for the type filter, under the same scope/status/urgency filters as the list.
+      let typeCounts: Record<string, number> | undefined;
+      if (count_issue_types && !isReporterScoped) {
+        const entries = await Promise.all(REPORT_TYPES.map(async (type) => {
+          const { count, error } = await filterByReportType(
+            applyBaseFilters(
+              supabase.from('reports').select('id', { count: 'exact', head: true }),
+              { ignoreIssueType: true }
+            ),
+            type
+          );
+          if (error) throw error;
+          return [type, count ?? 0] as const;
+        }));
+        typeCounts = Object.fromEntries(entries);
       }
 
       data = data.map(({ completer, ...report }: any) => {
@@ -443,6 +468,7 @@ export const reportController = {
         data: sanitized,
         ...(pagination ? { pagination: paginationMeta(pagination, total) } : {}),
         ...(counts ? { counts } : {}),
+        ...(typeCounts ? { type_counts: typeCounts } : {}),
       });
     } catch (err: any) {
       return res.status(500).json({ error: serverErrorMessage(err) });

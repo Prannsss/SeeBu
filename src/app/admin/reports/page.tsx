@@ -33,6 +33,8 @@ import { StickyTabsBar, scrollToStickyTabs } from "@/components/ui/sticky-tabs-b
 import { useCurrentUser } from "@/hooks/queries/useCurrentUser"
 import { useRealtimeReports } from "@/hooks/useRealtimeReports"
 import { statusBadgeClass, urgencyBadgeClass } from "@/lib/status-styles"
+import { ReportTypeFilter } from "@/components/reports/report-type-filter"
+import { reportTypeLabel, reportTypeOf, type ReportTypeFilterValue, type ReportTypeValue } from "@/lib/report-types"
 
 const PAGE_SIZE = 10;
 const REPORT_TABS = ["In Review", "Action Taken", "Resolved", "Rejected"];
@@ -44,6 +46,7 @@ export default function AdminReportsPage() {
   useRealtimeReports({ enableToasts: true, userRole: "admin", municipalityId: currentUser?.municipality_id });
   const [activeTab, setActiveTab] = useState("In Review");
   const [urgencyFilter, setUrgencyFilter] = useState("All");
+  const [typeFilter, setTypeFilter] = useState<ReportTypeFilterValue>("all");
   const [page, setPage] = useState(1);
   const [delegationOpen, setDelegationOpen] = useState<string | null>(null);    
   const [reviewOpen, setReviewOpen] = useState<string | null>(null);
@@ -79,22 +82,28 @@ export default function AdminReportsPage() {
     return `${prefix}${'*'.repeat(phone.length - prefix.length - 4)}${visible}`;
   };
 
-  // One page of the active tab is fetched at a time; status and urgency are filtered server-side.
+  const issueTypeParam = typeFilter === "all" ? undefined : typeFilter;
+  const urgencyParam = urgencyFilter === "All" ? undefined : urgencyFilter;
+
+  // One page of the active tab is fetched at a time; status, urgency and type are filtered server-side.
   const { data: reportsPage, isLoading, isPlaceholderData } = useQuery({
-    queryKey: ['admin-reports', currentUser?.municipality_id, activeTab, urgencyFilter, page],
+    queryKey: ['admin-reports', currentUser?.municipality_id, activeTab, urgencyFilter, typeFilter, page],
     queryFn: async () => {
       const { apiClient } = await import('@/lib/api');
       return apiClient.reports.getAll({
         municipality_id: currentUser?.municipality_id || undefined,
         status: activeTab,
-        urgency: urgencyFilter === "All" ? undefined : urgencyFilter,
+        urgency: urgencyParam,
+        issue_type: issueTypeParam,
         page,
         page_size: PAGE_SIZE,
       });
     },
     // Keep the current page on screen while the next page of the same tab loads (no skeleton flash).
     placeholderData: (previous, previousQuery) =>
-      previousQuery?.queryKey[2] === activeTab && previousQuery?.queryKey[3] === urgencyFilter ? previous : undefined,
+      previousQuery?.queryKey[2] === activeTab && previousQuery?.queryKey[3] === urgencyFilter && previousQuery?.queryKey[4] === typeFilter
+        ? previous
+        : undefined,
     // Wait for the profile so we never fetch unscoped (all municipalities) reports first.
     enabled: !!currentUser,
   });
@@ -103,17 +112,38 @@ export default function AdminReportsPage() {
 
   // Tab totals live in their own query so they stay put while switching tabs or pages.
   const { data: tabCounts } = useQuery({
-    queryKey: ['admin-reports', currentUser?.municipality_id, 'counts', urgencyFilter],
+    queryKey: ['admin-reports', currentUser?.municipality_id, 'counts', urgencyFilter, typeFilter],
     queryFn: async () => {
       const { apiClient } = await import('@/lib/api');
       const json = await apiClient.reports.getAll({
         municipality_id: currentUser?.municipality_id || undefined,
-        urgency: urgencyFilter === "All" ? undefined : urgencyFilter,
+        urgency: urgencyParam,
+        issue_type: issueTypeParam,
         page: 1,
         page_size: 1,
         count_statuses: REPORT_TABS,
       });
       return json.counts as Record<string, number> | undefined;
+    },
+    placeholderData: keepPreviousData,
+    enabled: !!currentUser,
+  });
+
+  // Type totals for the active tab and urgency, so each chip shows what picking it would list.
+  const { data: typeCounts } = useQuery({
+    queryKey: ['admin-reports', currentUser?.municipality_id, 'type-counts', activeTab, urgencyFilter],
+    queryFn: async () => {
+      const { apiClient } = await import('@/lib/api');
+      const json = await apiClient.reports.getAll({
+        municipality_id: currentUser?.municipality_id || undefined,
+        status: activeTab,
+        urgency: urgencyParam,
+        page: 1,
+        page_size: 1,
+        count_issue_types: true,
+      });
+      // null (not undefined) when an older backend omits them: the chips then just show no counts.
+      return (json.type_counts ?? null) as Partial<Record<ReportTypeValue, number>> | null;
     },
     placeholderData: keepPreviousData,
     enabled: !!currentUser,
@@ -127,6 +157,9 @@ export default function AdminReportsPage() {
 
   const changeTab = (tab: string) => { setActiveTab(tab); setPage(1); scrollToStickyTabs(); };
   const changeUrgency = (urgency: string) => { setUrgencyFilter(urgency); setPage(1); };
+  const changeType = (type: ReportTypeFilterValue) => { setTypeFilter(type); setPage(1); };
+  const hasFilters = urgencyFilter !== "All" || typeFilter !== "all";
+  const clearFilters = () => { setUrgencyFilter("All"); setTypeFilter("all"); setPage(1); };
   const changePage = (next: number) => {
     setPage(next);
     scrollToStickyTabs();
@@ -298,6 +331,7 @@ export default function AdminReportsPage() {
       }
       if (REPORT_TABS.includes(raw.status)) setActiveTab(raw.status);
       setUrgencyFilter("All");
+      setTypeFilter("all");
       setPage(1);
       setLinkedReport(raw);
       if (raw.status === 'In Review') {
@@ -328,6 +362,8 @@ export default function AdminReportsPage() {
     id: r.id,
     title: r.title,
     issueType: r.issue_type,
+    typeLabel: reportTypeLabel(r.issue_type, r.other_type_specification),
+    TypeIcon: reportTypeOf(r.issue_type).icon,
     description: r.description,
     municipality: r.municipalities?.name || "Unknown",
     zone: r.barangays?.name || "Unknown",
@@ -386,6 +422,18 @@ export default function AdminReportsPage() {
           </div>
         </div>
 
+        <section aria-labelledby="report-type-filter-heading" className="mb-4">
+          <h2 id="report-type-filter-heading" className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
+            Report type
+          </h2>
+          <ReportTypeFilter
+            value={typeFilter}
+            onChange={changeType}
+            counts={typeCounts ?? undefined}
+            className="-mx-4 px-4 scroll-px-4 sm:mx-0 sm:px-0.5"
+          />
+        </section>
+
         <Tabs value={activeTab} onValueChange={changeTab} className="w-full">
           <StickyTabsBar className="bg-white/90 dark:bg-slate-950/90">
             <TabsList className="grid w-full grid-cols-4 h-auto bg-transparent border-b rounded-none p-0">
@@ -429,8 +477,17 @@ export default function AdminReportsPage() {
               ) : reportsList.length === 0 ? (
                 <div className="flex flex-col items-center text-center py-10 px-4 col-span-full bg-slate-50 dark:bg-slate-900 rounded-md border border-dashed border-slate-300 dark:border-slate-800">
                   <FileText className="h-10 w-10 text-slate-600 mb-3" aria-hidden="true" />
-                  <p className="text-base font-semibold text-slate-900">No {activeTab.toLowerCase()} reports</p>
-                  <p className="text-sm text-slate-600 mt-1">No records found for this category and urgency.</p>
+                  <p className="text-base font-semibold text-slate-900">
+                    No {activeTab.toLowerCase()}{typeFilter !== "all" && <> {reportTypeOf(typeFilter).label}</>} reports
+                  </p>
+                  <p className="text-sm text-slate-600 mt-1">
+                    {hasFilters ? "Try another report type or urgency, or clear the filters." : "Reports with this status will appear here."}
+                  </p>
+                  {hasFilters && (
+                    <Button type="button" variant="outline" size="sm" className="mt-4 rounded-md" onClick={clearFilters}>
+                      Clear filters
+                    </Button>
+                  )}
                 </div>
               ) : (
                 reportsList.map((item) => (
@@ -456,8 +513,9 @@ export default function AdminReportsPage() {
                             </span>
 
                             {item.issueType && (
-                              <span className="inline-flex items-center text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700 capitalize">
-                                {item.issueType.replace(/_/g, ' ')}
+                              <span className="inline-flex max-w-[12rem] items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700" title={`Report type: ${item.typeLabel}`}>
+                                <item.TypeIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
+                                <span className="truncate">{item.typeLabel}</span>
                               </span>
                             )}
                           </div>
@@ -798,6 +856,10 @@ export default function AdminReportsPage() {
                                         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border capitalize ${urgencyBadgeClass(item.urgency)}`}>{item.urgency || 'Low'}</span>
                                       </div>
                                       <div className="flex justify-between border-b pb-2 gap-4">
+                                        <span className="text-slate-600">Report Type:</span>
+                                        <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{item.typeLabel}</span>
+                                      </div>
+                                      <div className="flex justify-between border-b pb-2 gap-4">
                                         <span className="text-slate-600">Title:</span>
                                         <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{item.title}</span>
                                       </div>
@@ -975,6 +1037,10 @@ export default function AdminReportsPage() {
                                     <div className="flex justify-between border-b pb-2 gap-4">
                                       <span className="text-slate-600">Urgency:</span>
                                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border capitalize ${urgencyBadgeClass(item.urgency)}`}>{item.urgency || 'Low'}</span>
+                                    </div>
+                                    <div className="flex justify-between border-b pb-2 gap-4">
+                                      <span className="text-slate-600">Type:</span>
+                                      <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{item.typeLabel}</span>
                                     </div>
                                     <div className="grid border-b pb-2 gap-1">
                                       <span className="text-slate-600">Description:</span>
